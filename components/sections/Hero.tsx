@@ -2,75 +2,163 @@
 
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
-import { HERO_CONTENT, SITE_CONFIG } from "@/constants";
-import { Linkedin, LayoutDashboard } from "lucide-react";
+import { HERO_CONTENT, SITE_CONFIG, EBOOK_DATA } from "@/constants";
+import { Linkedin, LayoutDashboard, Download, ArrowRight } from "lucide-react";
+
+const ctaIconMap: Record<string, React.ElementType<{ size?: number | string; className?: string }>> = {
+  LayoutDashboard,
+  Download,
+  Linkedin,
+};
 
 export default function Hero() {
   return (
-    <section id="home" className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-white">
-      {/* High-End Background Element */}
+    <section
+      id="home"
+      className="relative min-h-[90vh] flex items-center overflow-hidden bg-white"
+    >
+      {/* Subtle background texture */}
       <div
         className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-148640623a688-575e47298802?q=80&w=2000&auto=format&fit=crop')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }}
       />
-
-      {/* Gradient Overlays for Depth */}
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-white via-transparent to-white" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-20 md:py-28">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          {/* Left: Copy + CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="space-y-7 text-center lg:text-left lg:pt-10"
+          >
+            {/* Badge */}
+            <div className="flex justify-center lg:justify-start">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-consulting-slate text-xs font-mono uppercase tracking-widest border border-slate-200">
+                {HERO_CONTENT.badge}
+              </span>
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-4xl sm:text-5xl md:text-[3.25rem] font-bold tracking-tight text-consulting-navy leading-[1.1]">
+              {HERO_CONTENT.headline}
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-lg md:text-xl text-consulting-slate max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
+              {HERO_CONTENT.subheadline}
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-1">
+              {HERO_CONTENT.ctas.map((cta, idx) => {
+                const Icon = ctaIconMap[cta.icon];
+                const baseClass = "px-5 h-12 text-sm font-semibold whitespace-nowrap";
+                const primaryClass =
+                  "bg-consulting-navy hover:bg-consulting-navy/90 text-white";
+                const outlineClass = cta.external
+                  ? "border-consulting-navy/40 text-consulting-navy hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50"
+                  : "border-slate-300 text-consulting-slate hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50";
+
+                return (
+                  <Button
+                    key={idx}
+                    href={cta.href}
+                    variant={cta.primary ? "primary" : "outline"}
+                    size="lg"
+                    external={cta.external}
+                    download={cta.download}
+                    className={`${baseClass} ${cta.primary ? primaryClass : outlineClass}`}
+                  >
+                    {Icon && <Icon size={16} className="mr-2" />}
+                    {cta.text}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Compact inline Free Playbook CTA */}
+            <div className="flex items-center justify-center lg:justify-start gap-3 pt-1">
+              <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 pl-1 pr-4 py-1 hover:border-consulting-royal/40 hover:bg-white transition-colors cursor-pointer group">
+                <div className="relative w-8 h-10 rounded-md overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                  <img
+                    src={SITE_CONFIG.ebookCoverUrl}
+                    alt={EBOOK_DATA.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-consulting-slate group-hover:text-consulting-navy transition-colors">
+                    Free Playbook:
+                  </span>
+                  <span className="font-semibold text-consulting-navy whitespace-nowrap">
+                    {EBOOK_DATA.title}
+                  </span>
+                </div>
+                <a
+                  href={SITE_CONFIG.ebookPdfUrl}
+                  download
+                  className="inline-flex items-center text-consulting-royal font-semibold text-sm whitespace-nowrap hover:underline"
+                >
+                  Download
+                  <ArrowRight size={14} className="ml-1" />
+                </a>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Right: Professional photo only */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
+            className="relative flex justify-center lg:justify-end"
+          >
+            <div className="relative w-full max-w-sm aspect-[4/5]">
+              <div className="absolute inset-0 rounded-2xl bg-slate-100 translate-x-4 translate-y-4 -z-10" />
+              <div className="relative w-full h-full rounded-2xl overflow-hidden border-8 border-white shadow-2xl">
+                <img
+                  src="/profile.jpg"
+                  alt="Shivam Chaturvedi — Strategic Research Analyst"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-consulting-navy/20 to-transparent" />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Stats strip */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="space-y-8"
+          transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+          className="mt-14 md:mt-20"
         >
-          {/* Positioning Badge */}
-          <div className="flex justify-center">
-            <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-consulting-slate text-xs font-mono uppercase tracking-widest border border-slate-200">
-              {HERO_CONTENT.badge}
-            </span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-consulting-navy leading-[1.1]">
-            {HERO_CONTENT.headline}
-          </h1>
-
-          {/* Subheadline */}
-          <p className="text-lg md:text-xl text-consulting-slate max-w-3xl mx-auto leading-relaxed font-light">
-            {HERO_CONTENT.subheadline}
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            {HERO_CONTENT.ctas.map((cta, idx) => (
-              <Button
-                key={idx}
-                href={cta.href}
-                external={cta.href.startsWith("http")}
-                variant={cta.primary ? "primary" : "outline"}
-                size="lg"
-                className={`px-8 h-12 transition-all duration-300 ${
-                  cta.primary
-                    ? 'bg-consulting-navy hover:bg-consulting-navy/90 text-white'
-                    : 'border-slate-300 text-consulting-slate hover:border-consulting-royal hover:text-consulting-royal'
-                }`}
-              >
-                {cta.text}
-                {cta.text.includes("LinkedIn") && <Linkedin size={18} className="ml-2" />}
-                {cta.text.includes("Portfolio") && <LayoutDashboard size={18} className="ml-2" />}
-              </Button>
-            ))}
+          <div className="max-w-4xl mx-auto border-t border-b border-slate-200 py-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+              {HERO_CONTENT.metrics.map((metric, idx) => (
+                <div key={idx} className="text-center px-2">
+                  <p className="text-2xl md:text-3xl font-bold text-consulting-navy tracking-tight">
+                    {metric.value}
+                  </p>
+                  <p className="text-xs md:text-sm text-consulting-slate mt-1 font-medium">
+                    {metric.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Bottom Decorative Element */}
-      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white to-transparent z-10" />
+      {/* Bottom decorative fade */}
+      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
     </section>
   );
 }

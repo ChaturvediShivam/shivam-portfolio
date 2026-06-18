@@ -9,17 +9,17 @@ export default function Skills() {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
   return (
-    <section id="skills" className="py-24 bg-white">
+    <section id="skills" className="py-24 bg-[#F8FAFC]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
           <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
             Capabilities
           </span>
           <h2 className="text-4xl font-bold tracking-tight text-consulting-navy">
-            Skills & Tools
+            Skills & Research Infrastructure
           </h2>
           <p className="text-lg text-consulting-slate leading-relaxed">
-            Practical skills built through real projects across due diligence, market research, and competitive analysis.
+            Practical capabilities built through real engagements across due diligence, market intelligence, and competitive analysis.
           </p>
         </div>
 
@@ -74,12 +74,12 @@ export default function Skills() {
             setOpenKey={setOpenKey}
           />
 
-          {/* Technical Tools */}
+          {/* Research Infrastructure */}
           <SkillCategory
-            title="Technical Tools"
+            title="Research Infrastructure"
             icon={<Wrench size={20} />}
-            skills={SKILLS_EVIDENCE_MAP.technicalTools}
-            categoryKey="technicalTools"
+            skills={SKILLS_EVIDENCE_MAP.researchInfrastructure}
+            categoryKey="researchInfrastructure"
             openKey={openKey}
             setOpenKey={setOpenKey}
             isTool={true}
@@ -113,7 +113,9 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
             <div
               key={idx}
               className={`rounded-xl border bg-slate-50 transition-all overflow-hidden ${
-                isOpen ? "border-consulting-royal/40 shadow-sm" : "border-slate-100 hover:border-consulting-royal/30"
+                isOpen
+                  ? "border-consulting-royal/40 shadow-sm"
+                  : "border-slate-100 hover:border-consulting-royal/30"
               }`}
             >
               <button
@@ -121,9 +123,13 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                 className="w-full flex items-center justify-between p-3 text-left group"
                 aria-expanded={isOpen}
               >
-                <span className={`text-sm font-medium transition-colors ${
-                  isOpen ? "text-consulting-navy" : "text-consulting-slate group-hover:text-consulting-navy"
-                }`}>
+                <span
+                  className={`text-sm font-medium transition-colors ${
+                    isOpen
+                      ? "text-consulting-navy"
+                      : "text-consulting-slate group-hover:text-consulting-navy"
+                  }`}
+                >
                   {isTool ? item.tool : item.skill}
                 </span>
                 <div className="flex items-center gap-2">
@@ -174,12 +180,42 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
 
 // Utility Icons
 const Search = ({ size = 20 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
   </svg>
 );
 const BarChart3 = ({ size = 20 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 15h2"/><path d="M3 11h4"/><path d="M3 7h2"/><path d="M12 15h2"/><path d="M12 11h4"/><path d="M12 7h2"/><path d="M21 15h-2"/><path d="M21 11h-4"/><path d="M21 7h-2"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M3 15h2" />
+    <path d="M3 11h4" />
+    <path d="M3 7h2" />
+    <path d="M12 15h2" />
+    <path d="M12 11h4" />
+    <path d="M12 7h2" />
+    <path d="M21 15h-2" />
+    <path d="M21 11h-4" />
+    <path d="M21 7h-2" />
   </svg>
 );

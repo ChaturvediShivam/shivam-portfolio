@@ -10,6 +10,7 @@ import { SITE_CONFIG } from "@/constants";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://shivamchaturvedi.com"),
   title: SITE_CONFIG.title,
   description: SITE_CONFIG.description,
   openGraph: {
@@ -27,6 +28,40 @@ export const metadata: Metadata = {
   },
 };
 
+const personSchema = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: SITE_CONFIG.name,
+  jobTitle: "Strategic Research Analyst",
+  description: SITE_CONFIG.description,
+  url: "https://shivamchaturvedi.com",
+  sameAs: [SITE_CONFIG.linkedin],
+};
+
+const serviceSchema = {
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  name: `${SITE_CONFIG.name} — Strategic Research Services`,
+  description: SITE_CONFIG.description,
+  url: "https://shivamchaturvedi.com",
+  provider: {
+    "@type": "Person",
+    name: SITE_CONFIG.name,
+  },
+  areaServed: {
+    "@type": "Place",
+    name: "Global",
+  },
+  serviceType: [
+    "Strategic Intelligence",
+    "Competitive Intelligence",
+    "Market Intelligence",
+    "Due Diligence",
+    "Risk Intelligence",
+    "AI-Assisted Research",
+  ],
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -34,6 +69,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([personSchema, serviceSchema]),
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Navbar />

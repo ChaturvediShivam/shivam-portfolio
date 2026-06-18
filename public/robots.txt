@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /_next/
+Disallow: /api/
+
+Sitemap: https://shivamchaturvedi.com/sitemap.xml

@@ -1,2 +1,9 @@
 .vercel
 .env*
+node_modules
+.next
+out
+tsconfig.tsbuildinfo
+.DS_Store
+Thumbs.db
+*.log

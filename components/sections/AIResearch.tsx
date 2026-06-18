@@ -17,7 +17,7 @@ const stepIcons = [
 
 export default function AIResearch() {
   return (
-    <section id="ai-research" className="py-24 bg-slate-50">
+    <section id="ai-research" className="py-24 bg-white">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
           <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">

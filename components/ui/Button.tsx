@@ -11,6 +11,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string;
   href?: string;
   external?: boolean;
+  download?: boolean | string;
 }
 
 export const Button = ({
@@ -19,6 +20,7 @@ export const Button = ({
   className,
   href,
   external,
+  download,
   children,
   ...props
 }: ButtonProps) => {
@@ -48,6 +50,7 @@ export const Button = ({
         className={classes}
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}
+        download={download}
       >
         {children}
       </a>

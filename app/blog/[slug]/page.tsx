@@ -17,7 +17,7 @@ export default function ResearchNote({ params }: { params: { slug: string } }) {
         </div>
         <h1 className="text-3xl font-bold text-consulting-navy">Note in Development</h1>
         <p className="text-consulting-slate max-w-md mx-auto">
-          This specific research note on <span className="font-semibold">"{params.slug.replace(/-/g, ' ')}"</span> is currently being drafted. Check back soon for the full analysis.
+          This specific research note on <span className="font-semibold">&ldquo;{params.slug.replace(/-/g, ' ')}&rdquo;</span> is currently being drafted. Check back soon for the full analysis.
         </p>
       </div>
     </div>
