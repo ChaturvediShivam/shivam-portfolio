@@ -1,0 +1,94 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { EBOOK_DATA, SITE_CONFIG } from "@/constants";
+import { Button } from "@/components/ui/Button";
+import { Download, BookOpen, Award } from "lucide-react";
+
+export default function EbookSection() {
+  return (
+    <section id="ebook" className="py-24 bg-slate-50">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="relative group"
+          >
+            {/* Professional 3D-style Mockup */}
+            <div className="relative aspect-[3/4] max-w-md mx-auto shadow-2xl rounded-2xl overflow-hidden border-4 border-white">
+              <img
+                src={SITE_CONFIG.ebookCoverUrl}
+                alt="The Research Playbook"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-consulting-navy/40 to-transparent" />
+            </div>
+            <div className="absolute -bottom-6 -right-6 w-48 h-48 bg-consulting-royal/10 rounded-full blur-3xl -z-10" />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="space-y-10"
+          >
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 text-consulting-royal font-semibold uppercase tracking-widest text-xs">
+                <Award size={16} />
+                <span>Free Resource</span>
+              </div>
+              <h2 className="text-4xl font-bold tracking-tight text-consulting-navy leading-tight">
+                {EBOOK_DATA.title}
+              </h2>
+              <p className="text-lg text-consulting-slate italic leading-relaxed">
+                "{EBOOK_DATA.subtitle}"
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 text-consulting-navy font-bold text-lg">
+                <BookOpen size={20} className="text-consulting-royal" />
+                <span>What You'll Learn</span>
+              </div>
+              <ul className="grid grid-cols-1 gap-4">
+                {EBOOK_DATA.takeaways.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-consulting-slate text-sm leading-relaxed group">
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-consulting-royal shrink-0 group-hover:scale-150 transition-transform" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-bold text-consulting-navy text-sm uppercase tracking-wider">Why I wrote this book</h4>
+              <p className="text-sm text-consulting-slate leading-relaxed">
+                {EBOOK_DATA.description}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto bg-consulting-navy hover:bg-consulting-navy/90 text-white px-8"
+                onClick={() => window.location.href = SITE_CONFIG.ebookPdfUrl}
+              >
+                <Download size={18} className="mr-2" />
+                Download Free PDF
+              </Button>
+              <p className="text-xs text-slate-400 font-mono">
+                PDF | 2.4 MB | English
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+}
+
+.dark {
+  --background: 222.2 47.8% 11.2%;
+  --foreground: 210 40% 98%;
+}
+
+@layer base {
+  body {
+    @apply bg-consulting-background-light text-consulting-text-light transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-consulting-background-dark text-consulting-text-dark;
+  }
+}
+
+@layer components {
+  .glass-nav {
+    @apply sticky top-0 z-50 backdrop-blur-md bg-white/70 dark:bg-consulting-navy/70 border-b border-slate-200 dark:border-slate-800;
+  }
+
+  .section-container {
+    @apply max-w-7xl mx-auto px-6 py-24 md:py-32;
+  }
+
+  .consulting-card {
+    @apply p-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-consulting-navy-light hover:border-consulting-royal transition-all duration-300 shadow-sm hover:shadow-md;
+  }
+}
