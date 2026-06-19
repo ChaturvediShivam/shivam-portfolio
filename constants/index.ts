@@ -10,10 +10,10 @@ export const SITE_CONFIG = {
 };
 
 export const NAV_LINKS = [
-  { name: "About", href: "#about" },
-  { name: "Portfolio", href: "#portfolio" },
+  { name: "About", href: "/#about" },
+  { name: "Portfolio", href: "/#portfolio" },
   { name: "Research Notes", href: "/blog" },
-  { name: "Contact", href: "#contact" },
+  { name: "Contact", href: "/#contact" },
 ];
 
 export const HERO_CONTENT = {
@@ -45,7 +45,7 @@ export const HERO_CONTENT = {
     },
   ],
   metrics: [
-    { value: "2+", label: "Years Experience" },
+    { value: "4", label: "Years Experience" },
     { value: "100+", label: "Research Engagements" },
     { value: "25+", label: "Countries Covered" },
     { value: "Multi-Industry", label: "Expertise" },

@@ -17,7 +17,7 @@ export default function WhoIHelp() {
     <section id="who-i-help" className="py-24 bg-[#F8FAFC]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+          <span className="text-xs font-mono uppercase tracking-widest text-[#C97A1E] font-semibold">
             Audience
           </span>
           <h2 className="text-4xl font-bold tracking-tight text-slate-900">
@@ -38,8 +38,8 @@ export default function WhoIHelp() {
               transition={{ duration: 0.5, delay: idx * 0.1 }}
               className="h-full"
             >
-              <Card className="h-full flex flex-col bg-white dark:bg-white border border-slate-200 dark:border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-8">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6">
+              <Card className="h-full flex flex-col bg-white dark:bg-white border border-slate-200 dark:border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-[#C97A1E]/40 transition-all duration-300 p-8">
+                <div className="w-12 h-12 rounded-xl bg-[#C97A1E]/10 text-[#C97A1E] flex items-center justify-center mb-6">
                   {iconMap[item.icon]}
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-3 leading-snug">
@@ -48,7 +48,7 @@ export default function WhoIHelp() {
                 <p className="text-sm text-slate-600 leading-relaxed flex-1">
                   {item.desc}
                 </p>
-                <div className="mt-6 pt-6 border-t border-slate-100 flex items-center gap-1 text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                <div className="mt-6 pt-6 border-t border-[#C97A1E]/20 flex items-center gap-1 text-xs font-semibold text-[#C97A1E] uppercase tracking-wider">
                   <span>Learn more</span>
                   <ArrowUpRight size={14} />
                 </div>

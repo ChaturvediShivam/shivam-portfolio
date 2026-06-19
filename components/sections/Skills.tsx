@@ -12,7 +12,7 @@ export default function Skills() {
     <section id="skills" className="py-24 bg-[#F8FAFC]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+          <span className="text-xs font-mono uppercase tracking-widest text-[#C97A1E] font-semibold">
             Capabilities
           </span>
           <h2 className="text-4xl font-bold tracking-tight text-consulting-navy">
@@ -99,7 +99,7 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
       className="space-y-6"
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-slate-100 text-consulting-navy">
+        <div className="p-2 rounded-lg bg-[#C97A1E]/10 text-[#C97A1E]">
           {icon}
         </div>
         <h3 className="text-lg font-bold text-consulting-navy">{title}</h3>
@@ -114,8 +114,8 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
               key={idx}
               className={`rounded-xl border bg-slate-50 transition-all overflow-hidden ${
                 isOpen
-                  ? "border-consulting-royal/40 shadow-sm"
-                  : "border-slate-100 hover:border-consulting-royal/30"
+                  ? "border-[#C97A1E]/40 shadow-sm"
+                  : "border-slate-100 hover:border-[#C97A1E]/30"
               }`}
             >
               <button
@@ -133,13 +133,13 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                   {isTool ? item.tool : item.skill}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 group-hover:text-consulting-royal transition-colors hidden sm:inline">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 group-hover:text-[#C97A1E] transition-colors hidden sm:inline">
                     {item.source}
                   </span>
                   <ChevronDown
                     size={16}
-                    className={`text-slate-400 group-hover:text-consulting-royal transition-transform duration-300 ${
-                      isOpen ? "rotate-180 text-consulting-royal" : ""
+                    className={`text-slate-400 group-hover:text-[#C97A1E] transition-transform duration-300 ${
+                      isOpen ? "rotate-180 text-[#C97A1E]" : ""
                     }`}
                   />
                 </div>

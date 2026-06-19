@@ -14,7 +14,7 @@ const ctaIconMap: Record<string, React.ElementType<{ size?: number | string; cla
 export default function Hero() {
   return (
     <section
-      id="home"
+      id="about"
       className="relative min-h-[90vh] flex items-center overflow-hidden bg-white"
     >
       {/* Subtle background texture */}

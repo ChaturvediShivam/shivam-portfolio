@@ -30,12 +30,10 @@ export default function CTA() {
           transition={{ duration: 0.6, delay: 0.15 }}
         >
           <Button
+            href="/#contact"
             variant="primary"
             size="lg"
             className="bg-consulting-navy text-white hover:bg-consulting-navy/90 px-8"
-            onClick={() => {
-              document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
-            }}
           >
             <span className="mr-2">Start a Conversation</span>
             <ArrowRight size={18} />
