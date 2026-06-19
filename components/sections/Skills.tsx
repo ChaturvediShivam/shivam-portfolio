@@ -9,16 +9,16 @@ export default function Skills() {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
   return (
-    <section id="skills" className="py-24 bg-[#F8FAFC]">
+    <section id="skills" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
-          <span className="text-xs font-mono uppercase tracking-widest text-[#C97A1E] font-semibold">
+          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
             Capabilities
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy">
+          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
             Skills & Research Infrastructure
           </h2>
-          <p className="text-lg text-consulting-slate leading-relaxed">
+          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
             Practical capabilities built through real engagements across due diligence, market intelligence, and competitive analysis.
           </p>
         </div>
@@ -99,10 +99,10 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
       className="space-y-6"
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-[#C97A1E]/10 text-[#C97A1E]">
+        <div className="p-2 rounded-lg bg-consulting-royal/10 text-consulting-royal">
           {icon}
         </div>
-        <h3 className="text-lg font-bold text-consulting-navy">{title}</h3>
+        <h3 className="text-lg font-bold text-consulting-navy dark:text-[#F9FAFB]">{title}</h3>
       </div>
       <div className="space-y-3">
         {skills.map((item, idx) => {
@@ -112,10 +112,10 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
           return (
             <div
               key={idx}
-              className={`rounded-xl border bg-slate-50 transition-all overflow-hidden ${
+              className={`rounded-xl border bg-slate-50 dark:bg-slate-800/40 transition-all overflow-hidden ${
                 isOpen
-                  ? "border-[#C97A1E]/40 shadow-sm"
-                  : "border-slate-100 hover:border-[#C97A1E]/30"
+                  ? "border-consulting-royal/40 shadow-sm"
+                  : "border-slate-100 dark:border-slate-700 hover:border-consulting-royal/30"
               }`}
             >
               <button
@@ -126,20 +126,20 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                 <span
                   className={`text-sm font-medium transition-colors ${
                     isOpen
-                      ? "text-consulting-navy"
-                      : "text-consulting-slate group-hover:text-consulting-navy"
+                      ? "text-consulting-navy dark:text-[#F9FAFB]"
+                      : "text-consulting-slate dark:text-[#CBD5E1] group-hover:text-consulting-navy dark:group-hover:text-[#F9FAFB]"
                   }`}
                 >
                   {isTool ? item.tool : item.skill}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 group-hover:text-[#C97A1E] transition-colors hidden sm:inline">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 group-hover:text-consulting-royal transition-colors hidden sm:inline">
                     {item.source}
                   </span>
                   <ChevronDown
                     size={16}
-                    className={`text-slate-400 group-hover:text-[#C97A1E] transition-transform duration-300 ${
-                      isOpen ? "rotate-180 text-[#C97A1E]" : ""
+                    className={`text-slate-400 group-hover:text-consulting-royal transition-transform duration-300 ${
+                      isOpen ? "rotate-180 text-consulting-royal" : ""
                     }`}
                   />
                 </div>
@@ -159,12 +159,12 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                         <span className="text-[10px] font-mono uppercase text-slate-400">{item.source}</span>
                       </div>
                       <div>
-                        <span className="font-semibold text-consulting-navy">What it means:</span>
-                        <p className="text-consulting-slate mt-1 leading-relaxed">{item.meaning}</p>
+                        <span className="font-semibold text-consulting-navy dark:text-[#F9FAFB]">What it means:</span>
+                        <p className="text-consulting-slate dark:text-[#CBD5E1] mt-1 leading-relaxed">{item.meaning}</p>
                       </div>
                       <div>
-                        <span className="font-semibold text-consulting-navy">How I used it:</span>
-                        <p className="text-consulting-slate mt-1 leading-relaxed">{item.usage}</p>
+                        <span className="font-semibold text-consulting-navy dark:text-[#F9FAFB]">How I used it:</span>
+                        <p className="text-consulting-slate dark:text-[#CBD5E1] mt-1 leading-relaxed">{item.usage}</p>
                       </div>
                     </div>
                   </motion.div>

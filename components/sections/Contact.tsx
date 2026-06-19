@@ -95,7 +95,7 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" className="py-24 bg-white">
+    <section id="contact" className="py-24 bg-white dark:bg-[#0B1120]">
       <div className="max-w-3xl mx-auto px-6">
         {/* Conversion headline */}
         <motion.div
@@ -108,10 +108,10 @@ export default function Contact() {
           <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
             Get in Touch
           </span>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-consulting-navy">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
             Need strategic intelligence, competitive insights, or due diligence support?
           </h2>
-          <p className="text-lg text-consulting-slate leading-relaxed max-w-2xl mx-auto">
+          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed max-w-2xl mx-auto">
             Let&apos;s discuss how structured research can support better decisions.
           </p>
         </motion.div>
@@ -122,15 +122,15 @@ export default function Contact() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10"
+          className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm p-6 md:p-10"
         >
           {status === "success" ? (
             <div className="text-center py-10 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
                 <CheckCircle size={32} />
               </div>
-              <h3 className="text-2xl font-bold text-consulting-navy">Inquiry sent</h3>
-              <p className="text-consulting-slate">
+              <h3 className="text-2xl font-bold text-consulting-navy dark:text-[#F9FAFB]">Inquiry sent</h3>
+              <p className="text-consulting-slate dark:text-[#CBD5E1]">
                 Thank you for reaching out. I&apos;ll review your message and respond within 1–2 business days.
               </p>
               <Button
@@ -266,24 +266,24 @@ export default function Contact() {
             href={SITE_CONFIG.linkedin}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-4 p-5 rounded-xl bg-white border border-slate-100 shadow-sm hover:border-consulting-royal/30 hover:shadow-md transition-all group"
+            className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-consulting-royal/30 hover:shadow-md transition-all group"
           >
-            <div className="p-2 rounded-lg bg-slate-100 text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors">
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors">
               <Linkedin size={20} />
             </div>
             <div>
-              <p className="text-xs font-mono uppercase text-slate-400">LinkedIn</p>
-              <p className="text-consulting-navy font-medium">linkedin.com/in/shivamchaturvedi96</p>
+              <p className="text-xs font-mono uppercase text-slate-400 dark:text-slate-500">LinkedIn</p>
+              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium">linkedin.com/in/shivamchaturvedi96</p>
             </div>
           </a>
 
-          <div className="flex items-center gap-4 p-5 rounded-xl bg-white border border-slate-100 shadow-sm">
-            <div className="p-2 rounded-lg bg-slate-100 text-consulting-royal">
+          <div className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-700/50 shadow-sm">
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal">
               <MapPin size={20} />
             </div>
             <div>
-              <p className="text-xs font-mono uppercase text-slate-400">Location</p>
-              <p className="text-consulting-navy font-medium">{CONTACT_INFO.location}</p>
+              <p className="text-xs font-mono uppercase text-slate-400 dark:text-slate-500">Location</p>
+              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium">{CONTACT_INFO.location}</p>
             </div>
           </div>
         </motion.div>

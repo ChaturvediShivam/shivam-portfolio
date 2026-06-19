@@ -15,18 +15,18 @@ export default function Hero() {
   return (
     <section
       id="about"
-      className="relative min-h-[90vh] flex items-center overflow-hidden bg-white"
+      className="relative min-h-[90vh] flex items-center overflow-hidden bg-white dark:bg-[#0B1120]"
     >
       {/* Subtle background texture */}
       <div
-        className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 z-0 opacity-[0.03] dark:opacity-[0.02] pointer-events-none"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-148640623a688-575e47298802?q=80&w=2000&auto=format&fit=crop')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       />
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-white via-transparent to-white" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-white via-transparent to-white dark:from-[#0B1120] dark:to-[#0B1120]" />
 
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-20 md:py-28">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
@@ -39,18 +39,18 @@ export default function Hero() {
           >
             {/* Badge */}
             <div className="flex justify-center lg:justify-start">
-              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-consulting-slate text-xs font-mono uppercase tracking-widest border border-slate-200">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-consulting-slate dark:text-[#CBD5E1] text-xs font-mono uppercase tracking-widest border border-slate-200 dark:border-slate-700/50">
                 {HERO_CONTENT.badge}
               </span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-[3.25rem] font-bold tracking-tight text-consulting-navy leading-[1.1]">
+            <h1 className="text-4xl sm:text-5xl md:text-[3.25rem] font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB] leading-[1.1]">
               {HERO_CONTENT.headline}
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-consulting-slate max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
+            <p className="text-lg md:text-xl text-consulting-slate dark:text-[#CBD5E1] max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
               {HERO_CONTENT.subheadline}
             </p>
 
@@ -62,8 +62,8 @@ export default function Hero() {
                 const primaryClass =
                   "bg-consulting-navy hover:bg-consulting-navy/90 text-white";
                 const outlineClass = cta.external
-                  ? "border-consulting-navy/40 text-consulting-navy hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50"
-                  : "border-slate-300 text-consulting-slate hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50";
+                  ? "border-consulting-navy/40 dark:border-[#CBD5E1]/40 text-consulting-navy dark:text-[#F9FAFB] hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  : "border-slate-300 dark:border-slate-600 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50 dark:hover:bg-slate-800/50";
 
                 return (
                   <Button
@@ -84,8 +84,8 @@ export default function Hero() {
 
             {/* Compact inline Free Playbook CTA */}
             <div className="flex items-center justify-center lg:justify-start gap-3 pt-1">
-              <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-slate-50 pl-1 pr-4 py-1 hover:border-consulting-royal/40 hover:bg-white transition-colors cursor-pointer group">
-                <div className="relative w-8 h-10 rounded-md overflow-hidden border border-slate-100 shadow-sm shrink-0">
+              <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/50 pl-1 pr-4 py-1 hover:border-consulting-royal/40 hover:bg-white dark:hover:bg-[#111827] transition-colors cursor-pointer group">
+                <div className="relative w-8 h-10 rounded-md overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
                   <img
                     src={SITE_CONFIG.ebookCoverUrl}
                     alt={EBOOK_DATA.title}
@@ -93,10 +93,10 @@ export default function Hero() {
                   />
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-consulting-slate group-hover:text-consulting-navy transition-colors">
+                  <span className="text-consulting-slate dark:text-[#CBD5E1] group-hover:text-consulting-navy dark:group-hover:text-[#F9FAFB] transition-colors">
                     Free Playbook:
                   </span>
-                  <span className="font-semibold text-consulting-navy whitespace-nowrap">
+                  <span className="font-semibold text-consulting-navy dark:text-[#F9FAFB] whitespace-nowrap">
                     {EBOOK_DATA.title}
                   </span>
                 </div>
@@ -120,8 +120,8 @@ export default function Hero() {
             className="relative flex justify-center lg:justify-end"
           >
             <div className="relative w-full max-w-sm aspect-[4/5]">
-              <div className="absolute inset-0 rounded-2xl bg-slate-100 translate-x-4 translate-y-4 -z-10" />
-              <div className="relative w-full h-full rounded-2xl overflow-hidden border-8 border-white shadow-2xl">
+              <div className="absolute inset-0 rounded-2xl bg-slate-100 dark:bg-slate-800 translate-x-4 translate-y-4 -z-10" />
+              <div className="relative w-full h-full rounded-2xl overflow-hidden border-8 border-white dark:border-slate-700/50 shadow-2xl">
                 <img
                   src="/profile.jpg"
                   alt="Shivam Chaturvedi — Strategic Research Analyst"
@@ -140,14 +140,14 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
           className="mt-14 md:mt-20"
         >
-          <div className="max-w-4xl mx-auto border-t border-b border-slate-200 py-6">
+          <div className="max-w-4xl mx-auto border-t border-b border-slate-200 dark:border-slate-700/50 py-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
               {HERO_CONTENT.metrics.map((metric, idx) => (
                 <div key={idx} className="text-center px-2">
-                  <p className="text-2xl md:text-3xl font-bold text-consulting-navy tracking-tight">
+                  <p className="text-2xl md:text-3xl font-bold text-consulting-navy dark:text-[#F9FAFB] tracking-tight">
                     {metric.value}
                   </p>
-                  <p className="text-xs md:text-sm text-consulting-slate mt-1 font-medium">
+                  <p className="text-xs md:text-sm text-consulting-slate dark:text-[#CBD5E1] mt-1 font-medium">
                     {metric.label}
                   </p>
                 </div>
@@ -158,7 +158,7 @@ export default function Hero() {
       </div>
 
       {/* Bottom decorative fade */}
-      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white dark:from-[#0B1120] to-transparent z-10 pointer-events-none" />
     </section>
   );
 }

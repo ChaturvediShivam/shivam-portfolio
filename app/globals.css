@@ -17,7 +17,7 @@
     @apply bg-consulting-background-light text-consulting-text-light transition-colors duration-300;
   }
   .dark body {
-    @apply bg-consulting-background-dark text-consulting-text-dark;
+    @apply bg-[#0B1120] text-[#F9FAFB];
   }
 }
 
@@ -31,6 +31,6 @@
   }
 
   .consulting-card {
-    @apply p-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-consulting-navy-light hover:border-consulting-royal transition-all duration-300 shadow-sm hover:shadow-md;
+    @apply p-8 rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-[#111827] hover:border-consulting-royal transition-all duration-300 shadow-sm hover:shadow-md;
   }
 }

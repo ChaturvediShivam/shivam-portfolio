@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS, SITE_CONFIG } from '@/constants';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,7 +23,7 @@ const Navbar = () => {
     <nav
       className={`fixed top-0 w-full z-50 transition-all duration-300 ${
         scrolled
-          ? 'py-3 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm'
+          ? 'py-3 bg-white/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700/50 shadow-sm'
           : 'py-6 bg-transparent'
       }`}
     >
@@ -32,11 +33,11 @@ const Navbar = () => {
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-2"
         >
-          <Link href="/" className="text-xl font-bold tracking-tight text-consulting-navy">
+          <Link href="/" className="text-xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
             {SITE_CONFIG.name}
           </Link>
-          <div className="h-4 w-px bg-slate-300 mx-2 hidden sm:block" />
-          <span className="hidden sm:block text-xs font-mono uppercase tracking-widest text-consulting-slate">
+          <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-2 hidden sm:block" />
+          <span className="hidden sm:block text-xs font-mono uppercase tracking-widest text-consulting-slate dark:text-[#CBD5E1]">
             Strategic Research
           </span>
         </motion.div>
@@ -47,18 +48,20 @@ const Navbar = () => {
             <Link
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-consulting-slate hover:text-consulting-royal transition-colors duration-200"
+              className="text-sm font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors duration-200"
             >
               {link.name}
             </Link>
           ))}
+          <ThemeToggle />
         </div>
 
         {/* Mobile Toggle */}
-        <div className="md:hidden">
+        <div className="flex md:hidden items-center gap-3">
+          <ThemeToggle />
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 text-consulting-navy"
+            className="p-2 text-consulting-navy dark:text-[#F9FAFB]"
             aria-label="Toggle Menu"
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -73,7 +76,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-slate-200 overflow-hidden"
+            className="md:hidden bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-700/50 overflow-hidden"
           >
             <div className="px-6 py-6 flex flex-col gap-4">
               {NAV_LINKS.map((link) => (
@@ -81,7 +84,7 @@ const Navbar = () => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
-                  className="text-lg font-medium text-consulting-slate hover:text-consulting-royal transition-colors"
+                  className="text-lg font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors"
                 >
                   {link.name}
                 </Link>

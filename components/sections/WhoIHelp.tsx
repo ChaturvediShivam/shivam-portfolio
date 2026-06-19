@@ -14,16 +14,16 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function WhoIHelp() {
   return (
-    <section id="who-i-help" className="py-24 bg-[#F8FAFC]">
+    <section id="who-i-help" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
-          <span className="text-xs font-mono uppercase tracking-widest text-[#C97A1E] font-semibold">
+          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
             Audience
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-[#F9FAFB]">
             Who I Help
           </h2>
-          <p className="text-lg text-slate-600 leading-relaxed">
+          <p className="text-lg text-slate-600 dark:text-[#CBD5E1] leading-relaxed">
             Research support across strategy, intelligence, and risk-driven functions
           </p>
         </div>
@@ -38,17 +38,17 @@ export default function WhoIHelp() {
               transition={{ duration: 0.5, delay: idx * 0.1 }}
               className="h-full"
             >
-              <Card className="h-full flex flex-col bg-white dark:bg-white border border-slate-200 dark:border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-[#C97A1E]/40 transition-all duration-300 p-8">
-                <div className="w-12 h-12 rounded-xl bg-[#C97A1E]/10 text-[#C97A1E] flex items-center justify-center mb-6">
+              <Card className="h-full flex flex-col bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-700/50 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-consulting-royal/40 transition-all duration-300 p-8">
+                <div className="w-12 h-12 rounded-xl bg-consulting-royal/10 text-consulting-royal flex items-center justify-center mb-6">
                   {iconMap[item.icon]}
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-3 leading-snug">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-[#F9FAFB] mb-3 leading-snug">
                   {item.title}
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">
+                <p className="text-sm text-slate-600 dark:text-[#CBD5E1] leading-relaxed flex-1">
                   {item.desc}
                 </p>
-                <div className="mt-6 pt-6 border-t border-[#C97A1E]/20 flex items-center gap-1 text-xs font-semibold text-[#C97A1E] uppercase tracking-wider">
+                <div className="mt-6 pt-6 border-t border-consulting-royal/20 flex items-center gap-1 text-xs font-semibold text-consulting-royal uppercase tracking-wider">
                   <span>Learn more</span>
                   <ArrowUpRight size={14} />
                 </div>

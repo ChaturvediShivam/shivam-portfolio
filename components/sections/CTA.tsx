@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 
 export default function CTA() {
   return (
-    <section id="cta" className="py-20 bg-[#F8FAFC]">
+    <section id="cta" className="py-20 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-4xl mx-auto px-6 text-center space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -15,10 +15,10 @@ export default function CTA() {
           transition={{ duration: 0.6 }}
           className="space-y-4"
         >
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-consulting-navy">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
             Ready for Decision-Ready Research?
           </h2>
-          <p className="text-lg md:text-xl text-consulting-slate leading-relaxed max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-consulting-slate dark:text-[#CBD5E1] leading-relaxed max-w-2xl mx-auto">
             Whether it&apos;s market intelligence, competitive analysis, due diligence, or industry mapping — I help leadership teams transform complex information into clear, risk-backed decisions.
           </p>
         </motion.div>

@@ -26,16 +26,16 @@ const fields = [
 
 export default function CaseStudies() {
   return (
-    <section id="portfolio" className="py-24 bg-[#F8FAFC]">
+    <section id="portfolio" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
           <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
             Strategic Impact
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy">
+          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
             Case Study Highlights
           </h2>
-          <p className="text-lg text-consulting-slate leading-relaxed">
+          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
             Turning careful analysis into practical business outcomes through structured research.
           </p>
         </div>
@@ -49,13 +49,13 @@ export default function CaseStudies() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: idx * 0.1 }}
             >
-              <Card className="h-full flex flex-col bg-consulting-navy border border-slate-700/50 rounded-2xl shadow-[0_2px_16px_rgba(2,12,27,0.45)] hover:shadow-[0_8px_32px_rgba(2,12,27,0.55)] hover:-translate-y-1 hover:border-[#C97A1E]/40 transition-all duration-300 overflow-hidden pt-0">
+              <Card className="h-full flex flex-col bg-consulting-navy dark:bg-[#111827] border border-slate-700/50 dark:border-slate-700/50 rounded-2xl shadow-[0_2px_16px_rgba(2,12,27,0.45)] hover:shadow-[0_8px_32px_rgba(2,12,27,0.55)] hover:-translate-y-1 hover:border-[#C97A1E]/40 transition-all duration-300 overflow-hidden pt-0">
                 <div className="h-1 w-full bg-[#C97A1E] mb-8" />
 
                 <div className="px-8 pb-8 flex-1 flex flex-col">
                   <div className="mb-8">
                     <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
+                      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white dark:bg-slate-800 text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
                         <BarChart3 size={22} />
                       </div>
                       <h3 className="text-[1.65rem] font-bold text-white tracking-tight leading-tight">
@@ -67,7 +67,7 @@ export default function CaseStudies() {
                   <div className="space-y-7 flex-1">
                     {fields.map(({ key, label, icon: Icon }) => (
                       <div key={key} className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white dark:bg-slate-800 text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
                           <Icon size={16} />
                         </div>
                         <div className="space-y-1.5 min-w-0">
