@@ -33,7 +33,7 @@ const personSchema = {
   "@context": "https://schema.org",
   "@type": "Person",
   name: SITE_CONFIG.name,
-  jobTitle: "Strategic Research Analyst",
+  jobTitle: "Strategic Research Consultant",
   description: SITE_CONFIG.description,
   url: "https://shivamchaturvedi.com",
   sameAs: [SITE_CONFIG.linkedin],

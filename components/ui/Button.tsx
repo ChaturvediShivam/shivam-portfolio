@@ -37,7 +37,7 @@ export const Button = ({
   };
 
   const classes = cn(
-    "inline-flex items-center justify-center rounded-lg transition-all duration-200 active:scale-95 font-medium",
+    "inline-flex items-center justify-center rounded-lg transition-all duration-200 ease-calm active:scale-[0.98] font-medium",
     variants[variant],
     sizes[size],
     className

@@ -19,10 +19,10 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-consulting-navy dark:text-[#F9FAFB]">Quick Links</h4>
             <ul className="space-y-2 text-sm text-consulting-slate dark:text-[#CBD5E1]">
-              <li><Link href="/#about" className="hover:text-consulting-royal transition-colors">About</Link></li>
-              <li><Link href="/#portfolio" className="hover:text-consulting-royal transition-colors">Portfolio</Link></li>
-              <li><Link href="/blog" className="hover:text-consulting-royal transition-colors">Research Notes</Link></li>
-              <li><Link href="/#contact" className="hover:text-consulting-royal transition-colors">Contact</Link></li>
+              <li><Link href="/#about" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">About</Link></li>
+              <li><Link href="/#portfolio" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Case Studies</Link></li>
+              <li><Link href="/blog" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Research Notes</Link></li>
+              <li><Link href="/#contact" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Contact</Link></li>
             </ul>
           </div>
 
@@ -43,7 +43,7 @@ export default function Footer() {
               href={SITE_CONFIG.linkedin}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal transition-colors"
+              className="text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal transition-colors duration-200 ease-calm"
               aria-label="LinkedIn"
             >
               <Linkedin size={18} />

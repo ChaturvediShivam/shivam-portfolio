@@ -1,6 +1,6 @@
 export const SITE_CONFIG = {
   name: "Shivam Chaturvedi",
-  title: "Strategic Research Analyst | Competitive & Market Intelligence | Due Diligence",
+  title: "Strategic Research Consultant | Competitive & Market Intelligence | Due Diligence",
   description:
     "Authority-first portfolio of Shivam Chaturvedi — strategic intelligence, competitive analysis, market intelligence, due diligence, and AI-assisted research for high-stakes decisions.",
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
@@ -11,30 +11,29 @@ export const SITE_CONFIG = {
 
 export const NAV_LINKS = [
   { name: "About", href: "/#about" },
-  { name: "Portfolio", href: "/#portfolio" },
+  { name: "Case Studies", href: "/#portfolio" },
   { name: "Research Notes", href: "/blog" },
   { name: "Contact", href: "/#contact" },
 ];
 
 export const HERO_CONTENT = {
-  badge: "Strategic Research Analyst",
+  badge: "Strategic Research Consultant",
   headline:
     "Turning fragmented information into strategic intelligence, competitive insight, and risk-backed business decisions.",
   subheadline:
     "I support leadership and advisory teams with due diligence, competitive intelligence, market mapping, and AI-assisted research — converting scattered signals into structured, decision-ready insight.",
   ctas: [
     {
-      text: "View Portfolio",
+      text: "View Case Studies",
       href: "#portfolio",
       primary: true,
       icon: "LayoutDashboard",
     },
     {
-      text: "Download Resume",
-      href: SITE_CONFIG.resumeUrl,
+      text: "Request a Consultation",
+      href: "#contact",
       primary: false,
-      icon: "Download",
-      download: true,
+      icon: "MessageSquare",
     },
     {
       text: "Connect on LinkedIn",
@@ -45,9 +44,9 @@ export const HERO_CONTENT = {
     },
   ],
   metrics: [
-    { value: "4", label: "Years Experience" },
     { value: "100+", label: "Research Engagements" },
     { value: "25+", label: "Countries Covered" },
+    { value: "4", label: "Years Experience" },
     { value: "Multi-Industry", label: "Expertise" },
   ],
 };
@@ -453,10 +452,10 @@ export const EBOOK_DATA = {
 
 export const CONTACT_INFO = {
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
-  location: "Available Globally (Remote-first)",
-  availability: "Open to strategic research and advisory opportunities",
+  location: "Global Engagements — Remote or On-site",
+  availability: "Open to strategic research and advisory engagements",
   preferredRoles:
-    "Strategic Research Analyst, Competitive Intelligence Analyst, Market Intelligence Analyst, Financial Analyst (FP&A), AI-Assisted Research Roles",
+    "Strategic Research Consultant, Competitive Intelligence Consultant, Market Intelligence Consultant, Decision Intelligence Consultant, AI-Assisted Research Advisory",
   preferredIndustries:
     "Technology, AI, SaaS, Financial Services, Consulting, Industrial B2B",
 };

@@ -1,24 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { SKILLS_EVIDENCE_MAP } from "@/constants";
-import { Cpu, Wrench, Layout, ShieldCheck, BookOpen, Database, ChevronDown } from "lucide-react";
+import { itemReveal, gridDelay } from "@/lib/motion";
+import { Cpu, Wrench, ShieldCheck, Database, ChevronDown } from "lucide-react";
 
 export default function Skills() {
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const reduce = useReducedMotion();
 
   return (
-    <section id="skills" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
+    <section id="skills" className="py-24 md:py-32 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+        <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
             Capabilities
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
             Skills & Research Infrastructure
           </h2>
-          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
+          <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed">
             Practical capabilities built through real engagements across due diligence, market intelligence, and competitive analysis.
           </p>
         </div>
@@ -26,56 +28,67 @@ export default function Skills() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
           {/* Research & Analysis */}
           <SkillCategory
+            index={0}
             title="Research & Analysis"
             icon={<Search size={20} />}
             skills={SKILLS_EVIDENCE_MAP.researchIntelligence}
             categoryKey="researchIntelligence"
             openKey={openKey}
             setOpenKey={setOpenKey}
+            reduce={reduce}
           />
 
           {/* Due Diligence & Risk */}
           <SkillCategory
+            index={1}
             title="Due Diligence & Risk"
             icon={<ShieldCheck size={20} />}
             skills={SKILLS_EVIDENCE_MAP.dueDiligence}
             categoryKey="dueDiligence"
             openKey={openKey}
             setOpenKey={setOpenKey}
+            reduce={reduce}
           />
 
           {/* Market & Industry */}
           <SkillCategory
+            index={2}
             title="Market & Industry"
             icon={<BarChart3 size={20} />}
             skills={SKILLS_EVIDENCE_MAP.marketResearch}
             categoryKey="marketResearch"
             openKey={openKey}
             setOpenKey={setOpenKey}
+            reduce={reduce}
           />
 
           {/* Data Collection & Validation */}
           <SkillCategory
+            index={3}
             title="Collection & Validation"
             icon={<Database size={20} />}
             skills={SKILLS_EVIDENCE_MAP.validation}
             categoryKey="validation"
             openKey={openKey}
             setOpenKey={setOpenKey}
+            reduce={reduce}
           />
 
           {/* AI-Assisted Research */}
           <SkillCategory
+            index={4}
             title="AI-Assisted Research"
             icon={<Cpu size={20} />}
             skills={SKILLS_EVIDENCE_MAP.aiResearch}
             categoryKey="aiResearch"
             openKey={openKey}
             setOpenKey={setOpenKey}
+            reduce={reduce}
           />
 
           {/* Research Infrastructure */}
           <SkillCategory
+            index={5}
             title="Research Infrastructure"
             icon={<Wrench size={20} />}
             skills={SKILLS_EVIDENCE_MAP.researchInfrastructure}
@@ -83,6 +96,7 @@ export default function Skills() {
             openKey={openKey}
             setOpenKey={setOpenKey}
             isTool={true}
+            reduce={reduce}
           />
         </div>
       </div>
@@ -90,19 +104,17 @@ export default function Skills() {
   );
 }
 
-function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, isTool = false }) {
+function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, isTool = false, index = 0, reduce }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      {...itemReveal(reduce, gridDelay(index, 3))}
       className="space-y-6"
     >
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-consulting-royal/10 text-consulting-royal">
           {icon}
         </div>
-        <h3 className="text-lg font-bold text-consulting-navy dark:text-[#F9FAFB]">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">{title}</h3>
       </div>
       <div className="space-y-3">
         {skills.map((item, idx) => {
@@ -112,10 +124,10 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
           return (
             <div
               key={idx}
-              className={`rounded-xl border bg-slate-50 dark:bg-slate-800/40 transition-all overflow-hidden ${
+              className={`rounded-xl border bg-slate-50 dark:bg-white/[0.02] transition-all duration-300 ease-calm overflow-hidden ${
                 isOpen
-                  ? "border-consulting-royal/40 shadow-sm"
-                  : "border-slate-100 dark:border-slate-700 hover:border-consulting-royal/30"
+                  ? "border-consulting-royal/40"
+                  : "border-slate-200 dark:border-white/10 hover:border-consulting-royal/30"
               }`}
             >
               <button

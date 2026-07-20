@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS, SITE_CONFIG } from '@/constants';
+import { EASE_CALM } from '@/lib/motion';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -21,7 +22,7 @@ const Navbar = () => {
 
   return (
     <nav
-      className={`fixed top-0 w-full z-50 transition-all duration-300 ${
+      className={`fixed top-0 w-full z-50 transition-all duration-300 ease-calm ${
         scrolled
           ? 'py-3 bg-white/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700/50 shadow-sm'
           : 'py-6 bg-transparent'
@@ -29,8 +30,9 @@ const Navbar = () => {
     >
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, ease: EASE_CALM }}
           className="flex items-center gap-2"
         >
           <Link href="/" className="text-xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
@@ -48,7 +50,7 @@ const Navbar = () => {
             <Link
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors duration-200"
+              className="text-sm font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors duration-200 ease-calm"
             >
               {link.name}
             </Link>
@@ -76,6 +78,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: EASE_CALM }}
             className="md:hidden bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-slate-700/50 overflow-hidden"
           >
             <div className="px-6 py-6 flex flex-col gap-4">
@@ -84,7 +87,7 @@ const Navbar = () => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
-                  className="text-lg font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors"
+                  className="text-lg font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors duration-200 ease-calm"
                 >
                   {link.name}
                 </Link>

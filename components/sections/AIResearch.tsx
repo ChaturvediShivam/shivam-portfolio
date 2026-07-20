@@ -1,74 +1,87 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { RESEARCH_OS } from "@/constants";
-import { Cpu, Zap, Rocket, Layers, Search, FileText, CheckCircle, GitBranch, Target, ShieldCheck } from "lucide-react";
+import { EASE_CALM } from "@/lib/motion";
+import {
+  Cpu,
+  Zap,
+  Layers,
+  Search,
+  FileText,
+  CheckCircle,
+  GitBranch,
+  Target,
+  ShieldCheck,
+} from "lucide-react";
 
+// Existing icons preserved — color unified to monochrome for an executive, non-colorful system.
 const stepIcons = [
-  { icon: Target, color: "text-blue-500" },
-  { icon: Search, color: "text-purple-500" },
-  { icon: GitBranch, color: "text-indigo-500" },
-  { icon: Layers, color: "text-green-500" },
-  { icon: ShieldCheck, color: "text-emerald-500" },
-  { icon: Zap, color: "text-yellow-500" },
-  { icon: FileText, color: "text-consulting-royal" },
-  { icon: CheckCircle, color: "text-blue-600" },
+  Target,
+  Search,
+  GitBranch,
+  Layers,
+  ShieldCheck,
+  Zap,
+  FileText,
+  CheckCircle,
 ];
 
 export default function AIResearch() {
+  const reduce = useReducedMotion();
+  const ease = EASE_CALM;
+
   return (
-    <section id="ai-research" className="py-24 bg-white dark:bg-[#0B1120]">
+    <section id="ai-research" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+        {/* Heading */}
+        <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
+          <span className="inline-block text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
             My Process
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
             How I Work
           </h2>
-          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
-            I follow an 8-step process to move from unclear business questions to practical, evidence-backed answers
+          <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed max-w-xl">
+            I follow an 8-step process to move from unclear business questions{" "}
+            <br className="hidden md:block" />
+            to practical, evidence-backed answers
           </p>
         </div>
 
-        <div className="relative">
-          {/* Connecting Line for Desktop */}
-          <div className="absolute top-12 left-0 w-full h-px bg-slate-200 dark:bg-slate-700/50 hidden lg:block" />
+        {/* Process grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {RESEARCH_OS.map((step, idx) => {
+            const StepIcon = stepIcons[idx] || Cpu;
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {RESEARCH_OS.map((step, idx) => {
-              const StepIcon = stepIcons[idx]?.icon || Cpu;
-              const color = stepIcons[idx]?.color || "text-consulting-royal";
-
-              return (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: idx * 0.1 }}
-                  className="relative flex flex-col items-center text-center space-y-6"
-                >
-                  {/* Step Number & Icon */}
-                  <div className="relative z-10 w-16 h-16 rounded-full bg-white dark:bg-[#111827] border-4 border-slate-100 dark:border-slate-700 shadow-md flex items-center justify-center transition-transform hover:scale-110 group">
-                    <StepIcon size={24} className={`${color} group-hover:scale-110 transition-transform`} />
-                    <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-consulting-navy text-white text-[10px] font-bold flex items-center justify-center">
-                      {step.step}
-                    </div>
+            return (
+              <motion.div
+                key={idx}
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
+                whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.5, delay: (idx % 4) * 0.07, ease }}
+                className="group relative h-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6 transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] focus-within:border-consulting-royal/40"
+              >
+                {/* Icon (left) + quiet step number (right) */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-white/[0.03] text-consulting-navy dark:text-slate-300">
+                    <StepIcon size={20} strokeWidth={1.75} />
                   </div>
+                  <span className="font-mono text-xs tabular-nums tracking-[0.18em] text-consulting-slate/50 dark:text-slate-500">
+                    {String(step.step).padStart(2, "0")}
+                  </span>
+                </div>
 
-                  <div className="space-y-3 px-2">
-                    <h3 className="text-lg font-bold text-consulting-navy dark:text-[#F9FAFB]">
-                      {step.title}
-                    </h3>
-                    <p className="text-sm text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
-                      {step.desc}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                <h3 className="mt-6 text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">
+                  {step.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-consulting-slate dark:text-slate-400">
+                  {step.desc}
+                </p>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -35,6 +35,11 @@ module.exports = {
           }
         },
       },
+      transitionTimingFunction: {
+        // Shared with lib/motion.ts EASE_CALM — one curve for CSS transitions
+        // (hover/press) and Framer Motion reveals (scroll/entrance).
+        calm: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-up': 'slideUp 0.6s ease-out',

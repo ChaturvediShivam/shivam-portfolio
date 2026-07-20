@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/Button";
 import { FormInput } from "@/components/ui/FormInput";
 import { CONTACT_INFO, SITE_CONFIG } from "@/constants";
+import { headingReveal } from "@/lib/motion";
 import { Linkedin, MapPin, Send, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
@@ -31,6 +32,7 @@ export default function Contact() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const turnstileRef = useRef<TurnstileInstance>(null);
+  const reduce = useReducedMotion();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -95,34 +97,25 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" className="py-24 bg-white dark:bg-[#0B1120]">
+    <section id="contact" className="py-24 md:py-32 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-3xl mx-auto px-6">
         {/* Conversion headline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10 space-y-4"
-        >
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+        <motion.div {...headingReveal(reduce)} className="text-center mb-10 space-y-4">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
             Get in Touch
           </span>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
             Need strategic intelligence, competitive insights, or due diligence support?
           </h2>
-          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
             Let&apos;s discuss how structured research can support better decisions.
           </p>
         </motion.div>
 
         {/* Contact form */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm p-6 md:p-10"
+          {...headingReveal(reduce, 0.1)}
+          className="bg-white dark:bg-[#111827] rounded-xl border border-slate-200 dark:border-white/10 p-6 md:p-10"
         >
           {status === "success" ? (
             <div className="text-center py-10 space-y-4">
@@ -236,7 +229,7 @@ export default function Contact() {
                 variant="primary"
                 size="lg"
                 disabled={status === "loading"}
-                className="w-full bg-consulting-navy hover:bg-consulting-navy/90 text-white h-14 text-base"
+                className="group inline-flex items-center justify-center w-full px-6 h-12 text-sm font-semibold whitespace-nowrap rounded-lg transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120] bg-consulting-navy hover:bg-consulting-navy-light text-white shadow-[0_8px_20px_-12px_rgba(10,25,47,0.50)] hover:shadow-[0_12px_28px_-12px_rgba(10,25,47,0.55)] hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
               >
                 {status === "loading" ? (
                   <>
@@ -256,17 +249,14 @@ export default function Contact() {
 
         {/* Secondary contact channels */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          {...headingReveal(reduce, 0.2)}
           className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4"
         >
           <a
             href={SITE_CONFIG.linkedin}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-consulting-royal/30 hover:shadow-md transition-all group"
+            className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm group"
           >
             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors">
               <Linkedin size={20} />
@@ -277,7 +267,7 @@ export default function Contact() {
             </div>
           </a>
 
-          <div className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-700/50 shadow-sm">
+          <div className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10">
             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal">
               <MapPin size={20} />
             </div>

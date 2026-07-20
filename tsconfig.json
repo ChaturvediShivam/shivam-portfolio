@@ -36,6 +36,7 @@
     "components/**/*.ts",
     "components/**/*.tsx",
     "constants/**/*.ts",
+    "lib/**/*.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

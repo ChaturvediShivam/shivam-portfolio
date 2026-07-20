@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { WHO_I_HELP } from "@/constants";
+import { itemReveal, gridDelay } from "@/lib/motion";
 import { Card } from "@/components/ui/Card";
 import { Building2, ShieldCheck, Target, Rocket, ArrowUpRight } from "lucide-react";
 
@@ -13,39 +14,38 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function WhoIHelp() {
+  const reduce = useReducedMotion();
+
   return (
-    <section id="who-i-help" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
+    <section id="who-i-help" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+        <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
             Audience
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-[#F9FAFB]">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
             Who I Help
           </h2>
-          <p className="text-lg text-slate-600 dark:text-[#CBD5E1] leading-relaxed">
+          <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed">
             Research support across strategy, intelligence, and risk-driven functions
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
           {WHO_I_HELP.map((item, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              {...itemReveal(reduce, gridDelay(idx, 4))}
               className="h-full"
             >
-              <Card className="h-full flex flex-col bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-700/50 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-consulting-royal/40 transition-all duration-300 p-8">
+              <Card className="h-full flex flex-col bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm p-6">
                 <div className="w-12 h-12 rounded-xl bg-consulting-royal/10 text-consulting-royal flex items-center justify-center mb-6">
                   {iconMap[item.icon]}
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-[#F9FAFB] mb-3 leading-snug">
+                <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB] mb-3">
                   {item.title}
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-[#CBD5E1] leading-relaxed flex-1">
+                <p className="text-sm text-consulting-slate dark:text-slate-300 leading-relaxed flex-1">
                   {item.desc}
                 </p>
                 <div className="mt-6 pt-6 border-t border-consulting-royal/20 flex items-center gap-1 text-xs font-semibold text-consulting-royal uppercase tracking-wider">

@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { PORTFOLIO_CASE_STUDIES } from "@/constants";
+import { itemReveal, gridDelay } from "@/lib/motion";
 import { Card } from "@/components/ui/Card";
 import {
   Target,
@@ -25,17 +26,19 @@ const fields = [
 ] as const;
 
 export default function CaseStudies() {
+  const reduce = useReducedMotion();
+
   return (
-    <section id="portfolio" className="py-24 bg-[#F8FAFC] dark:bg-[#0B1120]">
+    <section id="portfolio" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-          <span className="text-xs font-mono uppercase tracking-widest text-consulting-royal font-semibold">
+        <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
             Strategic Impact
           </span>
-          <h2 className="text-4xl font-bold tracking-tight text-consulting-navy dark:text-[#F9FAFB]">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
             Case Study Highlights
           </h2>
-          <p className="text-lg text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
+          <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed">
             Turning careful analysis into practical business outcomes through structured research.
           </p>
         </div>
@@ -44,21 +47,18 @@ export default function CaseStudies() {
           {PORTFOLIO_CASE_STUDIES.map((study, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: idx * 0.1 }}
+              {...itemReveal(reduce, gridDelay(idx, 2))}
             >
-              <Card className="h-full flex flex-col bg-consulting-navy dark:bg-[#111827] border border-slate-700/50 dark:border-slate-700/50 rounded-2xl shadow-[0_2px_16px_rgba(2,12,27,0.45)] hover:shadow-[0_8px_32px_rgba(2,12,27,0.55)] hover:-translate-y-1 hover:border-[#C97A1E]/40 transition-all duration-300 overflow-hidden pt-0">
-                <div className="h-1 w-full bg-[#C97A1E] mb-8" />
+              <Card className="h-full flex flex-col bg-consulting-navy dark:bg-[#111827] border border-white/10 rounded-xl hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm overflow-hidden pt-0">
+                <div className="h-1 w-full bg-consulting-royal mb-8" />
 
                 <div className="px-8 pb-8 flex-1 flex flex-col">
                   <div className="mb-8">
                     <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white dark:bg-slate-800 text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
+                      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white dark:bg-slate-800 text-consulting-royal flex items-center justify-center mt-0.5">
                         <BarChart3 size={22} />
                       </div>
-                      <h3 className="text-[1.65rem] font-bold text-white tracking-tight leading-tight">
+                      <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-white">
                         {study.title}
                       </h3>
                     </div>
@@ -67,11 +67,11 @@ export default function CaseStudies() {
                   <div className="space-y-7 flex-1">
                     {fields.map(({ key, label, icon: Icon }) => (
                       <div key={key} className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white dark:bg-slate-800 text-[#C97A1E] flex items-center justify-center mt-0.5 shadow-sm">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-white dark:bg-slate-800 text-consulting-royal flex items-center justify-center mt-0.5">
                           <Icon size={16} />
                         </div>
                         <div className="space-y-1.5 min-w-0">
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#E6B566]">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
                             {label}
                           </h4>
                           <p className="text-slate-200 leading-[1.7] max-w-prose">
