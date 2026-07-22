@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.3",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.7",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.363.0",

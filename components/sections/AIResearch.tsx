@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { RESEARCH_OS } from "@/constants";
-import { EASE_CALM } from "@/lib/motion";
+import { headingReveal, itemReveal, gridDelay } from "@/lib/motion";
 import {
   Cpu,
   Zap,
@@ -29,14 +29,13 @@ const stepIcons = [
 
 export default function AIResearch() {
   const reduce = useReducedMotion();
-  const ease = EASE_CALM;
 
   return (
-    <section id="ai-research" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
+    <section id="ai-research" className="py-24 md:py-32 bg-[#FAFAF8] dark:bg-[#0D131F]">
       <div className="max-w-7xl mx-auto px-6">
         {/* Heading */}
-        <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
-          <span className="inline-block text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
+        <motion.div {...headingReveal(reduce)} className="max-w-2xl mb-20 md:mb-28 space-y-4">
+          <span className="inline-block text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
             My Process
           </span>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
@@ -47,7 +46,7 @@ export default function AIResearch() {
             <br className="hidden md:block" />
             to practical, evidence-backed answers
           </p>
-        </div>
+        </motion.div>
 
         {/* Process grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -57,23 +56,21 @@ export default function AIResearch() {
             return (
               <motion.div
                 key={idx}
-                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
-                whileInView={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.5, delay: (idx % 4) * 0.07, ease }}
-                className="group relative h-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6 transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] focus-within:border-consulting-royal/40"
+                {...itemReveal(reduce, gridDelay(idx, 4, { base: 0.12, rowStep: 0.08, colStep: 0.05 }))}
+                className="relative h-full rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/[0.03] p-6 shadow-[0_2px_10px_-6px_rgba(10,25,47,0.08)] dark:shadow-none"
               >
-                {/* Icon (left) + quiet step number (right) */}
-                <div className="flex items-center justify-between">
+                {/* Icon (left) + quiet step number (right) — a ruled-off header zone, so each
+                    card reads as identity-then-detail rather than one undifferentiated block. */}
+                <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-white/[0.06]">
                   <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-white/[0.03] text-consulting-navy dark:text-slate-300">
                     <StepIcon size={20} strokeWidth={1.75} />
                   </div>
-                  <span className="font-mono text-xs tabular-nums tracking-[0.18em] text-consulting-slate/50 dark:text-slate-500">
+                  <span className="font-mono text-xs tabular-nums tracking-[0.2em] text-consulting-slate/70 dark:text-slate-400">
                     {String(step.step).padStart(2, "0")}
                   </span>
                 </div>
 
-                <h3 className="mt-6 text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">
+                <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">
                   {step.title}
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-consulting-slate dark:text-slate-400">

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createServiceClient } from "@/lib/supabase/service";
+import { isRateLimited } from "@/lib/rateLimit";
+import { logActivity } from "@/lib/inquiries";
 
 // Environment configuration
 const TURNSTILE_SECRET = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.FROM_EMAIL || "portfolio@shivamchaturvedi.com";
 const CONTACT_RECIPIENT = process.env.CONTACT_RECIPIENT_EMAIL;
+const SUPABASE_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -22,6 +28,15 @@ function sanitize(input: unknown, maxLength = 4000): string {
   return input.trim().slice(0, maxLength);
 }
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function verifyTurnstile(token: string): Promise<boolean> {
   if (!TURNSTILE_SECRET) {
     console.warn("CLOUDFLARE_TURNSTILE_SECRET_KEY is not set; skipping Turnstile verification.");
@@ -29,23 +44,96 @@ async function verifyTurnstile(token: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          secret: TURNSTILE_SECRET,
-          response: token,
-        }),
-      }
-    );
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: TURNSTILE_SECRET,
+        response: token,
+      }),
+    });
 
     const data = await response.json();
     return data.success === true;
   } catch (err) {
     console.error("Turnstile verification error:", err);
     return false;
+  }
+}
+
+async function sendNotificationEmail(params: {
+  name: string;
+  email: string;
+  organization: string;
+  message: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!resend || !CONTACT_RECIPIENT) {
+    console.warn(
+      `[CONTACT FORM] Notification not sent — ${!RESEND_API_KEY ? "RESEND_API_KEY" : "CONTACT_RECIPIENT_EMAIL"} is missing from .env.local.`
+    );
+    return { ok: true };
+  }
+
+  const { name, email, organization, message } = params;
+  const subject = `New inquiry from ${name}`;
+  const textBody = [
+    `Name: ${name}`,
+    `Email: ${email}`,
+    organization ? `Organization: ${organization}` : "",
+    "",
+    "Message:",
+    message,
+  ].join("\n");
+  const htmlBody = `
+    <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+    <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+    ${organization ? `<p><strong>Organization:</strong> ${escapeHtml(organization)}</p>` : ""}
+    <hr />
+    <p><strong>Message:</strong></p>
+    <p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>
+  `;
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: CONTACT_RECIPIENT,
+    replyTo: email,
+    subject,
+    text: textBody,
+    html: htmlBody,
+  });
+
+  if (error) {
+    console.error("Resend error (notification):", error);
+    return { ok: false, error: "Failed to deliver the message. Please try again later." };
+  }
+  return { ok: true };
+}
+
+async function sendAcknowledgementEmail(params: { name: string; email: string }): Promise<void> {
+  if (!resend) {
+    console.warn("[CONTACT FORM] Acknowledgement not sent — RESEND_API_KEY is missing from .env.local.");
+    return;
+  }
+
+  const { name, email } = params;
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: "Your inquiry has been received",
+    text: `Hi ${name},\n\nThank you. Your inquiry has been received. I will respond within 24 hours.\n\n— Shivam Chaturvedi`,
+    html: `
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Thank you. Your inquiry has been received. I will respond within 24 hours.</p>
+      <p>— Shivam Chaturvedi</p>
+    `,
+  });
+
+  // The visitor's own confirmation is a courtesy, not a delivery guarantee —
+  // its failure shouldn't fail the whole submission, since the inquiry is
+  // already stored and the owner notification (checked separately) already
+  // succeeded or was reported.
+  if (error) {
+    console.error("Resend error (acknowledgement):", error);
   }
 }
 
@@ -93,52 +181,53 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build email content
-    const subject = `New inquiry from ${name}`;
-    const textBody = [
-      `Name: ${name}`,
-      `Email: ${email}`,
-      organization ? `Organization: ${organization}` : "",
-      "",
-      "Message:",
-      message,
-    ].join("\n");
+    let inquiryId: string | null = null;
 
-    const htmlBody = `
-      <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-      <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-      ${organization ? `<p><strong>Organization:</strong> ${escapeHtml(organization)}</p>` : ""}
-      <hr />
-      <p><strong>Message:</strong></p>
-      <p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>
-    `;
+    if (SUPABASE_CONFIGURED) {
+      const supabase = createServiceClient();
 
-    if (resend && CONTACT_RECIPIENT) {
-      const { error } = await resend.emails.send({
-        from: FROM_EMAIL,
-        to: CONTACT_RECIPIENT,
-        replyTo: email,
-        subject,
-        text: textBody,
-        html: htmlBody,
-      });
+      if (await isRateLimited(supabase, email)) {
+        return NextResponse.json(
+          { error: "Too many inquiries from this email recently. Please try again later." },
+          { status: 429 }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("inquiries")
+        .insert({
+          name,
+          email,
+          organization: organization || null,
+          message,
+          status: "New",
+          lead_source: "Website",
+        })
+        .select("id")
+        .single();
 
       if (error) {
-        console.error("Resend error:", error);
+        console.error("Supabase insert error:", error);
         return NextResponse.json(
-          { error: "Failed to deliver the message. Please try again later." },
+          { error: "Something went wrong. Please try again later." },
           { status: 500 }
         );
       }
+
+      inquiryId = data.id;
+      await logActivity(supabase, inquiryId, "created");
     } else {
-      // Development / not-yet-configured fallback: log securely server-side
-      console.log("[CONTACT FORM SUBMISSION]", {
-        name,
-        email,
-        organization,
-        messageLength: message.length,
-      });
+      console.warn(
+        "[CONTACT FORM] Not stored — NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are missing from .env.local."
+      );
     }
+
+    const notification = await sendNotificationEmail({ name, email, organization, message });
+    if (!notification.ok) {
+      return NextResponse.json({ error: notification.error }, { status: 500 });
+    }
+
+    await sendAcknowledgementEmail({ name, email });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
@@ -148,13 +237,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

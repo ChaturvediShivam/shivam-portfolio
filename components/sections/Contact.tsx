@@ -100,8 +100,8 @@ export default function Contact() {
     <section id="contact" className="py-24 md:py-32 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-3xl mx-auto px-6">
         {/* Conversion headline */}
-        <motion.div {...headingReveal(reduce)} className="text-center mb-10 space-y-4">
-          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
+        <motion.div {...headingReveal(reduce)} className="text-center mb-12 space-y-4">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
             Get in Touch
           </span>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
@@ -112,19 +112,22 @@ export default function Contact() {
           </p>
         </motion.div>
 
-        {/* Contact form */}
+        {/* Contact form — a top accent bar gives it the same "considered document"
+            quality as the Case Study cards, instead of a generic bordered box. */}
         <motion.div
           {...headingReveal(reduce, 0.1)}
-          className="bg-white dark:bg-[#111827] rounded-xl border border-slate-200 dark:border-white/10 p-6 md:p-10"
+          className="bg-white dark:bg-[#111827] rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden"
         >
+          <div aria-hidden="true" className="h-1 w-full bg-consulting-royal" />
+          <div className="p-6 md:p-10">
           {status === "success" ? (
-            <div className="text-center py-10 space-y-4">
+            <div role="status" className="text-center py-10 space-y-4">
               <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
-                <CheckCircle size={32} />
+                <CheckCircle size={32} aria-hidden="true" />
               </div>
               <h3 className="text-2xl font-bold text-consulting-navy dark:text-[#F9FAFB]">Inquiry sent</h3>
               <p className="text-consulting-slate dark:text-[#CBD5E1]">
-                Thank you for reaching out. I&apos;ll review your message and respond within 1–2 business days.
+                Thank you. Your inquiry has been received. I will respond within 24 hours.
               </p>
               <Button
                 variant="outline"
@@ -168,10 +171,11 @@ export default function Contact() {
               />
 
               <div className="space-y-2">
-                <label className="text-sm font-semibold dark:text-slate-300">
+                <label htmlFor="message" className="text-sm font-semibold dark:text-slate-300">
                   Message *
                 </label>
                 <textarea
+                  id="message"
                   name="message"
                   required
                   rows={5}
@@ -182,8 +186,8 @@ export default function Contact() {
                 />
               </div>
 
-              {/* Honeypot */}
-              <div className="sr-only">
+              {/* Honeypot — hidden from assistive tech too, so screen reader users never encounter it */}
+              <div className="sr-only" aria-hidden="true">
                 <label htmlFor="website">Website</label>
                 <input
                   id="website"
@@ -218,8 +222,8 @@ export default function Contact() {
               )}
 
               {status === "error" && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                  <AlertCircle size={16} />
+                <div role="alert" className="flex items-center gap-2 text-sm text-red-700 bg-red-50 p-3 rounded-lg">
+                  <AlertCircle size={16} aria-hidden="true" />
                   <span>{errorMsg}</span>
                 </div>
               )}
@@ -233,24 +237,25 @@ export default function Contact() {
               >
                 {status === "loading" ? (
                   <>
-                    <Loader2 size={18} className="mr-2 animate-spin" />
+                    <Loader2 size={18} className="mr-2 animate-spin" aria-hidden="true" />
                     Sending inquiry...
                   </>
                 ) : (
                   <>
-                    <Send size={18} className="mr-2" />
+                    <Send size={18} className="mr-2" aria-hidden="true" />
                     Send an Inquiry
                   </>
                 )}
               </Button>
             </form>
           )}
+          </div>
         </motion.div>
 
         {/* Secondary contact channels */}
         <motion.div
           {...headingReveal(reduce, 0.2)}
-          className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4"
+          className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4"
         >
           <a
             href={SITE_CONFIG.linkedin}
@@ -258,22 +263,25 @@ export default function Contact() {
             rel="noopener noreferrer"
             className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm group"
           >
-            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors">
-              <Linkedin size={20} />
+            <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-consulting-royal/[0.06] dark:bg-white/[0.03] text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors flex-shrink-0">
+              <Linkedin size={20} aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-xs font-mono uppercase text-slate-400 dark:text-slate-500">LinkedIn</p>
-              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium">linkedin.com/in/shivamchaturvedi96</p>
+            <div className="min-w-0">
+              <p className="text-xs font-mono uppercase text-slate-600 dark:text-slate-400">LinkedIn</p>
+              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium break-words">
+                linkedin.com/in/<wbr />shivamchaturvedi96
+                <span className="sr-only"> (opens in a new tab)</span>
+              </p>
             </div>
           </a>
 
           <div className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10">
-            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-consulting-royal">
-              <MapPin size={20} />
+            <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-consulting-royal/[0.06] dark:bg-white/[0.03] text-consulting-royal flex-shrink-0">
+              <MapPin size={20} aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-xs font-mono uppercase text-slate-400 dark:text-slate-500">Location</p>
-              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium">{CONTACT_INFO.location}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-mono uppercase text-slate-600 dark:text-slate-400">Location</p>
+              <p className="text-consulting-navy dark:text-[#F9FAFB] font-medium break-words">{CONTACT_INFO.location}</p>
             </div>
           </div>
         </motion.div>

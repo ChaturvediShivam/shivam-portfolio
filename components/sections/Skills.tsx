@@ -10,11 +10,15 @@ export default function Skills() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const reduce = useReducedMotion();
 
+  const categoryArrays = Object.values(SKILLS_EVIDENCE_MAP);
+  const totalCount = categoryArrays.reduce((sum, arr) => sum + arr.length, 0);
+  const domainCount = categoryArrays.length;
+
   return (
     <section id="skills" className="py-24 md:py-32 bg-[#F8FAFC] dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
-          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
             Capabilities
           </span>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
@@ -23,9 +27,12 @@ export default function Skills() {
           <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed">
             Practical capabilities built through real engagements across due diligence, market intelligence, and competitive analysis.
           </p>
+          <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
+            {totalCount} capabilities across {domainCount} domains
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Research & Analysis */}
           <SkillCategory
             index={0}
@@ -107,32 +114,34 @@ export default function Skills() {
 function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, isTool = false, index = 0, reduce }) {
   return (
     <motion.div
-      {...itemReveal(reduce, gridDelay(index, 3))}
-      className="space-y-6"
+      {...itemReveal(reduce, gridDelay(index, 3, { base: 0.12, rowStep: 0.08, colStep: 0.05 }))}
+      className="h-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6"
     >
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-consulting-royal/10 text-consulting-royal">
-          {icon}
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-200 dark:border-white/10 bg-consulting-royal/[0.06] dark:bg-white/[0.03] text-consulting-royal">
+            {icon}
+          </div>
+          <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">{title}</h3>
         </div>
-        <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB]">{title}</h3>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-slate-400 whitespace-nowrap">
+          {skills.length} {isTool ? "tools" : "capabilities"}
+        </span>
       </div>
-      <div className="space-y-3">
+      {/* A divided list within one card, not a stack of individually-boxed rows —
+          six clear modules instead of twenty-four repeated bordered boxes. */}
+      <div className="-mx-2 divide-y divide-slate-100 dark:divide-white/[0.06]">
         {skills.map((item, idx) => {
           const itemKey = `${categoryKey}-${idx}`;
           const isOpen = openKey === itemKey;
 
           return (
-            <div
-              key={idx}
-              className={`rounded-xl border bg-slate-50 dark:bg-white/[0.02] transition-all duration-300 ease-calm overflow-hidden ${
-                isOpen
-                  ? "border-consulting-royal/40"
-                  : "border-slate-200 dark:border-white/10 hover:border-consulting-royal/30"
-              }`}
-            >
+            <div key={idx}>
               <button
                 onClick={() => setOpenKey(isOpen ? null : itemKey)}
-                className="w-full flex items-center justify-between p-3 text-left group"
+                className={`w-full flex items-center justify-between gap-3 px-2 py-3 text-left group rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-consulting-royal/60 ${
+                  isOpen ? "bg-slate-50 dark:bg-white/[0.03]" : "hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                }`}
                 aria-expanded={isOpen}
               >
                 <span
@@ -144,8 +153,8 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                 >
                   {isTool ? item.tool : item.skill}
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 group-hover:text-consulting-royal transition-colors hidden sm:inline">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] font-mono uppercase text-slate-600 dark:text-slate-400 group-hover:text-consulting-royal transition-colors hidden sm:inline">
                     {item.source}
                   </span>
                   <ChevronDown
@@ -166,9 +175,9 @@ function SkillCategory({ title, icon, skills, categoryKey, openKey, setOpenKey, 
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <div className="px-3 pb-4 pt-1 space-y-3 text-sm">
+                    <div className="px-2 pb-4 pt-1 space-y-3 text-sm">
                       <div className="sm:hidden">
-                        <span className="text-[10px] font-mono uppercase text-slate-400">{item.source}</span>
+                        <span className="text-[10px] font-mono uppercase text-slate-600 dark:text-slate-400">{item.source}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-consulting-navy dark:text-[#F9FAFB]">What it means:</span>

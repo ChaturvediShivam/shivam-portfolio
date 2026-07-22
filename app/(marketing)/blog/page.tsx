@@ -20,7 +20,9 @@ export default function ResearchNotesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {RESEARCH_NOTES.map((note, idx) => (
-          <Card key={idx} className="group flex flex-col h-full bg-white dark:bg-[#111827] border-slate-200 dark:border-slate-700/50">
+          <Card key={idx} className="group relative flex flex-col h-full bg-white dark:bg-[#111827] border-slate-200 dark:border-slate-700/50">
+            {/* Stretched link — the whole card already signals clickability via hover; this makes that real without giving screen readers a second, redundant link. */}
+            <Link href={`/blog/${note.slug}`} className="absolute inset-0" aria-hidden="true" tabIndex={-1} />
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold uppercase tracking-wider text-consulting-royal px-2 py-1 rounded bg-consulting-royal/10">
                 {note.category}
@@ -30,13 +32,13 @@ export default function ResearchNotesPage() {
                 <span>{note.status}</span>
               </div>
             </div>
-            <h3 className="text-xl font-bold mb-3 text-consulting-navy dark:text-[#F9FAFB] group-hover:text-consulting-royal transition-colors">
+            <h2 className="text-xl font-bold mb-3 text-consulting-navy dark:text-[#F9FAFB] group-hover:text-consulting-royal transition-colors">
               {note.title}
-            </h3>
+            </h2>
             <p className="text-consulting-slate dark:text-[#CBD5E1] text-sm leading-relaxed mb-8 flex-1">
               {note.summary}
             </p>
-            <Link href={`/blog/${note.slug}`} className="flex items-center gap-2 text-sm font-bold text-consulting-royal group-hover:gap-3 transition-all">
+            <Link href={`/blog/${note.slug}`} className="relative flex items-center gap-2 text-sm font-bold text-consulting-royal group-hover:gap-3 transition-all">
               Read Note <ArrowUpRight size={16} />
             </Link>
           </Card>

@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { WHO_I_HELP } from "@/constants";
 import { itemReveal, gridDelay } from "@/lib/motion";
 import { Card } from "@/components/ui/Card";
-import { Building2, ShieldCheck, Target, Rocket, ArrowUpRight } from "lucide-react";
+import { Building2, ShieldCheck, Target, Rocket } from "lucide-react";
 
 const iconMap: Record<string, React.ReactNode> = {
   Building2: <Building2 size={22} />,
@@ -20,7 +20,7 @@ export default function WhoIHelp() {
     <section id="who-i-help" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
-          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal font-semibold">
+          <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
             Audience
           </span>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
@@ -38,8 +38,8 @@ export default function WhoIHelp() {
               {...itemReveal(reduce, gridDelay(idx, 4))}
               className="h-full"
             >
-              <Card className="h-full flex flex-col bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm p-6">
-                <div className="w-12 h-12 rounded-xl bg-consulting-royal/10 text-consulting-royal flex items-center justify-center mb-6">
+              <Card className="h-full flex flex-col bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 p-6">
+                <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-consulting-royal/[0.06] dark:bg-white/[0.03] text-consulting-royal mb-6">
                   {iconMap[item.icon]}
                 </div>
                 <h3 className="text-lg font-semibold tracking-[-0.01em] leading-snug text-consulting-navy dark:text-[#F9FAFB] mb-3">
@@ -48,10 +48,6 @@ export default function WhoIHelp() {
                 <p className="text-sm text-consulting-slate dark:text-slate-300 leading-relaxed flex-1">
                   {item.desc}
                 </p>
-                <div className="mt-6 pt-6 border-t border-consulting-royal/20 flex items-center gap-1 text-xs font-semibold text-consulting-royal uppercase tracking-wider">
-                  <span>Learn more</span>
-                  <ArrowUpRight size={14} />
-                </div>
               </Card>
             </motion.div>
           ))}

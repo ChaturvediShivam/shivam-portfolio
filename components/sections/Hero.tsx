@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { HERO_CONTENT } from "@/constants";
 import { EASE_CALM } from "@/lib/motion";
@@ -82,8 +83,8 @@ export default function Hero() {
       {/* Smooth handoff into the next section. */}
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-transparent to-white dark:to-[#0B1120] pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-24 md:py-32">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-28 md:py-36">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           {/* Left: Copy + CTAs */}
           <motion.div
             variants={stagger}
@@ -91,9 +92,10 @@ export default function Hero() {
             animate="show"
             className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left lg:pt-8"
           >
-            {/* Badge */}
-            <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center px-4 py-2 rounded-full bg-slate-50 dark:bg-white/[0.04] text-consulting-slate dark:text-[#CBD5E1] text-[11px] font-mono uppercase tracking-[0.18em] border border-slate-200/80 dark:border-white/10">
+            {/* Kicker — a rule-plus-label editorial mark, not a SaaS pill. */}
+            <motion.div variants={fadeUp} className="flex items-center justify-center lg:justify-start gap-3">
+              <span aria-hidden="true" className="h-px w-8 bg-consulting-royal" />
+              <span className="text-consulting-slate dark:text-[#CBD5E1] text-[11px] font-mono uppercase tracking-[0.18em]">
                 {HERO_CONTENT.badge}
               </span>
             </motion.div>
@@ -101,7 +103,7 @@ export default function Hero() {
             {/* Headline — copy unchanged; manually broken into 4 editorial lines (md+), two key phrases in brand accent. */}
             <motion.h1
               variants={fadeUp}
-              className="mt-8 text-3xl sm:text-4xl md:text-[2.5rem] lg:text-[2.75rem] font-semibold tracking-[-0.02em] leading-[1.08] text-consulting-navy dark:text-[#F9FAFB] max-w-[42rem] lg:max-w-none text-balance"
+              className="mt-10 text-[1.875rem] sm:text-[2.25rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold tracking-[-0.02em] leading-[1.15] text-consulting-navy dark:text-[#F9FAFB] max-w-[42rem] lg:max-w-none text-balance"
             >
               Turning fragmented information{" "}
               <br className="hidden md:block" />
@@ -120,20 +122,19 @@ export default function Hero() {
               {HERO_CONTENT.subheadline}
             </motion.p>
 
-            {/* CTAs — identical height, uniform spacing, aligned. */}
+            {/* Primary CTAs — one filled, one outlined; identical height, uniform spacing. */}
             <motion.div
               variants={fadeUp}
               className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4"
             >
-              {HERO_CONTENT.ctas.map((cta, idx) => {
+              {HERO_CONTENT.ctas.filter((cta) => !cta.external).map((cta, idx) => {
                 const Icon = ctaIconMap[cta.icon];
                 const baseClass =
                   "group inline-flex items-center justify-center px-6 h-12 text-sm font-semibold whitespace-nowrap rounded-lg transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120]";
                 const primaryClass =
                   "bg-consulting-navy hover:bg-consulting-navy-light text-white shadow-[0_8px_20px_-12px_rgba(10,25,47,0.50)] hover:shadow-[0_12px_28px_-12px_rgba(10,25,47,0.55)] hover:-translate-y-0.5";
-                const outlineClass = cta.external
-                  ? "border border-consulting-navy/25 dark:border-white/15 text-consulting-navy dark:text-[#F9FAFB] hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:-translate-y-0.5"
-                  : "border border-slate-300 dark:border-white/15 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:-translate-y-0.5";
+                const outlineClass =
+                  "border border-slate-300 dark:border-white/15 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:-translate-y-0.5";
 
                 return (
                   <Button
@@ -150,22 +151,50 @@ export default function Hero() {
                 );
               })}
             </motion.div>
+
+            {/* Tertiary link — social profile, deliberately lower-weight than the two conversion CTAs above. */}
+            {HERO_CONTENT.ctas.filter((cta) => cta.external).map((cta, idx) => {
+              const Icon = ctaIconMap[cta.icon];
+              return (
+                <motion.a
+                  key={idx}
+                  variants={fadeUp}
+                  href={cta.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-consulting-slate/70 dark:text-slate-400/70 hover:text-consulting-royal dark:hover:text-consulting-royal transition-colors duration-200"
+                >
+                  {Icon && <Icon size={15} />}
+                  {cta.text}
+                </motion.a>
+              );
+            })}
           </motion.div>
 
-          {/* Right: Professional portrait — annual-report photograph */}
+          {/* Right: Professional portrait — the visual anchor of the page.
+              No frame, no border on the photo itself — an editorial crop, presented
+              directly, the way a real photograph is treated rather than a UI thumbnail.
+              A companion panel sits behind it (never touching it) so the portrait reads
+              as seated within the composition rather than a box placed beside the text. */}
           <motion.div
             variants={imageIn}
             initial="hidden"
             animate="show"
             className="lg:col-span-5 relative flex justify-center lg:justify-end"
           >
-            <div className="relative w-full max-w-sm aspect-[4/5]">
-              <div className="relative w-full h-full rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-[0_24px_48px_-24px_rgba(10,25,47,0.28)] dark:shadow-[0_24px_52px_-24px_rgba(0,0,0,0.6)]">
-                <img
+            <div className="relative w-full max-w-md lg:max-w-none aspect-[4/5]">
+              <div
+                aria-hidden="true"
+                className="absolute -bottom-5 -right-5 w-full h-full rounded-sm bg-consulting-royal/[0.07] dark:bg-consulting-royal/[0.14] -z-10"
+              />
+              <div className="relative w-full h-full overflow-hidden">
+                <Image
                   src="/profile.jpg"
                   alt="Shivam Chaturvedi — Strategic Research Consultant"
-                  className="w-full h-full object-cover"
-                  fetchPriority="high"
+                  fill
+                  sizes="(min-width: 1024px) 487px, (min-width: 640px) 448px, 90vw"
+                  priority
+                  className="object-cover grayscale-[8%] contrast-[1.03] saturate-[0.96]"
                 />
               </div>
             </div>

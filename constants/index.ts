@@ -6,7 +6,6 @@ export const SITE_CONFIG = {
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
   resumeUrl: "/resume.pdf",
   ebookPdfUrl: "/ebook.pdf",
-  ebookCoverUrl: "/ebook-cover.png",
 };
 
 export const NAV_LINKS = [
