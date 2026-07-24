@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BackToTop from "@/components/ui/BackToTop";
+import AuthFragmentRescue from "@/components/auth/AuthFragmentRescue";
 import { SITE_CONFIG } from "@/constants";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -80,6 +81,7 @@ export default function MarketingLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthFragmentRescue />
           <Navbar />
           <main>{children}</main>
           <Footer />

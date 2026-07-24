@@ -5,6 +5,7 @@ export async function middleware(request: NextRequest) {
   const { response, user } = await updateSupabaseSession(request);
 
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
+  const isSignupPage = request.nextUrl.pathname === "/admin/signup";
   // The reset-password page must be reachable without a pre-existing
   // session: when Supabase's default recovery format lands there, the
   // session is only established client-side (from the URL fragment) after
@@ -13,12 +14,12 @@ export async function middleware(request: NextRequest) {
   const isResetPasswordPage = request.nextUrl.pathname === "/admin/reset-password";
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
 
-  if (isAdminRoute && !isLoginPage && !isResetPasswordPage && !user) {
+  if (isAdminRoute && !isLoginPage && !isSignupPage && !isResetPasswordPage && !user) {
     const loginUrl = new URL("/admin/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoginPage && user) {
+  if ((isLoginPage || isSignupPage) && user) {
     const dashboardUrl = new URL("/admin", request.url);
     return NextResponse.redirect(dashboardUrl);
   }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AlertCircle, CheckCircle2, Loader2, Lock, KeyRound } from "lucide-react";
 
@@ -29,7 +30,11 @@ export default function AdminLoginPage() {
       });
 
       if (signInError) {
-        setError("Invalid email or password.");
+        setError(
+          signInError.code === "email_not_confirmed"
+            ? "Please confirm your email before signing in. Check your inbox for the confirmation link."
+            : "Invalid email or password."
+        );
         setLoading(false);
         return;
       }
@@ -49,28 +54,31 @@ export default function AdminLoginPage() {
 
     const targetEmail = email.trim();
     const redirectTo = `${window.location.origin}/auth/callback`;
-    console.log("[forgot-password] calling resetPasswordForEmail", {
-      email: targetEmail,
-      redirectTo,
-    });
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const response = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
 
-      console.log("[forgot-password] full Supabase response:", response);
-
-      if (response.error) {
-        console.error("[forgot-password] Supabase returned an error:", response.error);
+      if (resetError) {
+        // Supabase's /recover endpoint already returns a clean success for
+        // both existing and non-existent emails by design — it never signals
+        // user existence through error vs. success. So a real error here is
+        // an infrastructure failure (rate limit, network, etc.), not a
+        // privacy leak, and is safe — and important — to surface directly
+        // instead of masking it behind a fake success message.
+        setError(
+          resetError.status === 429
+            ? "Too many requests. Please wait a minute before trying again."
+            : "Something went wrong sending the reset email. Please try again."
+        );
+        setLoading(false);
+        return;
       }
 
-      // Always show the same confirmation regardless of outcome — don't
-      // reveal whether an email address has an account.
       setResetSent(true);
       setLoading(false);
-    } catch (err) {
-      console.error("[forgot-password] resetPasswordForEmail threw an exception:", err);
-      setResetSent(true);
+    } catch {
+      setError("Something went wrong sending the reset email. Please try again.");
       setLoading(false);
     }
   };
@@ -139,7 +147,7 @@ export default function AdminLoginPage() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-950/40 border border-red-900/50 px-3 py-2 rounded-md">
+              <div role="alert" className="flex items-center gap-2 text-sm text-red-400 bg-red-950/40 border border-red-900/50 px-3 py-2 rounded-md">
                 <AlertCircle size={14} className="shrink-0" />
                 <span>{error}</span>
               </div>
@@ -159,6 +167,13 @@ export default function AdminLoginPage() {
                 "Sign in"
               )}
             </button>
+
+            <Link
+              href="/admin/signup"
+              className="block w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Need an account? Create one
+            </Link>
           </form>
         ) : resetSent ? (
           <div className="space-y-4 text-center">
@@ -194,6 +209,13 @@ export default function AdminLoginPage() {
               />
             </div>
 
+            {error && (
+              <div role="alert" className="flex items-center gap-2 text-sm text-red-400 bg-red-950/40 border border-red-900/50 px-3 py-2 rounded-md">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -211,7 +233,10 @@ export default function AdminLoginPage() {
 
             <button
               type="button"
-              onClick={() => setMode("signin")}
+              onClick={() => {
+                setMode("signin");
+                setError("");
+              }}
               className="w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors"
             >
               Back to sign in

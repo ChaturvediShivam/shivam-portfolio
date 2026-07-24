@@ -28,7 +28,7 @@ const nextConfig = {
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; " +
             "style-src 'self' 'unsafe-inline'; " +
             "font-src 'self'; " +
-            "connect-src 'self' https://challenges.cloudflare.com; " +
+            "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co; " +
             "frame-src https://challenges.cloudflare.com; " +
             "frame-ancestors 'none'; " +
             "base-uri 'self'; " +

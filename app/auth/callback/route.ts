@@ -6,14 +6,16 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  *
  * 1. PKCE code flow (?code=...) — exchanged for a session here, server-side,
  *    same as before.
- * 2. Supabase's default recovery email format — access_token, refresh_token,
- *    and type=recovery arrive as a URL *fragment* (#...), which browsers
- *    never send to the server, so this route can't see or exchange it. What
- *    it CAN do is forward the visitor on without assuming failure: browsers
- *    preserve the original fragment across a redirect whose Location header
- *    has none of its own, so it rides along to /admin/reset-password, where
- *    the browser-side Supabase client (detectSessionInUrl is on by default)
- *    picks it up automatically and fires PASSWORD_RECOVERY.
+ * 2. Supabase's default implicit-grant format — access_token, refresh_token,
+ *    and a type (recovery, signup, magiclink...) arrive as a URL *fragment*
+ *    (#...), which browsers never send to the server, so this route can't
+ *    see or exchange it. What it CAN do is forward the visitor on to `next`
+ *    without assuming failure: browsers preserve the original fragment
+ *    across a redirect whose Location header has none of its own, so it
+ *    rides along to whatever page `next` points at (/admin/reset-password
+ *    by default, /auth/verified for signup confirmation), where the
+ *    browser-side Supabase client (detectSessionInUrl is on by default)
+ *    picks it up automatically.
  *
  * A `code` that fails to exchange is a genuine, unambiguous failure — that
  * still goes to the login page with an error. Only the "no code at all"
@@ -34,5 +36,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/admin/login?error=reset_link_invalid`);
   }
 
-  return NextResponse.redirect(`${origin}/admin/reset-password`);
+  return NextResponse.redirect(`${origin}${next}`);
 }

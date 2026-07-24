@@ -4,11 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Service-role Supabase client. Bypasses Row Level Security entirely.
  *
- * Used ONLY by the public-facing contact form API route, which has no
- * authenticated user to act as — every other server-side read/write goes
- * through the session-bound client in `lib/supabase/server.ts` instead, so
- * RLS stays the real enforcement boundary everywhere except this one
- * trusted, unauthenticated insert path.
+ * Used by the public-facing contact form API route and the allowlist-gated
+ * signup route, both of which have no authenticated user to act as — every
+ * other server-side read/write goes through the session-bound client in
+ * `lib/supabase/server.ts` instead, so RLS stays the real enforcement
+ * boundary everywhere except these trusted, unauthenticated paths.
  *
  * Never import this into a Client Component or anything that ships to the
  * browser — the `server-only` import above makes that a build-time error.

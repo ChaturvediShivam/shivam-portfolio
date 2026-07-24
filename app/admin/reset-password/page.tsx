@@ -31,19 +31,46 @@ export default function ResetPasswordPage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" && !settled) {
         settled = true;
         setState("ready");
       }
     });
 
+    // The recovery link can arrive as an implicit-grant fragment
+    // (#access_token=...&type=recovery) rather than a PKCE ?code=. The
+    // browser client is hardcoded to flowType: "pkce" (@supabase/ssr), so
+    // its own automatic URL detection throws on that format instead of
+    // firing PASSWORD_RECOVERY — confirmed directly in GoTrueClient's
+    // _getSessionFromURL. setSession() doesn't care about flowType, so
+    // parse the fragment ourselves as a fallback the listener above can't
+    // cover.
+    const hash = window.location.hash;
+    const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ error }) => {
+        // Scrubbed only after the async call resolves — clearing it first
+        // would race React Strict Mode's double effect invocation in dev,
+        // where the second run reads an already-emptied hash.
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!settled && !error) {
+          settled = true;
+          setState("ready");
+        }
+      });
+    } else if (hash) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
     // PASSWORD_RECOVERY fires once, the moment a recovery session is first
     // picked up — whether that came from the callback's server-side code
-    // exchange, or from Supabase's default access_token/refresh_token
-    // fragment being auto-detected by this client on mount. If this
-    // component mounts after that already happened, fall back to checking
-    // for a plain authenticated session instead of waiting for an event
-    // that already fired.
+    // exchange, or from a fragment handled above. If this component mounts
+    // after that already happened, fall back to checking for a plain
+    // authenticated session instead of waiting for an event that already
+    // fired.
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!settled && user) {
         settled = true;
