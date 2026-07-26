@@ -140,3 +140,105 @@ Wellfound, Greenhouse, Lever, Ashby, Workday, Indeed, and company career portals
 ---
 
 *Phase 1 complete. Phase 2 not started.*
+
+---
+
+## Lessons Learned
+
+- **Model the future once, cheaply.** Adding nullable columns (`owner_id`,
+  `ai_*`), `external_ids jsonb`, and generated `tsvector` on empty tables cost
+  almost nothing now but would be painful to retrofit onto large tables later.
+- **Idempotent migrations are worth the extra guards.** `if not exists` /
+  `do $$ ... $$` / `drop ... if exists` let the same file be pasted into the
+  Supabase SQL Editor safely, and re-run without fear.
+- **Environment constraints surface late.** There was no local Postgres, Docker,
+  or Supabase CLI available, so the migration could not be applied or verified
+  locally — only committed. Applying was done out of band against the hosted DB.
+  Future work should confirm the DB toolchain before promising a local apply.
+- **REST verification has limits.** Table/column/enum existence is checkable via
+  the REST API; indexes, triggers, and RLS require SQL introspection. Plan both.
+- **"Preserve the UI exactly" needs a defined exception.** Adding consistent nav
+  icons technically changed the sidebar; calling that out explicitly (allowed
+  "for consistency") avoided ambiguity.
+
+## Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Enum representation | Native Postgres enums for closed sets; `text` for volatile ones | Type safety where stable; `ALTER TYPE ADD VALUE` is non-breaking; avoids churn on fast-moving sets |
+| Source modeling | `provider` on account, `source` on rows, `external_ids jsonb` | New integrations become data, not DDL |
+| AI provenance | First-class `ai_*` columns on entities; `jsonb` on logs/notes | Queryable for analytics without a future migration |
+| Ownership | Nullable `owner_id → auth.users` everywhere | Multi-user-ready; per-user RLS later with no schema change |
+| Attachments | Dedicated `message_attachments` table | Scales independently of message rows; mirrors `inquiry_attachments` |
+| Search | Generated `tsvector` + GIN now | Cheap on empty tables; costly to retrofit on a large `messages` table |
+| Navigation | Config array + client `Sidebar` | Enabling a module is a one-line data change |
+| RLS posture | Reuse `"Authenticated admin full access"` | Consistency with the existing inquiry tables |
+
+## Known Limitations
+
+- **Owner-scoped uniqueness is dormant.** While `owner_id` is null (single-admin),
+  `contacts (owner_id, lower(email))` and the integration-account email uniques do
+  not actually enforce dedup (NULLs compare as distinct).
+- **`messages` dedup needs a non-null `integration_account_id`.** Messages
+  ingested without an account are not deduped by the unique index.
+- **RLS is coarse.** Any authenticated user has full access; there is no per-user
+  isolation yet.
+- **Dashboard and Inquiries share `/admin`.** They are the same page in Phase 1.
+- **No automated tests** cover the schema or admin flows yet.
+
+## Technical Debt
+
+- **Token encryption not enforced.** `access_token_encrypted` /
+  `refresh_token_encrypted` are plain `text`; they must receive encrypted values
+  (Vault/pgsodium/app-layer) before Gmail OAuth ships (Phase 3).
+- **No baseline migration.** The inquiry schema lives in `supabase/schema.sql`,
+  not in `migrations/`; adopting `supabase db push` will need a captured baseline.
+- **DB verification is partial** without a SQL-capable toolchain in the dev
+  environment.
+- **Placeholder pages** duplicate a trivial `ComingSoon` render — fine now,
+  replaced in Phase 2.
+
+## Why certain decisions were made
+
+- **Additive-only** protects the live inquiry product: nothing existing is
+  altered, so there is no regression surface.
+- **Scalability over minimalism** was an explicit brief; the schema optimizes for
+  future Gmail/LinkedIn/ATS ingestion, multi-user, and AI — even though Phase 1
+  only needs a fraction of it.
+- **Native enums over lookup tables** were chosen for the closed domains because
+  they are simpler and type-safe, and forward-extension is a one-liner; volatile
+  domains stayed `text` precisely to avoid enum churn.
+
+## Migration strategy
+
+- Additive, idempotent SQL files under `supabase/migrations/`, named
+  `<UTC timestamp>_<slug>.sql`.
+- Applied **out of band** to Supabase (SQL Editor or CLI); Vercel never runs
+  migrations. Additive + idempotent means apply order relative to a deploy is
+  safe.
+- Verify after apply: table/column existence (REST or SQL) and object counts via
+  `pg_tables` / `pg_type` / `pg_indexes` / `pg_trigger` / `pg_policies`.
+
+## Rollback strategy
+
+- **Application:** revert the commit and redeploy (or promote the previous Ready
+  Vercel deployment) — the app carries no runtime dependency on the new tables in
+  Phase 1, so rollback is low-risk.
+- **Database:** because the migration is purely additive, a "rollback" is a
+  separate, explicit teardown migration
+  (`drop table if exists ... cascade; drop type if exists ...`). Prefer
+  **roll-forward** (a corrective additive migration) over destructive rollback
+  once any real data exists. Never hand-edit applied objects in place.
+
+## Future migration conventions
+
+- One logical change per migration; never mix additive foundation work with
+  destructive changes.
+- Continue guarding every statement for idempotency.
+- Evolve enums with `ALTER TYPE ... ADD VALUE`; never remove/renumber in place.
+- When multi-user lands, ship a dedicated migration to (a) backfill `owner_id`
+  and (b) tighten RLS to `owner_id = auth.uid()`.
+- Encrypt integration tokens before any provider OAuth flow writes real
+  credentials.
+- See [`../database/DATABASE_GUIDE.md`](../database/DATABASE_GUIDE.md#migration-conventions)
+  for the canonical checklist.

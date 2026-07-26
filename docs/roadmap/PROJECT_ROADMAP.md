@@ -1,0 +1,228 @@
+# Career CRM Roadmap
+
+> Master roadmap for the Career CRM — built on top of the `shivam-portfolio`
+> Next.js application. This is the single source of truth for scope, sequencing,
+> and status across all phases.
+
+---
+
+## Overview
+
+The Career CRM turns the portfolio's admin area into a source-agnostic system
+for tracking a job search end-to-end: companies, contacts, opportunities
+(applications), communications, tasks, and — later — automated ingestion and an
+AI assistance layer. It is additive to the existing portfolio + inquiry-management
+product, reusing its authentication, middleware, and Supabase conventions.
+
+**Guiding principles**
+
+- **Additive, never destructive** — new capability must not modify existing
+  inquiry/auth/middleware behaviour.
+- **Scalability over minimalism** — model for future integrations and multi-user
+  now, even when Phase 1 uses only one.
+- **Configuration over hardcoding** — navigation and (later) pipelines are data.
+- **AI-ready by construction** — provenance columns exist before AI is wired up.
+
+---
+
+## Current status
+
+| Item | State |
+|------|-------|
+| Live product | Portfolio + inquiry admin, in production |
+| Career CRM schema | Applied to production Supabase, verified |
+| Active phase | **Phase 1 complete** — Phase 2 not started |
+| Production URL | https://www.shivamchaturvedi.com |
+| Latest phase report | [`PHASE_1_COMPLETION.md`](./PHASE_1_COMPLETION.md) |
+
+**Phase progress**
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 0 | Portfolio Website | ✅ Complete |
+| 1 | Career CRM Foundation | ✅ Complete |
+| 2 | CRM Application | ⬜ Not started |
+| 3 | Gmail Integration | ⬜ Not started |
+| 4 | AI Layer | ⬜ Not started |
+| 5 | Reporting | ⬜ Not started |
+| 6 | Production Hardening | ⬜ Not started |
+
+---
+
+## Project phases
+
+### Phase 0 — Portfolio Website
+**Status: ✅ Complete**
+
+**Objectives**
+- Ship a public marketing/portfolio site with a blog and a contact funnel.
+- Provide a private admin area to manage inbound inquiries.
+
+**Deliverables**
+- Public marketing site (`app/(marketing)`) + blog.
+- Contact form → Supabase (`inquiries`), with spam protection (Turnstile) and
+  transactional email (Resend).
+- Inquiry admin: list, filter, search, status/lead-source workflow, notes,
+  activity timeline, CSV export.
+- Supabase Auth with allowlist-gated admin signup and recovery/verification flows.
+
+**Completion criteria**
+- Site live on Vercel with a custom domain; inquiry admin fully functional
+  behind auth.
+
+**Current status** — Live in production.
+
+---
+
+### Phase 1 — Career CRM Foundation
+**Status: ✅ Complete**
+
+**Objectives**
+- Replace the hardcoded admin sidebar with a configuration-driven system.
+- Design and apply the additive database foundation for the CRM.
+- Change nothing about existing inquiry/auth/middleware behaviour.
+
+**Deliverables (everything completed)**
+- ✅ **Admin authentication** — reused unchanged (Supabase Auth + middleware gate).
+- ✅ **Config-driven sidebar** — single source `lib/admin/navigation.ts`;
+  `Sidebar.tsx` renders it; placeholder routes for all future modules.
+- ✅ **CRM schema** — 10 additive tables (companies, contacts,
+  integration_accounts, opportunities, opportunity_contacts, messages,
+  message_attachments, opportunity_events, opportunity_notes, tasks).
+- ✅ **Database** — applied to production Supabase; existing tables untouched.
+- ✅ **RLS** — enabled on all 10 tables with the project's
+  `"Authenticated admin full access"` policy.
+- ✅ **Enums** — 10 native enums for closed domains.
+- ✅ **Indexes** — 60 (8 unique/partial dedup, 7 GIN for FTS + `external_ids`,
+  45 B-tree).
+- ✅ **Deployment** — shipped to production on Vercel with no regressions.
+- ✅ **Documentation** — phase completion report + this roadmap + architecture &
+  database guides.
+
+**Completion criteria**
+- Migration applied and verified live; lint/typecheck/build green; production
+  deploy Ready; no regressions to inquiry/auth flows. — **All met.**
+
+**Current status** — Complete. See [`PHASE_1_COMPLETION.md`](./PHASE_1_COMPLETION.md).
+
+---
+
+### Phase 2 — CRM Application
+**Status: ⬜ Not started**
+
+Build the application layer (CRUD + UI) on the Phase 1 schema, replacing the
+"Coming Soon" placeholders one module at a time.
+
+**Objectives**
+- Deliver usable, authenticated CRUD experiences for every core entity.
+- Establish shared UI patterns (tables, detail panes, forms, filters) reused
+  across modules.
+
+**Deliverables — milestones**
+
+| Milestone | Scope |
+|-----------|-------|
+| **Companies** | List/detail/create/edit/archive; dedupe by domain; link contacts & opportunities |
+| **Contacts** | CRUD; company association; roles; dedupe by owner+email |
+| **Opportunities** | Pipeline board by `stage`; detail view; contacts, notes, tasks, timeline |
+| **Messages** | Threaded reader; link to opportunity/contact; attachments list (read) |
+| **Tasks** | List/board by status & priority; due dates; linkage to opp/contact/company |
+| **Dashboard** | Real overview (pipeline snapshot, next actions) — split from Inquiries |
+| **Analytics** | First cut of pipeline metrics (counts by stage/source) |
+| **Settings** | Profile, integration accounts management shell, preferences |
+| **Calendar** | Task/interview scheduling views over `due_at` / `next_action_at` |
+
+**Completion criteria**
+- Every sidebar item is enabled and backed by a working page; no placeholder
+  routes remain; RLS enforced on all reads/writes.
+
+**Current status** — Pending.
+
+---
+
+### Phase 3 — Gmail Integration
+**Status: ⬜ Not started**
+
+**Objectives**
+- Connect a Gmail inbox and continuously sync relevant mail into `messages`.
+
+**Deliverables — milestones**
+- **OAuth** — Google OAuth connect flow; store credentials in
+  `integration_accounts` with **encrypted** tokens (Vault / pgsodium).
+- **Message Sync** — incremental sync via Gmail `historyId` (`sync_cursor`);
+  idempotent upsert keyed on `(integration_account_id, external_message_id)`.
+- **Attachment Sync** — persist attachment metadata to `message_attachments`
+  (+ storage strategy for blobs).
+- **Background Jobs** — scheduled/queued sync workers; retry & backoff; status
+  surfaced via `integration_accounts.status` / `last_error`.
+
+**Completion criteria**
+- A connected Gmail account reliably populates messages/attachments and links
+  them to opportunities/contacts; tokens never stored in plaintext.
+
+**Current status** — Pending. Schema already supports it (no migration needed to start).
+
+---
+
+### Phase 4 — AI Layer
+**Status: ⬜ Not started**
+
+**Objectives**
+- Add assistive intelligence that reads CRM data and writes provenance-tracked output.
+
+**Deliverables — milestones**
+- **Resume Parser** — extract structured profile/skills to seed matching.
+- **AI Notes** — draft notes on opportunities (provenance in `opportunity_notes.metadata`).
+- **AI Summary** — per-message and per-opportunity summaries (`ai_summary` + `ai_*`).
+- **AI Timeline** — agent-generated `opportunity_events` (`actor_type='agent'`).
+- **AI Copilot** — conversational assistant over the CRM (draft replies, next actions).
+
+**Completion criteria**
+- AI outputs are stored with `ai_model` / `ai_prompt_version` / `ai_confidence` /
+  `ai_processed_at`; agent actions are auditable in the event log.
+
+**Current status** — Pending. Provenance columns already exist (no migration to start).
+
+---
+
+### Phase 5 — Reporting
+**Status: ⬜ Not started**
+
+**Objectives**
+- Turn CRM activity into decision-useful metrics.
+
+**Deliverables — milestones**
+- **Analytics** — response rate (message `direction` + timestamps).
+- **Pipeline** — stage distribution, velocity, aging.
+- **Hiring Funnel** — applied → screening → interview → offer → hired conversion.
+- **KPIs** — interview rate, offer rate, source attribution dashboards.
+
+**Completion criteria**
+- Core rates and funnel views render from live data without schema redesign.
+
+**Current status** — Pending. Derivable from existing schema.
+
+---
+
+### Phase 6 — Production Hardening
+**Status: ⬜ Not started**
+
+**Objectives**
+- Make the CRM operable, observable, and secure at scale.
+
+**Deliverables — milestones**
+- **Audit Logs** — durable, tamper-evident action logging.
+- **Monitoring** — error tracking, uptime, sync-health alerting.
+- **Testing** — unit/integration/e2e coverage; CI gates.
+- **Performance** — query/index tuning, pagination, caching.
+- **Security** — per-user RLS, secret rotation, token encryption review, pen-test pass.
+
+**Completion criteria**
+- Defined SLOs met; CI enforces tests/lint/typecheck; security review signed off.
+
+**Current status** — Pending.
+
+---
+
+*Roadmap owner: repository maintainer. Update this file whenever phase scope or
+status changes.*
