@@ -23,6 +23,16 @@ product, reusing its authentication, middleware, and Supabase conventions.
 - **Configuration over hardcoding** — navigation and (later) pipelines are data.
 - **AI-ready by construction** — provenance columns exist before AI is wired up.
 
+**Related documentation**
+
+- [README](../../README.md) — repository landing page
+- [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md) — frontend/backend/DB/deploy
+- [Database Guide](../database/DATABASE_GUIDE.md) — ER diagram, tables, conventions
+- [Design System](../design/DESIGN_SYSTEM.md) — tokens, states, accessibility, motion
+- [Component Library](../design/COMPONENT_LIBRARY.md) — reusable components + reuse matrix
+- [AI Architecture](../ai/AI_ARCHITECTURE.md) — future AI layer design (Phase 4)
+- [Phase 1 Completion](./PHASE_1_COMPLETION.md) — Phase 1 report, decisions, debt
+
 ---
 
 ## Current status

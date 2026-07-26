@@ -243,6 +243,9 @@ in [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md).
 | [`docs/roadmap/PHASE_1_COMPLETION.md`](docs/roadmap/PHASE_1_COMPLETION.md) | Phase 1 report + lessons/decisions |
 | [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) | System architecture + diagrams |
 | [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md) | Database guide + ER diagram |
+| [`docs/design/DESIGN_SYSTEM.md`](docs/design/DESIGN_SYSTEM.md) | Design system — tokens, states, a11y, motion |
+| [`docs/design/COMPONENT_LIBRARY.md`](docs/design/COMPONENT_LIBRARY.md) | Reusable component catalogue + reuse matrix |
+| [`docs/ai/AI_ARCHITECTURE.md`](docs/ai/AI_ARCHITECTURE.md) | Future AI layer design (Phase 4) |
 
 ---
 
