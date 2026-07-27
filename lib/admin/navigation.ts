@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Inbox,
-  FileText,
   Building2,
   Users,
   MessageSquare,
@@ -10,6 +9,7 @@ import {
   Calendar,
   BarChart3,
   Settings,
+  Briefcase,
 } from "lucide-react";
 
 /**
@@ -45,7 +45,7 @@ export interface NavItem {
 export const adminNavigation: NavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/admin", icon: LayoutDashboard, enabled: true },
   { id: "inquiries", label: "Inquiries", href: "/admin", icon: Inbox, enabled: true },
-  { id: "applications", label: "Applications", href: "/admin/applications", icon: FileText, enabled: false },
+  { id: "opportunities", label: "Opportunities", href: "/admin/opportunities", icon: Briefcase, enabled: true },
   { id: "companies", label: "Companies", href: "/admin/companies", icon: Building2, enabled: true },
   { id: "contacts", label: "Contacts", href: "/admin/contacts", icon: Users, enabled: true },
   { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: false },
