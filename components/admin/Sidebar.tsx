@@ -2,28 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox } from "lucide-react";
 import { adminNavigation } from "@/lib/admin/navigation";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 
 export function Sidebar() {
   const pathname = usePathname();
 
-  // Highlight the first enabled item whose href matches the current path. Using
-  // the first match keeps a single item active even when two enabled entries
-  // share a route (Dashboard and Inquiries both point at /admin in Phase 1).
-  const activeId = adminNavigation.find(
-    (item) => item.enabled && pathname === item.href,
-  )?.id;
+  // Section-aware highlight: match on exact path or a nested path
+  // (e.g. /admin/companies/123 highlights "Companies"), choosing the item with
+  // the longest matching href so "/admin" (Inquiries) never wins over a deeper
+  // section.
+  let activeId: string | undefined;
+  let activeLen = -1;
+  for (const item of adminNavigation) {
+    if (!item.enabled) continue;
+    const matches = pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (matches && item.href.length > activeLen) {
+      activeId = item.id;
+      activeLen = item.href.length;
+    }
+  }
 
   return (
     <aside className="w-60 shrink-0 border-r border-white/[0.06] flex flex-col justify-between py-6 px-4">
       <div>
         <div className="flex items-center gap-2 px-2 mb-8">
           <div className="w-7 h-7 rounded-md bg-white/[0.06] border border-white/10 flex items-center justify-center">
-            <Inbox size={14} className="text-slate-300" />
+            <span className="text-[10px] font-bold tracking-tight text-slate-200">CRM</span>
           </div>
-          <span className="text-sm font-semibold text-white">Inquiries</span>
+          <span className="text-sm font-semibold text-white">Career CRM</span>
         </div>
 
         <nav className="space-y-0.5">

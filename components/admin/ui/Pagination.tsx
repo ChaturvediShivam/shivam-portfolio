@@ -42,6 +42,7 @@ export function Pagination({ page, pageSize, total, hrefForPage, className }: Pa
           href={hrefForPage(page - 1)}
           aria-label="Previous page"
           aria-disabled={page <= 1}
+          tabIndex={page <= 1 ? -1 : undefined}
           className={cn(linkBase, page <= 1 ? disabled : enabled)}
         >
           <ChevronLeft className="size-4" aria-hidden />
@@ -54,6 +55,7 @@ export function Pagination({ page, pageSize, total, hrefForPage, className }: Pa
           href={hrefForPage(page + 1)}
           aria-label="Next page"
           aria-disabled={page >= pageCount}
+          tabIndex={page >= pageCount ? -1 : undefined}
           className={cn(linkBase, page >= pageCount ? disabled : enabled)}
         >
           Next

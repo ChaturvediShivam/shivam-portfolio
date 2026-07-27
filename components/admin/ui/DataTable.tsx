@@ -111,7 +111,7 @@ export function DataTable<T>({
             return (
               <tr
                 key={getRowKey(row)}
-                className="relative border-b border-white/[0.06] last:border-0 transition-colors hover:bg-white/[0.03]"
+                className="relative border-b border-white/[0.06] last:border-0 transition-colors hover:bg-white/[0.03] focus-within:bg-white/[0.05]"
               >
                 {columns.map((col, ci) => {
                   const content = col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? "");
