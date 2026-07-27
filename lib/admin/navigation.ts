@@ -43,7 +43,7 @@ export interface NavItem {
  * pages is Phase 2 work and intentionally out of scope here.
  */
 export const adminNavigation: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", href: "/admin", icon: LayoutDashboard, enabled: true },
+  { id: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, enabled: true },
   { id: "inquiries", label: "Inquiries", href: "/admin", icon: Inbox, enabled: true },
   { id: "opportunities", label: "Opportunities", href: "/admin/opportunities", icon: Briefcase, enabled: true },
   { id: "companies", label: "Companies", href: "/admin/companies", icon: Building2, enabled: true },
