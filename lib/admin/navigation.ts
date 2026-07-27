@@ -48,7 +48,7 @@ export const adminNavigation: NavItem[] = [
   { id: "opportunities", label: "Opportunities", href: "/admin/opportunities", icon: Briefcase, enabled: true },
   { id: "companies", label: "Companies", href: "/admin/companies", icon: Building2, enabled: true },
   { id: "contacts", label: "Contacts", href: "/admin/contacts", icon: Users, enabled: true },
-  { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: false },
+  { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: true },
   { id: "tasks", label: "Tasks", href: "/admin/tasks", icon: ListChecks, enabled: true },
   { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: false },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: false },
