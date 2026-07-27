@@ -46,7 +46,7 @@ export const adminNavigation: NavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/admin", icon: LayoutDashboard, enabled: true },
   { id: "inquiries", label: "Inquiries", href: "/admin", icon: Inbox, enabled: true },
   { id: "applications", label: "Applications", href: "/admin/applications", icon: FileText, enabled: false },
-  { id: "companies", label: "Companies", href: "/admin/companies", icon: Building2, enabled: false },
+  { id: "companies", label: "Companies", href: "/admin/companies", icon: Building2, enabled: true },
   { id: "contacts", label: "Contacts", href: "/admin/contacts", icon: Users, enabled: false },
   { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: false },
   { id: "tasks", label: "Tasks", href: "/admin/tasks", icon: ListChecks, enabled: false },

@@ -1,6 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { actionError, type ActionResult } from "@/lib/action-result";
+
+export { actionSuccess, actionError, isActionError, type ActionResult, type ActionFailure } from "@/lib/action-result";
 
 /**
  * Shared server-action pattern for the CRM.
@@ -19,20 +22,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * by the untouched Inquiry module). Server actions need the user id and a
  * data-shaped result, provided here.
  */
-
-export type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; formError?: string; fieldErrors?: Record<string, string> };
-
-export function actionSuccess<T>(data: T): ActionResult<T> {
-  return { ok: true, data };
-}
-
-export function actionError(
-  error: { formError?: string; fieldErrors?: Record<string, string> },
-): ActionResult<never> {
-  return { ok: false, ...error };
-}
 
 export interface AdminContext {
   supabase: SupabaseClient;

@@ -18,27 +18,28 @@
 
 export type Validator<V = unknown> = (value: V, all: Record<string, unknown>) => string | null;
 
-export type Schema<T extends Record<string, unknown>> = {
+export type Schema<T extends object> = {
   [K in keyof T]?: Validator<T[K]>[];
 };
 
-export type FieldErrors<T extends Record<string, unknown>> = Partial<Record<keyof T, string>>;
+export type FieldErrors<T extends object> = Partial<Record<keyof T, string>>;
 
-export type ValidationResult<T extends Record<string, unknown>> =
+export type ValidationResult<T extends object> =
   | { ok: true; fieldErrors: null }
   | { ok: false; fieldErrors: FieldErrors<T> };
 
-export function validate<T extends Record<string, unknown>>(
+export function validate<T extends object>(
   values: T,
   schema: Schema<T>,
 ): ValidationResult<T> {
   const fieldErrors: FieldErrors<T> = {};
+  const record = values as Record<string, unknown>;
 
   for (const key in schema) {
-    const validators = schema[key];
+    const validators = schema[key] as Validator[] | undefined;
     if (!validators) continue;
     for (const check of validators) {
-      const error = check(values[key], values);
+      const error = check(record[key], record);
       if (error) {
         fieldErrors[key] = error;
         break; // first error per field
