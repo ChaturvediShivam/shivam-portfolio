@@ -1,278 +1,389 @@
 # Design System
 
-The visual language for the Career CRM admin surface. It is minimal,
-enterprise-grade, and Linear/Vercel-inspired — a dark, low-chroma canvas where
-content and data lead and chrome recedes.
+The complete UI system for the Career CRM admin surface — minimal,
+enterprise-grade, Linear/Vercel-inspired: a dark, low-chroma canvas where content
+and data lead and chrome recedes. This document defines the tokens and standards;
+the [Component Library](./COMPONENT_LIBRARY.md) documents each component's API.
 
-**Related:** [README](../../README.md) · [Project Roadmap](../roadmap/PROJECT_ROADMAP.md) ·
-[Component Library](./COMPONENT_LIBRARY.md) · [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md)
+**Related:** [Component Library](./COMPONENT_LIBRARY.md) · [README](../../README.md) ·
+[System Architecture](../architecture/SYSTEM_ARCHITECTURE.md) ·
+[ADR-012 accessible drag-and-drop](../architecture/decisions/ADR-012-accessible-drag-and-drop.md)
 
-> Two surfaces exist. The **marketing** site uses the `consulting` palette
-> (navy/royal, light-first). This document governs the **admin / CRM** surface
-> (dark, slate + white-alpha). Values below are the tokens already in use across
-> `app/admin` and `components/admin`; extend them, don't reinvent them.
+> **Two surfaces.** The **marketing** site uses the `consulting` palette
+> (navy/royal, light-first, theme-aware). This document governs the **admin / CRM**
+> surface — dark, slate + white-alpha — implemented in `components/admin/ui/*` and
+> used across `app/admin`. Values below are the tokens **already in use**; extend
+> them, don't reinvent them.
 
----
-
-## Design principles
-
-1. **Content first, chrome last.** Surfaces are near-black; borders are barely-there
-   white-alpha. Ink, not boxes, creates hierarchy.
-2. **Calm and quiet.** Low chroma, restrained motion, generous but not loose spacing.
-3. **One consistent unit of everything.** A single type scale, spacing step, radius
-   set, and easing curve — reused everywhere.
-4. **Legible density.** Enterprise tools show a lot; default to `text-sm`, tight
-   rhythm, and scannable tables.
-5. **State is explicit.** Every surface has defined empty, loading, and error states.
-6. **Accessible by default.** Sufficient contrast, focus-visible rings, keyboard paths.
+**Where components live:** the admin kit is `components/admin/ui/` (barrel:
+`@/components/admin/ui`); shared class-merge is `lib/utils.ts` (`cn`). The
+marketing kit (`components/ui/`) is separate and light-themed.
 
 ---
 
-## Typography scale
+## Design Principles
 
-System font stack (marketing uses `Inter`; admin inherits the app font). Weights:
-`font-medium` (500) for emphasis, `font-semibold` (600) for headings. Avoid bold-700 in-app.
+1. **Content first, chrome last** — near-black surfaces, barely-there white-alpha borders; ink creates hierarchy.
+2. **Calm and quiet** — low chroma, restrained motion, generous-not-loose spacing.
+3. **One unit of everything** — a single type scale, spacing step, radius set, and easing curve, reused everywhere.
+4. **Legible density** — default `text-sm`, tight rhythm, scannable tables.
+5. **State is explicit** — every surface has empty, loading, and error states.
+6. **Accessible by default** — contrast, focus-visible rings, keyboard paths.
 
-| Token | Tailwind | Size / line | Use |
-|-------|----------|-------------|-----|
-| Display | `text-xl` | 20px | Page titles (`PageHeader` h1) |
-| Heading | `text-lg` | 18px | Section headings, drawer titles |
+---
+
+## Typography
+
+System/Inter stack. Weights: `font-medium` (500) for emphasis, `font-semibold`
+(600) for headings — avoid bold-700 in-app.
+
+| Token | Class | Size | Use |
+|-------|-------|------|-----|
+| Display | `text-xl` | 20px | Page titles (`PageHeader` `<h1>`) |
+| Heading | `text-lg` | 18px | Section headings, drawer/dialog titles |
 | Body | `text-sm` | 14px | **Default** — body, table cells, inputs, nav |
 | Caption | `text-xs` | 12px | Metadata, badges, helper/error text, table headers |
+| Stat value | `text-2xl font-semibold` | 24px | `StatCard` numbers |
 
-- Primary text `text-slate-200`; headings `text-white`.
-- Secondary `text-slate-400`; muted/meta `text-slate-500`; disabled `text-slate-600`.
-- Table column headers: `text-xs`, `text-slate-500`, often uppercase/tracked.
+Text colour ramp (on `#0B0E14`): heading `text-white` · primary `text-slate-200` ·
+secondary `text-slate-400` · muted/meta `text-slate-500` · disabled/dash
+`text-slate-600`. Numeric columns use `tabular-nums`.
 
 ---
 
-## Spacing system
+## Spacing
 
-4px base unit; use Tailwind's default scale. Common admin rhythm:
+4px base (Tailwind default scale).
 
 | Context | Classes |
-|--------|---------|
+|---------|---------|
 | Page padding | `p-6 md:p-10` |
-| Card / panel padding | `p-4` (compact) · `p-6` (roomy) |
-| Nav item padding | `px-3 py-2` |
-| Badge padding | `px-2 py-0.5` |
-| Stack gap (tight) | `space-y-0.5` (nav) · `space-y-1` |
-| Stack gap (content) | `space-y-4` · `space-y-6` |
+| Card / panel padding | `p-4` (compact) · `p-5` (default) · `p-6` (roomy) |
+| Nav item | `px-3 py-2` · Badge | `px-2 py-0.5` |
+| Stack (tight) | `space-y-0.5`–`space-y-1` · (content) `space-y-6`–`space-y-8` |
 | Inline gap | `gap-2` (icon+label) · `gap-3` |
-| Content max width | `max-w-7xl mx-auto` |
+| Content width | list `max-w-7xl mx-auto` · detail `max-w-4xl`/`max-w-6xl` · form `max-w-3xl` · board `max-w-none` |
+
+Section rhythm: top-level page sections separated by `space-y-6` (dense) /
+`space-y-8` (dashboard).
 
 ---
 
-## Grid system
-
-- **App shell:** `flex` — fixed `w-60` sidebar (`shrink-0`) + `flex-1 min-w-0` main.
-- **Content:** `max-w-7xl mx-auto` centered column.
-- **Cards / metrics:** responsive `grid` — `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` for metric rows; `gap-4`.
-- **Two-pane (messages/detail):** `grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]` list + reader.
-- Always guard overflow with `min-w-0`; wide content (tables) scrolls inside `overflow-x-auto`.
-
----
-
-## Border radius
+## Radius
 
 | Token | Class | Use |
 |-------|-------|-----|
 | Default | `rounded-md` (6px) | Buttons, inputs, nav items, most surfaces |
-| Card | `rounded-lg` (8px) | Cards, panels, drawers, modals |
-| Pill | `rounded-full` | Badges, avatars, status dots |
+| Card | `rounded-lg` (8px) | Cards, panels, drawers, dialogs |
+| Pill | `rounded-full` | Badges, avatars, status dots, toggles |
 
----
+## Elevation / Shadow
 
-## Shadow scale
-
-The dark surface leans on **borders and background elevation**, not heavy shadows.
+The dark surface leans on **borders + background layering**, not heavy shadows.
 
 | Level | Approach |
 |-------|----------|
-| Flat (0) | `border border-white/[0.06]` — default panels |
-| Raised (1) | `bg-white/[0.03]` over the page — cards, table rows on hover |
-| Elevated (2) | `bg-white/[0.06]` + `border-white/10` — active/selected, popovers |
-| Overlay (3) | Drawers/modals: `bg-[#0B0E14]` + `border-white/10` + a soft `shadow-2xl shadow-black/40` and a `bg-black/60 backdrop-blur-sm` scrim |
+| Flat | `border border-white/[0.06]` |
+| Raised | `bg-white/[0.03]` (cards, row hover) |
+| Elevated/active | `bg-white/[0.06]` + `border-white/10` |
+| Overlay | `bg-[#0B0E14]` + `border-white/10` + `shadow-2xl shadow-black/40`, scrim `bg-black/60 backdrop-blur-sm` |
 
 ---
 
-## Color palette
+## Buttons
 
-**Admin surface (primary for CRM).**
+Component: **`Button`** / `buttonClasses` (`components/admin/ui/Button.tsx`).
+Base: `inline-flex items-center justify-center gap-2 rounded-md font-medium
+focus-visible:ring-2 ring-white/20 disabled:opacity-50`.
 
-| Role | Value |
-|------|-------|
-| Canvas | `#0B0E14` (`bg-[#0B0E14]`) |
-| Surface 1 | `bg-white/[0.02]` |
-| Surface 2 | `bg-white/[0.03]` |
-| Surface 3 / active | `bg-white/[0.06]` |
-| Hairline border | `border-white/[0.06]` (subtle `/[0.04]`, strong `/10`) |
-| Text primary | `text-white` / `text-slate-200` |
-| Text secondary | `text-slate-400` |
-| Text muted | `text-slate-500` |
-| Text disabled | `text-slate-600` |
-| Accent (marketing/royal) | `#2563EB` (`consulting.royal`) — used sparingly in-app |
+| Variant | Style | Use |
+|---------|-------|-----|
+| `primary` | `bg-white text-slate-900 hover:bg-slate-200` | The single main action per view |
+| `secondary` | `bg-white/[0.06] text-slate-200 border border-white/10 hover:bg-white/[0.1]` | Supporting actions |
+| `ghost` | `text-slate-400 hover:text-white hover:bg-white/[0.06]` | Toolbar/inline (matches sidebar & sign-out) |
+| `danger` | `text-red-400 border border-red-500/20 hover:bg-red-500/10` | Destructive; always via `ConfirmDialog` |
+| `icon` | ghost + `size-8`, centered lucide icon | Compact icon-only actions |
 
-**Semantic hues** (used at `/10` bg, `/400` text, `/20` border):
-`blue` (info/new) · `amber` (warning/in-progress) · `purple` (special) ·
-`emerald` (success/positive) · `red` (danger/error) · `slate` (neutral/closed).
-
-**Marketing surface** (`consulting` palette, for reference): navy `#0A192F`/`#112240`/`#020C1B`,
-royal `#2563EB`, slate `#64748B`, backgrounds `#F8FAFC` (light)/`#020C1B` (dark).
+- **Sizes:** `sm` (`text-xs px-2.5 py-1.5`) · `md` (`text-sm px-3 py-2`, default).
+- **Loading:** `isLoading` swaps in a spinner and disables; width stays stable.
+- **Links styled as buttons:** use `buttonClasses(variant, size)` on `<Link>`.
+- **Icon sizing in buttons:** lucide `size-4`; spacing via base `gap-2`.
 
 ---
 
-## Badge variants
+## Cards
 
-Base: `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border`,
-plus a color triplet `bg-{hue}-500/10 text-{hue}-400 border-{hue}-500/20`.
+There is **no generic `Card` component** in the admin kit by design — cards are a
+**composition convention** (keeps markup honest and flexible). The canonical panel:
+
+```
+rounded-lg border border-white/[0.06] bg-white/[0.02] p-5
+```
+
+- Section header inside a card: `text-sm font-semibold text-white`, optional
+  `text-xs text-slate-500` description; content separated by
+  `border-t border-white/[0.06] pt-5` when needed.
+- **Metric tiles:** `StatCard` (`components/admin/dashboard/StatCard.tsx`) — label
+  (`text-xs text-slate-500`) + value (`text-2xl font-semibold`), link-aware,
+  `alert` variant turns the value red.
+- Hover for interactive cards: `hover:border-white/15 hover:bg-white/[0.03]`.
+
+---
+
+## Badges
+
+Component: **`Badge`** (`components/admin/ui/Badge.tsx`). Base:
+`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium
+border` + a hue triplet `bg-{hue}-500/10 text-{hue}-400 border-{hue}-500/20`.
+Optional leading `dot`.
 
 | Variant | Hue | Meaning |
 |---------|-----|---------|
 | `info` | blue | new / informational |
 | `progress` | amber | in progress / pending |
-| `special` | purple | follow-up / flagged |
-| `success` | emerald | converted / hired / positive |
+| `special` | purple | offer / flagged |
+| `success` | emerald | won / hired / positive |
 | `neutral` | slate | closed / archived / default |
-| `danger` | red | spam / error / rejected |
+| `danger` | red | rejected / error / overdue |
+
+**Domain mappings** (helpers in `types/*`): opportunity `stageBadgeVariant`, task
+`statusBadgeVariant`/`priorityBadgeVariant`, message `directionBadgeVariant`,
+inquiry `StatusBadge`. See [Component Library → StatusBadge](./COMPONENT_LIBRARY.md).
 
 ---
 
-## Status colours
+## Tables
 
-Canonical mappings (extend per entity via a `Record<Status, triplet>`, as
-`StatusBadge` already does for inquiries).
+Component: **`DataTable`** (`components/admin/ui/DataTable.tsx`) — generic, typed
+columns, server-friendly (sort/row-links are plain anchors).
 
-| Domain | Status → hue |
-|--------|--------------|
-| Inquiry | New→blue · In Progress→amber · Follow Up→purple · Converted→emerald · Closed→slate · Spam→red |
-| Opportunity stage | lead→slate · applied→blue · screening→cyan · interview→amber · offer→purple · hired→emerald · rejected→red · withdrawn→slate · on_hold→slate |
-| Task status | todo→slate · in_progress→amber · blocked→red · done→emerald · cancelled→slate |
-| Task priority | low→slate · medium→blue · high→amber · urgent→red |
-| Integration status | pending→slate · connected→emerald · syncing→blue · error→red · disconnected→slate |
-
----
-
-## Button hierarchy
-
-| Level | Style | Use |
-|-------|-------|-----|
-| **Primary** | `bg-white text-slate-900 hover:bg-slate-200 rounded-md px-3 py-2 text-sm font-medium` | The single main action per view |
-| **Secondary** | `bg-white/[0.06] text-slate-200 border border-white/10 hover:bg-white/[0.1]` | Supporting actions |
-| **Ghost** | `text-slate-400 hover:text-white hover:bg-white/[0.06]` | Toolbar/inline (matches sidebar & sign-out) |
-| **Danger** | `text-red-400 hover:bg-red-500/10 border-red-500/20` | Destructive; always via `ConfirmDialog` |
-| **Icon** | Ghost + square, `size-8`, centered lucide icon `size={15–16}` | Compact actions |
-
-States: `disabled:opacity-50 disabled:cursor-not-allowed`; loading swaps label for a spinner; all get `focus-visible:ring-2 ring-white/20`.
+- Header: `text-xs text-slate-500` uppercase; sortable headers are links with
+  `aria-sort` + caret.
+- Body: `text-sm text-slate-200`; row separators `divide`/`border-white/[0.06]`;
+  hover `hover:bg-white/[0.03]`; **keyboard focus** `focus-within:bg-white/[0.05]`
+  on the row.
+- Cell padding `px-4 py-3`; numeric right-aligned + `tabular-nums`; first column
+  is the identity link (stretched link for whole-row navigation via `rowHref`).
+- Wrapped in `overflow-x-auto rounded-lg border` — wide tables scroll inside, never
+  break the page. Pairs with `FilterBar` (top) + `Pagination` (bottom); empty →
+  `EmptyState`, loading → skeleton rows.
 
 ---
 
-## Form guidelines
+## Dialogs
 
-- Compose from `FormField` (label + control + hint/error). Labels `text-sm text-slate-300`; hints/errors `text-xs`.
-- Inputs: `bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600`, `focus-visible:ring-2 ring-white/20 focus:border-white/20`.
-- One column by default; group related fields; primary action bottom-right, cancel to its left.
-- Validation: inline, on blur + on submit; error text `text-red-400`; invalid control `border-red-500/40`; never rely on color alone (include text + `aria-invalid`).
-- Required marked with `*`; disabled fields dimmed (`opacity-50`).
-- Server actions return `{ ok, fieldErrors, formError }`; map `fieldErrors` under fields, `formError` to a top banner/toast.
+Components: **`Dialog`** + **`ConfirmDialog`** (`components/admin/ui/Dialog.tsx`,
+`ConfirmDialog.tsx`). Centered modal for short, focused, blocking tasks.
 
----
+- Panel: `max-w-sm`/`max-w-md`, `rounded-lg border border-white/10 bg-[#0B0E14]
+  shadow-2xl`; scrim `bg-black/60 backdrop-blur-sm`.
+- Header title + optional description + close (unless `hideClose`); sticky footer
+  actions (right-aligned).
+- **`ConfirmDialog`**: title, description, cancel (ghost) + confirm
+  (primary/`danger`); `isPending` for async; **focus defaults to the safe action**.
+- **A11y:** `role="dialog" aria-modal`, focus trap, `Esc` closes, scrim click
+  closes, focus restore, labelled by title (`useOverlay` hook).
 
-## Table standards
-
-- `DataTable`: header row `text-xs text-slate-500` (sticky on scroll), body `text-sm text-slate-200`.
-- Row separators `divide-y divide-white/[0.06]`; row hover `hover:bg-white/[0.03]`; selected `bg-white/[0.06]`.
-- Cell padding `px-4 py-3`; numeric columns right-aligned + tabular figures.
-- First column identity/name (link to detail); last column right-aligned `ActionMenu`.
-- Horizontal overflow scrolls inside `overflow-x-auto`; never break the page layout.
-- Sortable headers show a caret and are keyboard-activatable; sort state in the URL.
-- Pairs with `FilterBar` (top) and `Pagination` (bottom). Empty → `EmptyState`; loading → skeleton rows.
+Prefer **Drawers** for forms; **Dialogs** for confirmations/short tasks.
 
 ---
 
-## Drawer standards
+## Forms
 
-- Right-side panel for create/edit/quick-view without leaving context.
-- Width `w-full sm:max-w-md lg:max-w-lg`; full height; `bg-[#0B0E14] border-l border-white/10`.
-- Scrim `bg-black/60 backdrop-blur-sm`. Slides in with the `calm` easing (~200–250ms).
-- Header: title + close (`X`, `aria-label="Close"`); footer: sticky actions.
-- Focus trapped inside; `Esc` closes; focus returns to the trigger; `role="dialog" aria-modal="true"`.
+Components: **`FormField`**, **`TextInput`**, **`Textarea`**, **`Select`**,
+**`EntityPicker`** (`components/admin/ui/*`). Search: **`SearchInput`**.
+
+- **`FormField`** wraps label + control + hint/error and **auto-wires a11y**
+  (injects `id`, `aria-invalid`, `aria-describedby` into the child).
+- Inputs: `bg-white/[0.03] border border-white/10 rounded-md px-3 py-2 text-sm`,
+  `focus-visible:ring-2 ring-white/20 focus:border-white/20`, invalid →
+  `border-red-500/40`.
+- Labels `text-sm text-slate-300`; required marked `*`; hints/errors `text-xs`
+  (error `text-red-400`).
+- Layout: 1-col default, `sm:grid-cols-2` for wide forms; primary action
+  bottom-right, cancel to its left; `noValidate` (we own validation).
+- **`Select`** = native `<select>` (robust/accessible) for closed sets;
+  **`EntityPicker`** = async search-select for FK relations (WAI-ARIA combobox,
+  removable chips for multi).
+- Validation returns `ActionResult` `fieldErrors`/`formError` (see
+  [ADR-010](../architecture/decisions/ADR-010-action-result-pattern.md)); field
+  errors render under fields, form errors as a top banner + toast.
 
 ---
 
-## Modal standards
+## Drawers
 
-- Centered `Dialog` for focused tasks/confirmations; `max-w-md`, `rounded-lg`, same scrim.
-- Reserve for short, blocking interactions; prefer drawers for forms.
-- `ConfirmDialog` variant: title, body, cancel (secondary) + confirm (primary/danger); destructive confirms use danger styling and require an explicit click.
-- Same a11y contract as drawers (focus trap, `Esc`, labelled).
+Component: **`Drawer`** (`components/admin/ui/Drawer.tsx`). Right-side panel for
+create/edit/quick-view without leaving context.
+
+- Width `w-full sm:max-w-md` / `sm:max-w-lg`; full height; `bg-[#0B0E14]
+  border-l border-white/10 shadow-2xl`; scrim `bg-black/60 backdrop-blur-sm`.
+- Header (title + optional description + close), scrollable body, sticky footer
+  actions. Slides in with the `calm` easing.
+- **A11y:** identical contract to Dialog (`role="dialog" aria-modal`, focus trap,
+  `Esc`, scrim close, focus restore) via `useOverlay`.
 
 ---
 
-## Empty states
+## Toasts
 
-`EmptyState` = centered icon (lucide, `size-6` in a `rounded-lg bg-white/[0.03]` tile) + title (`text-sm text-slate-300`) + subtitle (`text-xs text-slate-500`) + optional primary CTA.
+Component: **`ToastProvider`** + **`useToast`** (`components/admin/ui/Toast.tsx`).
+Transient feedback after mutations.
+
+- Variants: `success` (emerald), `error` (red), `info` (blue) — each with a lucide
+  icon; bottom-right stack, auto-dismiss (~4s), manual dismiss.
+- Surface: `rounded-lg border border-white/10 bg-[#0B0E14] shadow-2xl`.
+- **A11y:** live region `aria-live="polite"` (errors `role="alert"`); never the
+  only channel for a critical error.
+- **Scoping:** mounted per-module via each module's `layout.tsx` (deliberately not
+  in the shared dashboard layout, to keep the Inquiry module untouched).
+
+---
+
+## Loading
+
+Components: **`LoadingState`** + **`Skeleton`** (`components/admin/ui/LoadingState.tsx`).
+
+- **Route level:** each module's `loading.tsx` renders layout-matching skeletons
+  (`variant`: `table` · `list` · `card` · `detail`); shimmer `bg-white/[0.04]`
+  pulse. Never a bare spinner for full pages.
+- **In-place:** `useTransition` pending → dim/disable; `useOptimistic`/local state
+  for instant board/table updates (with rollback).
+- **Buttons:** inline spinner via `isLoading`.
+- **A11y:** `aria-busy="true"` + `role="status"` + an `sr-only` "Loading…";
+  skeletons `aria-hidden`.
+
+---
+
+## Empty States
+
+Component: **`EmptyState`** (`components/admin/ui/EmptyState.tsx`). Icon tile +
+title (`text-sm text-slate-300`) + subtitle (`text-xs text-slate-500`) + optional CTA.
 
 - **First-run** ("No companies yet") → actionable CTA ("Add your first company").
-- **No results** (filters/search) → neutral copy + "Clear filters".
-- **Dependency-gated** (Messages before Gmail) → link to the enabling step (Settings).
+- **No results** (filters/search active) → neutral copy + "Clear filters".
+- **Dependency-gated** (e.g. Messages before Gmail sync) → copy pointing to the
+  enabling step.
 
 ---
 
-## Loading states
+## Error States
 
-- **Route level:** `loading.tsx` + `<Suspense>` render **skeletons** matching final layout (shimmer via `bg-white/[0.03]` + subtle pulse). Never a bare spinner for full pages.
-- **In-place:** `useTransition` pending → dim + disable; `useOptimistic` for instant table/board updates.
-- **Buttons:** replace label with inline spinner; keep width stable.
-- **Async selects (`EntityPicker`, `Combobox`):** inline spinner in the field.
+Component: **`ErrorState`** (`components/admin/ui/ErrorState.tsx`, `"use client"`).
 
----
-
-## Error states
-
-- **Segment errors:** `error.tsx` boundary with a concise message + "Try again" (reset) + optional details; never expose stack traces to users.
-- **Not found:** `not-found.tsx` for missing detail records.
-- **Action errors:** `Toast` (transient) or inline `formError` banner (form context).
-- **Validation errors:** inline per field (see Forms).
-- **Empty vs error are distinct** — never show "error" when the answer is simply "no data".
+- **Segment errors:** each module's `error.tsx` boundary renders `ErrorState` with
+  a concise message + "Try again" (`reset`); details never expose stack traces.
+- **Not found:** detail routes' `not-found.tsx` render `EmptyState`.
+- **Action errors:** toast (transient) or inline `formError` banner (forms).
+- **Validation errors:** inline per field.
+- **Empty ≠ error** — never show an error when the answer is simply "no data".
 
 ---
 
-## Responsive behaviour
+## Accessibility
 
-- **Breakpoints:** Tailwind defaults (`sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280).
-- **Sidebar:** fixed `w-60` from `lg`; below `lg` it collapses to an overlay drawer triggered from a top bar (Phase 2 nav enhancement).
-- **Tables → cards:** on small screens, dense tables may switch to stacked card rows or scroll horizontally in an `overflow-x-auto` wrapper.
-- **Boards (Kanban):** horizontal scroll of stage columns on small screens.
-- Relative units, `max-w-full` media, no horizontal page scroll ever.
+Baseline for every screen (see [ADR-012](../architecture/decisions/ADR-012-accessible-drag-and-drop.md)
+for the board pattern):
 
----
-
-## Accessibility checklist
-
-- [ ] Color contrast ≥ 4.5:1 for text (verify slate-on-#0B0E14 usages; avoid slate-600 for essential text).
-- [ ] Never encode meaning in color alone — pair badges/status with text + icon.
-- [ ] Visible focus: `focus-visible:ring-2 ring-white/20` on all interactive elements.
-- [ ] Full keyboard operability: tab order, `Enter`/`Space` activation, arrow keys in menus/tabs.
-- [ ] Dialogs/drawers: focus trap, `Esc` to close, focus restore, `role`/`aria-modal`, labelled by title.
-- [ ] Forms: `<label htmlFor>`, `aria-invalid`, `aria-describedby` for hints/errors, required conveyed in text.
-- [ ] Tables: `<th scope>`, sortable headers as buttons with `aria-sort`.
+- [ ] Contrast ≥ 4.5:1 for text (avoid `text-slate-600` for essential text — dashes/disabled only).
+- [ ] Meaning never by colour alone — badges/status pair colour + text (+ icon).
+- [ ] Visible focus (`focus-visible:ring-2 ring-white/20`) on all interactive elements; **table rows** show focus via `focus-within`.
+- [ ] Full keyboard operability: tab order, `Enter`/`Space`, arrow keys in menus/combobox; disabled pagination removed from tab order (`tabIndex=-1`).
+- [ ] Dialogs/drawers: focus trap, `Esc`, focus restore, `role`/`aria-modal`, labelled by title.
+- [ ] Forms: `<label htmlFor>`, `aria-invalid`, `aria-describedby`, required in text.
+- [ ] Tables: `<th scope>`, sortable headers as links with `aria-sort`.
 - [ ] Icon-only buttons have `aria-label`; decorative icons `aria-hidden`.
-- [ ] Live regions (`aria-live="polite"`) for toasts and async result counts.
-- [ ] Respect `prefers-reduced-motion` (see Motion).
-- [ ] Hit targets ≥ 32–40px; adequate spacing on touch.
+- [ ] Live regions for toasts and async result counts (`aria-live`).
+- [ ] Drag-and-drop always has a keyboard alternative (per-card `<select>`).
+- [ ] Landmarks: `<main>` (dashboard layout), `<section aria-labelledby>` on Dashboard/Analytics/Settings.
+- [ ] Respect `prefers-reduced-motion`.
 
 ---
 
-## Motion guidelines
+## Motion
 
-- **One curve:** `cubic-bezier(0.22, 1, 0.36, 1)` — the `calm` easing (Tailwind `ease-calm`, shared with `lib/motion.ts`). Use for hover/press and entrance/exit alike.
-- **Durations:** micro (hover/press) 150ms · UI (drawer/menu/toast) 200–250ms · entrance reveals 300–600ms (`fade-in` 0.5s, `slide-up` 0.6s keyframes).
-- **Purposeful only:** motion clarifies state change (open/close, appear/settle); no decorative looping.
-- **Framer Motion** for orchestrated reveals; **CSS transitions** for simple hover/color/opacity.
-- **Reduced motion:** honor `prefers-reduced-motion: reduce` — drop translations/scales, keep instant/opacity-only changes.
+- **One curve:** `cubic-bezier(0.22, 1, 0.36, 1)` — the `calm` easing (Tailwind
+  `ease-calm`, shared with `lib/motion.ts`). Used for hover/press and
+  entrance/exit alike.
+- **Durations:** micro (hover/press) 150ms · UI (drawer/menu/toast) 200–250ms ·
+  entrance reveals 300–600ms (`fade-in` 0.5s, `slide-up` 0.6s keyframes).
+- **Purposeful only** — motion clarifies state change; no decorative loops.
+- **Framer Motion** for orchestrated reveals; **CSS transitions** for
+  hover/colour/opacity.
+- **Reduced motion:** honor `prefers-reduced-motion: reduce` — drop
+  translations/scales, keep opacity-only.
 
 ---
 
-*Keep this in lockstep with `tailwind.config.js`, `app/globals.css`, and the
-component library. Any new token starts here first.*
+## Dark Theme
+
+The admin/CRM surface is **dark-only** by design (a focused back-office tool).
+
+| Role | Value |
+|------|-------|
+| Canvas | `#0B0E14` (`bg-[#0B0E14]`, set on the admin `<body>`) |
+| Surfaces | `bg-white/[0.02]` → `[0.03]` → `[0.06]` (layering) |
+| Borders | `border-white/[0.06]` (subtle `/[0.04]`, strong `/10`) |
+| Text | white → slate-200 → 400 → 500 → 600 |
+| Semantic hues | blue/amber/purple/emerald/red/slate at `/10` bg · `/400` text · `/20` border |
+| Accent | `#2563EB` (`consulting.royal`), used sparingly |
+
+- Overlays/menus/`<option>`s explicitly set `bg-[#0B0E14]` so native dropdowns
+  match the surface.
+- The **marketing** site is theme-aware (`next-themes`, light-first, `consulting`
+  palette) — a separate system; do not mix admin dark tokens into marketing.
+
+---
+
+## Responsive Behaviour
+
+Tailwind breakpoints: `sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280.
+
+- **App shell:** `flex` — fixed `w-60` sidebar (`shrink-0`) + `flex-1 min-w-0`
+  main; page content `max-w-7xl mx-auto` (board views `max-w-none`).
+- **Tables:** scroll inside `overflow-x-auto`; the page body never scrolls
+  horizontally.
+- **Boards (Kanban):** horizontal scroll of fixed-width (`w-72`) stage/status
+  columns.
+- **Forms:** `grid-cols-1` → `sm:grid-cols-2`; actions stack then right-align.
+- **Toolbars:** filters/search stack on small screens, row on `sm`/`lg`.
+- **Cards/metrics:** `grid-cols-2 → md:grid-cols-3 → xl:grid-cols-6` (stat rows).
+- **Overlays:** drawers full-width on mobile (`w-full`), constrained on `sm+`.
+- Relative units, `max-w-full` media, hit targets ≥ 32–40px.
+
+---
+
+## Cross-Referenced Components
+
+| Section | Component(s) | File |
+|---------|--------------|------|
+| Buttons | `Button`, `buttonClasses` | `components/admin/ui/Button.tsx` |
+| Badges | `Badge` (+ domain `*BadgeVariant`) | `components/admin/ui/Badge.tsx` |
+| Cards | composition · `StatCard` · `BarList` | inline · `components/admin/dashboard/StatCard.tsx` · `components/admin/analytics/BarList.tsx` |
+| Tables | `DataTable`, `Pagination` | `components/admin/ui/DataTable.tsx`, `Pagination.tsx` |
+| Dialogs | `Dialog`, `ConfirmDialog` | `components/admin/ui/Dialog.tsx`, `ConfirmDialog.tsx` |
+| Forms | `FormField`, `TextInput`, `Textarea`, `Select`, `EntityPicker`, `SearchInput`, `FilterBar` | `components/admin/ui/*` |
+| Drawers | `Drawer` | `components/admin/ui/Drawer.tsx` |
+| Toasts | `ToastProvider`, `useToast` | `components/admin/ui/Toast.tsx` |
+| Loading | `LoadingState`, `Skeleton` | `components/admin/ui/LoadingState.tsx` |
+| Empty | `EmptyState` | `components/admin/ui/EmptyState.tsx` |
+| Error | `ErrorState` | `components/admin/ui/ErrorState.tsx` |
+| Page header | `PageHeader` | `components/admin/ui/PageHeader.tsx` |
+| Hooks | `useUrlParams`, `useOverlay` | `components/admin/ui/*` |
+
+Full component APIs (props, variants, a11y, reuse matrix) in the
+[Component Library](./COMPONENT_LIBRARY.md).
+
+---
+
+## Document Control
+
+- **Version:** 1.1 (updated to reflect the implemented M0 kit at v1.0.0)
+- **Owner:** Repository maintainer (Shivam Chaturvedi)
+- **Last Updated:** 2026-07-28
+- **Related:** [Component Library](./COMPONENT_LIBRARY.md) ·
+  [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md) ·
+  [ADRs](../architecture/decisions/README.md)
+
+*Keep this in lockstep with `tailwind.config.js`, `app/globals.css`, and
+`components/admin/ui/*`. Any new token starts here first.*
