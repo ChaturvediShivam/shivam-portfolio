@@ -3,7 +3,7 @@
 - **Status:** Accepted (planned — Phase 3, M2)
 - **Date:** 2026-07-28
 - **Deciders:** Repository maintainer
-- **Related:** [Phase 3 Architecture](../PHASE_3_ARCHITECTURE.md#10-oauth-flow) · [Runbook · OAuth Recovery](../../operations/RUNBOOK.md#5-oauth-recovery-phase-3)
+- **Related:** [Phase 3 Architecture](../PHASE_3_ARCHITECTURE.md#10-oauth-flow) · [Runbook · OAuth Recovery](../../operations/RUNBOOK.md)
 
 ## Context
 Phase 3 must connect the user's Gmail (and Calendar) to sync mail and act on their

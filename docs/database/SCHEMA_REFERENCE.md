@@ -354,7 +354,7 @@ entity (no new columns needed there).
 | `automation_runs` | 🟡 M10 | Per-trigger run audit | `id`; `rule_id → automation_rules CASCADE` | `trigger_ref`, `status`, `result jsonb`, `error` | `(rule_id)`, `(created_at desc)` | standard | none (append) | `automation.run_*`, `action_executed` | engine writes | M10 |
 
 - **Audit:** every run recorded in `automation_runs`; entity-affecting actions also write `opportunity_events` (`actor_type='agent'`). **Triggers:** `updated_at` on `automation_rules`.
-- **Events consumed:** domain events (as triggers) + schedules; **produced:** `automation.*` (see [Events §11](../architecture/EVENTS.md#11-automation-events-phase-3--m10)).
+- **Events consumed:** domain events (as triggers) + schedules; **produced:** `automation.*` (see [Events §11](../architecture/EVENTS.md)).
 - **Typical queries:** enabled rules for a trigger type; run history for a rule. **Performance:** loop guards / run caps prevent cascades. **Future:** branching workflows (Inngest/WDK, ⚪). **Cross-ref:** [ADR-005 jobs](../architecture/decisions/ADR-005-background-jobs.md).
 
 ---
@@ -367,7 +367,7 @@ entity (no new columns needed there).
 - **Important columns:** `type`, `title`, `body`, `entity_type`, `entity_id`, `read_at`, `metadata` (channel/status).
 - **Indexes:** `(owner_id, read_at)`, `(created_at desc)`. **Constraints:** —. **RLS:** standard. **Soft delete:** none (read/expire). **Audit:** row is the record. **Triggers:** `updated_at`.
 - **Events produced:** `notification.created/dispatched/read` (🟡). **Consumed:** other domain events (message/task/stage/approval) via the dispatcher.
-- **Typical queries:** unread for owner (bell); mark read/all read. **Performance:** `(owner_id, read_at)` index. **Migration:** M5 additive. **Future:** digests, push/mobile, per-channel prefs. **Cross-ref:** [Events §10](../architecture/EVENTS.md#10-notification-events-phase-3--m5).
+- **Typical queries:** unread for owner (bell); mark read/all read. **Performance:** `(owner_id, read_at)` index. **Migration:** M5 additive. **Future:** digests, push/mobile, per-channel prefs. **Cross-ref:** [Events §10](../architecture/EVENTS.md).
 
 ---
 
@@ -379,7 +379,7 @@ entity (no new columns needed there).
 - **Important columns:** `external_event_id`, `calendar_id`, `title`, `starts_at`, `ends_at`, `location`, `attendees jsonb`, `external_ids`, `metadata`.
 - **Indexes:** **unique** `(integration_account_id, external_event_id)` (partial — idempotent); btree `starts_at`, `opportunity_id`. **Constraints:** event dedupe. **RLS:** standard. **Soft delete:** `archived_at` (or cancelled flag). **Triggers:** `updated_at`.
 - **Events produced:** `calendar.event_synced/created/updated/cancelled` (🟡); interview creation → `opportunity.interview_scheduled` (🟡). **Consumed:** calendar sync.
-- **Typical queries:** upcoming events; events for an opportunity; upsert by `external_event_id`. **Performance:** `starts_at` for agenda views; `syncToken` minimizes API calls. **Migration:** M4 additive. **Future:** two-way sync; recurring events. **Cross-ref:** [Events §9](../architecture/EVENTS.md#9-calendar-events-phase-3--m4).
+- **Typical queries:** upcoming events; events for an opportunity; upsert by `external_event_id`. **Performance:** `starts_at` for agenda views; `syncToken` minimizes API calls. **Migration:** M4 additive. **Future:** two-way sync; recurring events. **Cross-ref:** [Events §9](../architecture/EVENTS.md).
 
 ---
 
@@ -393,7 +393,7 @@ entity (no new columns needed there).
 - **Soft delete:** none (retain done/failed for observability; prune old). **Audit:** `last_error`, status transitions. **Triggers:** `updated_at`.
 - **Events produced:** none itself. **Consumed:** enqueued from domain events; dispatches to handlers (sync/summarize/embed/dispatch/automation).
 - **Typical queries:** claim batch (`status='pending' AND run_after<=now()` `FOR UPDATE SKIP LOCKED`); dead-letter list; stuck-lease reset (Runbook §6/§8).
-- **Performance:** `(status, run_after)` index is the hot path; bounded batches; chunked jobs. **Migration:** M1 additive. **Future:** swap backend (Inngest/WDK) behind `lib/jobs` (⚪). **Cross-ref:** [Runbook · Jobs/Cron/Queue](../operations/RUNBOOK.md#6-background-jobs-phase-3).
+- **Performance:** `(status, run_after)` index is the hot path; bounded batches; chunked jobs. **Migration:** M1 additive. **Future:** swap backend (Inngest/WDK) behind `lib/jobs` (⚪). **Cross-ref:** [Runbook · Jobs/Cron/Queue](../operations/RUNBOOK.md).
 
 ---
 

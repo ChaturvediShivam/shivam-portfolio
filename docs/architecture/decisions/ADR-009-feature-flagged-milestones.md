@@ -3,7 +3,7 @@
 - **Status:** Accepted (implemented across Phase 2; standard for Phase 3)
 - **Date:** 2026-07-28
 - **Deciders:** Repository maintainer
-- **Related:** [Phase 3 Implementation Guide](../PHASE_3_IMPLEMENTATION_GUIDE.md) · [Runbook · Rollback](../../operations/RUNBOOK.md#3-rollback)
+- **Related:** [Phase 3 Implementation Guide](../PHASE_3_IMPLEMENTATION_GUIDE.md) · [Runbook · Rollback](../../operations/RUNBOOK.md)
 
 ## Context
 The CRM is delivered continuously to production by a single maintainer. Large

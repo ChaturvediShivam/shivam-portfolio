@@ -274,7 +274,7 @@ flowchart LR
 ## 9. Background Job Flow 🟡 (Phase 3 · M1)
 
 Cross-link: [Phase 3 §15](./PHASE_3_ARCHITECTURE.md#15-background-job-strategy) ·
-[Runbook §6–§8](../operations/RUNBOOK.md#6-background-jobs-phase-3) ·
+[Runbook §6–§8](../operations/RUNBOOK.md) ·
 [ADR-005](./decisions/ADR-005-background-jobs.md).
 
 ```mermaid
@@ -377,7 +377,7 @@ flowchart LR
 ```
 
 Deduped per `type:entity:owner[:day]`; email keyed on `notification_id`. Detail:
-[Events §10](./EVENTS.md#10-notification-events-phase-3--m5).
+[Events §10](./EVENTS.md).
 
 ---
 
@@ -399,7 +399,7 @@ flowchart TD
 Actions reuse the same data layers as the UI (RLS/validation apply); external
 actions are approval-gated; every run recorded; loop guards prevent cascades.
 Detail: [Phase 3 §14](./PHASE_3_ARCHITECTURE.md#14-automation-engine),
-[Events §11](./EVENTS.md#11-automation-events-phase-3--m10).
+[Events §11](./EVENTS.md).
 
 ---
 
@@ -436,7 +436,7 @@ flowchart TD
 
 - Validation → `fieldErrors`; business → `formError`; unexpected → logged +
   generic; segment errors → `error.tsx`; missing detail → `not-found.tsx`.
-- Recovery paths in [Runbook §11/§15](../operations/RUNBOOK.md#11-production-incident-process).
+- Recovery paths in [Runbook §11/§15](../operations/RUNBOOK.md).
 
 ---
 

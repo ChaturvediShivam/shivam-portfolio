@@ -151,7 +151,7 @@ Cross-ref: [Schema Reference](./database/SCHEMA_REFERENCE.md) ·
 
 ## 6. Secret Management
 
-Cross-ref: [Runbook §4 Secret Rotation](./operations/RUNBOOK.md#4-secret-rotation).
+Cross-ref: [Runbook §4 Secret Rotation](./operations/RUNBOOK.md).
 
 - **Environment variables** 🟢 — held in Vercel (Production + Preview). Secrets are
   read **only** in server-only code / route handlers. `NEXT_PUBLIC_*` are
@@ -261,7 +261,7 @@ Design in [Phase 3 Architecture §10–§12](./architecture/PHASE_3_ARCHITECTURE
   (`integration_accounts.*_encrypted`, Vault/pgsodium); decrypted only in one
   server-only module; never logged.
 - **Refresh tokens** 🟡 — auto-refresh on expiry; on refresh failure → account
-  `status='error'` + reconnect ([Runbook §5](./operations/RUNBOOK.md#5-oauth-recovery-phase-3)).
+  `status='error'` + reconnect ([Runbook §5](./operations/RUNBOOK.md)).
 - **Webhook validation** 🟡 — future Gmail push (Pub/Sub) verifies provider
   signature/token; debounced/idempotent.
 - **Future providers** ⚪ — same OAuth/adapter pattern (ADR-007); no schema redesign.
@@ -282,7 +282,7 @@ Cross-ref: [Events](./architecture/EVENTS.md) ·
 - **Replay protection** 🟡 — at-least-once delivery + idempotency keys mean a replayed
   event is a no-op; provider webhooks verify signatures and coalesce.
 - **Dead-letter strategy** 🟡 — failed deliveries retry with backoff, then move to a
-  dead-letter state surfaced in Settings ([Runbook §8](./operations/RUNBOOK.md#8-queue-failures-phase-3)).
+  dead-letter state surfaced in Settings ([Runbook §8](./operations/RUNBOOK.md)).
 - **Event validation** 🟢/🟡 — event types are enum-constrained in `opportunity_events`
   today; the bus validates `type`/payload shape before dispatch.
 
@@ -290,7 +290,7 @@ Cross-ref: [Events](./architecture/EVENTS.md) ·
 
 ## 12. Background Jobs Security 🟡 (Phase 3)
 
-Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md#6-background-jobs-phase-3) ·
+Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md) ·
 [ADR-005](./architecture/decisions/ADR-005-background-jobs.md).
 
 - **Cron validation** 🟡 — `POST /api/jobs/run` requires the `CRON_SECRET`
@@ -312,7 +312,7 @@ Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md#6-background-jobs-phase-3
 - **Vercel** 🟢 — hosting/build/deploy; functions run server-side; secrets are
   Vercel env vars.
 - **Supabase** 🟢 — managed Postgres + Auth + RLS; backups/PITR per plan
-  ([Runbook §12–§13](./operations/RUNBOOK.md#12-backups)).
+  ([Runbook §12–§13](./operations/RUNBOOK.md)).
 - **HTTPS / TLS** 🟢 — enforced by Vercel at the edge for the custom domain (HSTS
   provided by the platform).
 - **Security headers** 🟢 — configured in `next.config.js` for all routes:
@@ -327,7 +327,7 @@ Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md#6-background-jobs-phase-3
     CSP is a future improvement. Admin pages are additionally `noindex` via metadata.
 - **Secrets** 🟢 — server-only (§6). **Build pipeline** 🟢 — lint → `tsc --noEmit` →
   build gates before deploy. **Rollback** 🟢 — promote last-good deployment / `v1.0.0`
-  ([Runbook §3/§17](./operations/RUNBOOK.md#3-rollback)).
+  ([Runbook §3/§17](./operations/RUNBOOK.md)).
 
 ---
 
@@ -341,13 +341,13 @@ Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md#6-background-jobs-phase-3
 - **Rate limits** 🟢 — the contact-form limiter blocks abusive submitters.
 - **Alerts / SIEM** ⚪ — **not configured today.** Recommended: an external uptime
   monitor + error-tracking/APM with alerting, and (future) SIEM/log export — see
-  [Runbook §14 action items](./operations/RUNBOOK.md#14-monitoring--).
+  [Runbook §14 action items](./operations/RUNBOOK.md).
 
 ---
 
 ## 15. Incident Response 🟢
 
-Full procedures in [Runbook §1, §4, §9–§11, §17](./operations/RUNBOOK.md#11-production-incident-process).
+Full procedures in [Runbook §1, §4, §9–§11, §17](./operations/RUNBOOK.md).
 
 | Incident | First actions |
 |----------|---------------|
@@ -359,7 +359,7 @@ Full procedures in [Runbook §1, §4, §9–§11, §17](./operations/RUNBOOK.md#
 | **Recovery** | Verify (Runbook §16); confirm `v1.0.0` intact; postmortem |
 
 Process: **detect → declare severity → mitigate first → communicate → preserve
-evidence → fix forward → verify → postmortem** ([Runbook §11](./operations/RUNBOOK.md#11-production-incident-process)).
+evidence → fix forward → verify → postmortem** ([Runbook §11](./operations/RUNBOOK.md)).
 
 ---
 

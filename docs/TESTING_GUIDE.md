@@ -104,7 +104,7 @@ Every change must pass, in order:
 - [ ] **Git clean / scope** — only intended files changed; scope guard passes (§18).
 - [ ] **Production deployment** — Vercel deployment reaches **Ready**; smoke passes (§5/§19).
 - [ ] **Release tag** — `v1.0.0` (`c2b5dc3`) unchanged; a new tag only for a new release.
-- [ ] **Rollback readiness** — previous deployment promotable; flag-off path known ([Runbook §3/§17](./operations/RUNBOOK.md#3-rollback)).
+- [ ] **Rollback readiness** — previous deployment promotable; flag-off path known ([Runbook §3/§17](./operations/RUNBOOK.md)).
 
 ---
 
@@ -137,7 +137,7 @@ for p in /admin /admin/dashboard /admin/companies /admin/contacts /admin/opportu
 
 ## 6. CRUD Testing 🟢
 
-Verify the standard lifecycle ([Data Flow §4](./architecture/DATA_FLOW.md#4-crud-flow-pattern)) for each CRM entity:
+Verify the standard lifecycle ([Data Flow §4](./architecture/DATA_FLOW.md)) for each CRM entity:
 
 - **Create** — required fields enforced; `owner_id` stamped; redirect to detail.
 - **Read** — list (search/filter/sort/pagination) + detail (relations) render under RLS.
@@ -259,7 +259,7 @@ Cross-link: [AI Architecture](./ai/AI_ARCHITECTURE.md) · [ADR-006](./architectu
 
 ## 13. OAuth Testing 🟡 (Phase 3 · M2)
 
-Cross-link: [ADR-004](./architecture/decisions/ADR-004-oauth.md) · [Runbook §5](./operations/RUNBOOK.md#5-oauth-recovery-phase-3).
+Cross-link: [ADR-004](./architecture/decisions/ADR-004-oauth.md) · [Runbook §5](./operations/RUNBOOK.md).
 
 - **Google login** 🟡 — connect → consent → callback stores an **encrypted** token; Settings shows Connected.
 - **Refresh tokens** 🟡 — near-expiry access token auto-refreshes; sync continues.
@@ -272,7 +272,7 @@ Cross-link: [ADR-004](./architecture/decisions/ADR-004-oauth.md) · [Runbook §5
 
 ## 14. Background Job Testing 🟡 (Phase 3 · M1)
 
-Cross-link: [ADR-005](./architecture/decisions/ADR-005-background-jobs.md) · [Runbook §6–§8](./operations/RUNBOOK.md#6-background-jobs-phase-3).
+Cross-link: [ADR-005](./architecture/decisions/ADR-005-background-jobs.md) · [Runbook §6–§8](./operations/RUNBOOK.md).
 
 - **Queue** 🟡 — enqueue → `pending`; claim via `SKIP LOCKED`; `done` on success.
 - **Retry** 🟡 — transient failure → `attempts++`, backoff, re-run; idempotent (no dupes on replay).
@@ -284,7 +284,7 @@ Cross-link: [ADR-005](./architecture/decisions/ADR-005-background-jobs.md) · [R
 
 ## 15. Notification Testing 🟡 (Phase 3 · M5)
 
-Cross-link: [Events §10](./architecture/EVENTS.md#10-notification-events-phase-3--m5).
+Cross-link: [Events §10](./architecture/EVENTS.md).
 
 - **Email** 🟡 — a triggering event dispatches a Resend email (mock in test); keyed on `notification_id` (no duplicates).
 - **Toast / in-app** 🟡 — bell shows unread; mark read/all read works.
@@ -342,7 +342,7 @@ Cross-link: [Design System](./design/DESIGN_SYSTEM.md#accessibility) · [ADR-012
 **Rollback verification**
 - [ ] Previous deployment promotable (Instant Rollback) / `v1.0.0` deployable.
 - [ ] After any rollback: prior routes healthy; `git rev-list -n1 v1.0.0` = `c2b5dc3`.
-- [ ] Full procedures: [Runbook §14–§17](./operations/RUNBOOK.md#14-production-deployment-checklist-every-milestone).
+- [ ] Full procedures: [Runbook §14–§17](./operations/RUNBOOK.md).
 
 ---
 

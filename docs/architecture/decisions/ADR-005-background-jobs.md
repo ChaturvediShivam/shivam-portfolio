@@ -3,7 +3,7 @@
 - **Status:** Accepted (planned — Phase 3, M1)
 - **Date:** 2026-07-28
 - **Deciders:** Repository maintainer
-- **Related:** [Phase 3 Architecture](../PHASE_3_ARCHITECTURE.md#15-background-job-strategy) · [Runbook · Jobs/Cron/Queue](../../operations/RUNBOOK.md#6-background-jobs-phase-3)
+- **Related:** [Phase 3 Architecture](../PHASE_3_ARCHITECTURE.md#15-background-job-strategy) · [Runbook · Jobs/Cron/Queue](../../operations/RUNBOOK.md)
 
 ## Context
 Phase 3 needs durable async work — Gmail/Calendar sync, AI summaries/embeddings,

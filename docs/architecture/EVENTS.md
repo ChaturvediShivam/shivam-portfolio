@@ -71,7 +71,7 @@ These apply to **all** events unless a category overrides them.
   exponential backoff + jitter, capped `max_attempts`, then **dead-letter**
   (`jobs.status='failed'`, surfaced in Settings). Producers never block on
   consumers (fire-and-forget enqueue). See
-  [Implementation Guide §15](./PHASE_3_IMPLEMENTATION_GUIDE.md#15-rollback-checklist)
+  [Implementation Guide §15](./PHASE_3_IMPLEMENTATION_GUIDE.md)
   and [Architecture §16](./PHASE_3_ARCHITECTURE.md#16-error-handling).
 - **Audit logging:** opportunity-scoped events → `opportunity_events`
   (`actor_type`); AI actions → `ai_audit_log` + `opportunity_events`
