@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   withAdminAction,
   actionSuccess,
+  actionError,
   getAdminActionContext,
   type ActionResult,
 } from "@/lib/actions";
@@ -15,6 +16,8 @@ import {
   searchActiveContacts,
   searchActiveOpportunities,
 } from "@/lib/messages";
+import { getGmailAccount } from "@/lib/integrations";
+import { enqueueGmailSyncNow } from "@/lib/sync/gmail-sync";
 import type { MessageLinkInput } from "@/types/message";
 
 export async function markReadAction(id: string, read: boolean): Promise<ActionResult<{ id: string }>> {
@@ -41,6 +44,18 @@ export async function restoreMessageAction(id: string): Promise<ActionResult<{ i
     revalidatePath("/admin/messages");
     revalidatePath(`/admin/messages/${id}`);
     return actionSuccess({ id });
+  });
+}
+
+export async function syncNowAction(): Promise<ActionResult<{ enqueued: boolean }>> {
+  return withAdminAction(async ({ supabase }) => {
+    const account = await getGmailAccount(supabase);
+    if (!account || account.status !== "connected") {
+      return actionError({ formError: "Connect a Gmail account first." });
+    }
+    await enqueueGmailSyncNow(supabase, account.id);
+    revalidatePath("/admin/messages");
+    return actionSuccess({ enqueued: true });
   });
 }
 

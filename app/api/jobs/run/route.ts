@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { featureEnabled } from "@/lib/featureFlags";
 import { createJobContext } from "@/lib/jobs/context";
 import { runJobs } from "@/lib/jobs/runner";
+import "@/lib/jobs/register"; // registers job handlers (side-effect import)
 
 /**
  * Cron-triggered job drainer (Phase 3 · M1).

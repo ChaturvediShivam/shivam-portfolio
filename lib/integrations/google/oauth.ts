@@ -17,6 +17,9 @@ const REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 /** Least-privilege scopes for M2 — identity only (verification-free). */
 export const GOOGLE_OAUTH_SCOPES = ["openid", "email", "profile"] as const;
 
+/** Gmail read scope (M3). Restricted — added via incremental auth when enabled. */
+export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"] as const;
+
 /** Refresh when the access token is within this window of expiry. */
 const REFRESH_SKEW_SECONDS = 60;
 

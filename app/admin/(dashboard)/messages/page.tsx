@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { listMessages } from "@/lib/messages";
+import { featureEnabled } from "@/lib/featureFlags";
+import { getGmailAccount } from "@/lib/integrations";
+import { SyncNowButton } from "@/components/admin/messages/SyncNowButton";
 import {
   PageHeader,
   DataTable,
@@ -40,6 +43,10 @@ function formatDate(v: string | null) {
 export default async function MessagesPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const supabase = await createServerSupabaseClient();
+
+  const gmailSyncEnabled = featureEnabled("FEATURE_GMAIL_SYNC");
+  const gmailAccount = gmailSyncEnabled ? await getGmailAccount(supabase) : null;
+  const canSync = gmailSyncEnabled && gmailAccount?.status === "connected";
 
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
   const sort = (MESSAGE_SORT_FIELDS as readonly string[]).includes(params.sort ?? "")
@@ -112,7 +119,7 @@ export default async function MessagesPage({ searchParams }: PageProps) {
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
-      <PageHeader title="Messages" count={result.total} />
+      <PageHeader title="Messages" count={result.total} actions={canSync ? <SyncNowButton /> : undefined} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <SearchInput param="q" placeholder="Search messages…" className="lg:w-72" />
