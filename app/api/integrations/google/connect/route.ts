@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { featureEnabled } from "@/lib/featureFlags";
+import { createOAuthState } from "@/lib/integrations";
+import {
+  buildAuthorizationUrl,
+  codeChallengeFromVerifier,
+  generateCodeVerifier,
+  generateState,
+  getGoogleOAuthConfig,
+} from "@/lib/integrations/google/oauth";
+
+/**
+ * Start Google OAuth (Phase 3 · M2).
+ *
+ * `GET /api/integrations/google/connect` — admin-only. Generates PKCE + state,
+ * persists them (single-use), and redirects the browser to Google's consent
+ * screen. Flag-gated by `FEATURE_GOOGLE_OAUTH`.
+ */
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest): Promise<Response> {
+  const settings = (params?: Record<string, string>) => {
+    const url = new URL("/admin/settings", req.url);
+    for (const [k, v] of Object.entries(params ?? {})) url.searchParams.set(k, v);
+    return NextResponse.redirect(url);
+  };
+
+  if (!featureEnabled("FEATURE_GOOGLE_OAUTH")) return settings();
+
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.redirect(new URL("/admin/login", req.url));
+
+  const config = getGoogleOAuthConfig();
+  if (!config) {
+    console.error("[oauth/connect] Google OAuth is not configured.");
+    return settings({ error: "oauth_config" });
+  }
+
+  try {
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = codeChallengeFromVerifier(codeVerifier);
+
+    await createOAuthState(supabase, {
+      ownerId: user.id,
+      state,
+      codeVerifier,
+      redirectTo: "/admin/settings",
+    });
+
+    return NextResponse.redirect(buildAuthorizationUrl({ config, state, codeChallenge }));
+  } catch (err) {
+    console.error("[oauth/connect] failed to start OAuth:", err);
+    return settings({ error: "oauth_start" });
+  }
+}

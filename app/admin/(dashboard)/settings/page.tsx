@@ -3,7 +3,9 @@ import { getSettingsData, APP_VERSION, BUILD_TIME } from "@/lib/settings";
 import { PageHeader, Badge } from "@/components/admin/ui";
 import { SettingRow, SettingToggle, IntegrationCard } from "@/components/admin/settings/SettingsControls";
 import { JobsHealthPanel } from "@/components/admin/settings/JobsHealthPanel";
+import { IntegrationConnectCard } from "@/components/admin/settings/IntegrationConnectCard";
 import { featureEnabled } from "@/lib/featureFlags";
+import { getGmailAccount } from "@/lib/integrations";
 
 export const metadata = { title: "Settings" };
 
@@ -36,6 +38,8 @@ export default async function SettingsPage() {
   const region = process.env.VERCEL_REGION ?? "—";
   const deployment = process.env.VERCEL_URL ?? "local";
   const jobsEnabled = featureEnabled("FEATURE_JOBS");
+  const oauthEnabled = featureEnabled("FEATURE_GOOGLE_OAUTH");
+  const gmailAccount = oauthEnabled ? await getGmailAccount(supabase) : null;
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-6">
@@ -115,12 +119,16 @@ export default async function SettingsPage() {
       {/* Integrations */}
       <Section id="integrations-heading" title="Integrations" description="Connect inboxes and calendars. OAuth arrives in Phase 3.">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <IntegrationCard
-            name="Gmail"
-            description="Sync email into the CRM."
-            status={gmailConnected ? "connected" : "not_connected"}
-            detail={gmailConnected ? "Inbox connected." : "Sync your inbox once OAuth is available."}
-          />
+          {oauthEnabled ? (
+            <IntegrationConnectCard account={gmailAccount} />
+          ) : (
+            <IntegrationCard
+              name="Gmail"
+              description="Sync email into the CRM."
+              status={gmailConnected ? "connected" : "not_connected"}
+              detail={gmailConnected ? "Inbox connected." : "Sync your inbox once OAuth is available."}
+            />
+          )}
           <IntegrationCard name="Google Calendar" description="Sync interviews and events." status="coming_soon" />
           <IntegrationCard name="More providers" description="LinkedIn, Greenhouse, Lever, Ashby, and more." status="coming_soon" />
         </div>
