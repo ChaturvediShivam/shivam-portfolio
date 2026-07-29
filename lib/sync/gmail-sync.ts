@@ -27,6 +27,7 @@ import {
  */
 
 const BACKFILL_LIMIT = 25; // bounded initial backfill
+const MAX_MESSAGES_PER_RUN = 50; // bound per-run work to stay under the function limit
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // continuous cadence
 const UNIQUE_VIOLATION = "23505";
 
@@ -47,7 +48,7 @@ interface SyncAccount {
 export async function syncGmailAccount(
   client: SupabaseClient,
   accountId: string,
-): Promise<{ processed: number }> {
+): Promise<{ processed: number; caughtUp: boolean }> {
   const { data: account, error } = await client
     .from("integration_accounts")
     .select("id, owner_id, sync_cursor, access_token_encrypted, refresh_token_encrypted, token_expires_at, archived_at")
@@ -55,7 +56,7 @@ export async function syncGmailAccount(
     .eq("provider", "gmail")
     .maybeSingle();
   if (error) throw error;
-  if (!account || (account as SyncAccount).archived_at) return { processed: 0 };
+  if (!account || (account as SyncAccount).archived_at) return { processed: 0, caughtUp: true };
 
   const acct = account as SyncAccount;
   const config = getGoogleOAuthConfig();
@@ -85,7 +86,11 @@ export async function syncGmailAccount(
     newHistoryId = (await getProfile(accessToken)).historyId;
   }
 
-  const toFetch = await filterUningested(client, acct.id, messageIds);
+  // Bound per-run work to stay under the serverless function limit. A larger
+  // delta is drained across runs; the cursor advances only once fully caught up.
+  const remaining = await filterUningested(client, acct.id, messageIds);
+  const toFetch = remaining.slice(0, MAX_MESSAGES_PER_RUN);
+  const caughtUp = remaining.length <= MAX_MESSAGES_PER_RUN;
 
   let processed = 0;
   for (const id of toFetch) {
@@ -101,14 +106,22 @@ export async function syncGmailAccount(
     }
   }
 
-  // Advance the cursor only after a successful pass.
+  // Advance the cursor only after a fully complete pass. When draining a large
+  // delta in slices, keep the old cursor so the next run re-lists and continues
+  // (message upserts are idempotent) — no messages are lost.
+  const update: Record<string, unknown> = {
+    last_synced_at: new Date().toISOString(),
+    status: "connected",
+  };
+  if (caughtUp) update.sync_cursor = newHistoryId;
+
   const { error: cursorError } = await client
     .from("integration_accounts")
-    .update({ sync_cursor: newHistoryId, last_synced_at: new Date().toISOString(), status: "connected" })
+    .update(update)
     .eq("id", acct.id);
   if (cursorError) throw cursorError;
 
-  return { processed };
+  return { processed, caughtUp };
 }
 
 /** Return the subset of ids not already stored for this account (quota saver). */
@@ -221,14 +234,16 @@ async function autoLink(
   );
   if (addresses.length === 0) return result;
 
-  // Contact by exact (case-insensitive) email.
-  const orFilter = addresses.map((a) => `email.ilike.${a}`).join(",");
+  // Contact by exact email. Addresses are lowercased (parseAddress) and contact
+  // emails are stored lowercased (normalizeEmail), so `.in` is an exact match —
+  // and it is parameterized, so sender-controlled addresses cannot inject into
+  // the query filter.
   const { data: contacts } = await client
     .from("contacts")
     .select("id, company_id")
     .eq("owner_id", account.owner_id)
     .is("archived_at", null)
-    .or(orFilter)
+    .in("email", addresses)
     .limit(1);
   const contact = contacts?.[0];
   if (contact) {
@@ -293,8 +308,17 @@ export async function enqueueGmailSyncNow(client: SupabaseClient, accountId: str
   await enqueueJob(client, { type: "gmail_sync", payload: { accountId } });
 }
 
-/** Continuous sync: schedule the next cycle if none is already pending. */
-export async function scheduleNextGmailSync(client: SupabaseClient, accountId: string): Promise<void> {
+/**
+ * Continuous sync: schedule the next cycle if none is already pending. `delayMs`
+ * is the normal cadence when caught up, or 0 to continue draining a large delta
+ * promptly. Only 'pending' is checked (not the still-'running' current job), so
+ * the caller can schedule the next cycle from inside the handler.
+ */
+export async function scheduleNextGmailSync(
+  client: SupabaseClient,
+  accountId: string,
+  delayMs: number = SYNC_INTERVAL_MS,
+): Promise<void> {
   const { data: pending } = await client
     .from("jobs")
     .select("id")
@@ -307,6 +331,6 @@ export async function scheduleNextGmailSync(client: SupabaseClient, accountId: s
   await enqueueJob(client, {
     type: "gmail_sync",
     payload: { accountId },
-    runAfter: new Date(Date.now() + SYNC_INTERVAL_MS),
+    runAfter: new Date(Date.now() + Math.max(0, delayMs)),
   });
 }

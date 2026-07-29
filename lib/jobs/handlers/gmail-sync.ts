@@ -15,6 +15,8 @@ registerJobHandler("gmail_sync", async (payload, ctx) => {
   const accountId = typeof payload.accountId === "string" ? payload.accountId : null;
   if (!accountId) throw new Error("gmail_sync: missing accountId in payload");
 
-  await syncGmailAccount(ctx.client, accountId);
-  await scheduleNextGmailSync(ctx.client, accountId);
+  const { caughtUp } = await syncGmailAccount(ctx.client, accountId);
+  // Caught up → normal cadence; otherwise continue draining the delta promptly.
+  if (caughtUp) await scheduleNextGmailSync(ctx.client, accountId);
+  else await scheduleNextGmailSync(ctx.client, accountId, 0);
 });
