@@ -72,7 +72,7 @@ Shared contract (referenced below to avoid repetition): admin mutations use
 `{ ok:false, formError }` if unauthenticated), validated by `lib/validation`,
 executed by a `server-only` data layer under **RLS**, returning an `ActionResult`;
 the client shows a toast and `router.refresh()`; the server `revalidatePath`s.
-See [CRUD pattern §4](#4-crud-flow-pattern), [API Reference](./API_REFERENCE.md#3-server-actions-api--current--the-crm-mutation-surface).
+See [CRUD pattern §4](#4-crud-flow-pattern-), [API Reference](./API_REFERENCE.md#3-server-actions-api--current--the-crm-mutation-surface).
 
 ### 3.1 Authentication 🟢
 - **Purpose:** admit only allowlisted admins. **Trigger:** login/signup/reset;
@@ -82,7 +82,7 @@ See [CRUD pattern §4](#4-crud-flow-pattern), [API Reference](./API_REFERENCE.md
 - **Business logic:** Supabase Auth; middleware refreshes session; callback exchanges
   code → session. **DB:** `auth.users` (managed). **Events:** none in-app.
 - **Response:** redirect to `/admin` or login. **Errors:** `400/403/409` (signup),
-  redirect on invalid session. **Status:** 🟢. Detail → [§5](#5-authentication-flow).
+  redirect on invalid session. **Status:** 🟢. Detail → [§5](#5-authentication-flow---).
 
 ### 3.2 Contact Form (public) 🟢
 - **Purpose:** capture public leads. **Trigger:** `POST /api/contact`. **Input:**
@@ -93,7 +93,7 @@ See [CRUD pattern §4](#4-crud-flow-pattern), [API Reference](./API_REFERENCE.md
   send email via **Resend**. **DB:** insert `inquiries` + `inquiry_activity`
   (`created`). **Events produced:** `inquiry.created`. **Consumed:** none.
 - **Response:** `200` success. **Errors:** `400` invalid/Turnstile, `429`
-  rate-limited, `500`. **Status:** 🟢. Detail → [§6](#6-inquiry-flow).
+  rate-limited, `500`. **Status:** 🟢. Detail → [§6](#6-inquiry-flow--public--admin).
 
 ### 3.3 Inquiry Management (admin) 🟢
 - **Purpose:** work inbound leads. **Trigger:** admin API routes (`PATCH status`,
@@ -116,7 +116,7 @@ See [CRUD pattern §4](#4-crud-flow-pattern), [API Reference](./API_REFERENCE.md
   restored/note_added/contact_linked/unlinked` (🟢). Companies/Contacts/Tasks →
   `company.*`/`contact.*`/`task.*` (🟡 domain bus). **Consumed:** none today.
 - **Response:** `ActionResult<{id}>` → redirect/toast/`revalidatePath`. **Errors:**
-  `fieldErrors`/`formError`. **Status:** 🟢. Detail → [§7](#7-crm-module-flows).
+  `fieldErrors`/`formError`. **Status:** 🟢. Detail → [§7](#7-crm-module-flows-).
 
 ### 3.8 Messages (read-only viewer) 🟢
 - **Purpose:** unified message viewer. **Trigger:** list/detail RSC; actions
@@ -125,7 +125,7 @@ See [CRUD pattern §4](#4-crud-flow-pattern), [API Reference](./API_REFERENCE.md
   **`body_html` sanitized server-side** ([ADR-011](./decisions/ADR-011-html-sanitization.md)).
 - **DB:** update `messages` (`is_read`/`archived_at`/links). **Events:** `message.read/archived/linked` (🟡).
 - **Response:** `ActionResult`. **Errors:** standard. **Status:** 🟢 viewer
-  (populated with data in Phase 3). Detail → [§7](#7-crm-module-flows).
+  (populated with data in Phase 3). Detail → [§7](#7-crm-module-flows-).
 
 ### 3.9 Analytics · 3.10 Dashboard 🟢
 - **Purpose:** reporting (Analytics) + operational overview (Dashboard).
@@ -192,7 +192,7 @@ sequenceDiagram
   gate; admin API self-guards via `requireAdminSession`.
 - **Server Actions** 🟢 — `withAdminAction` re-checks auth server-side.
 - **Future OAuth** 🟡 — Google Authorization Code + PKCE + `state` → encrypted tokens
-  ([§11](#11-gmail-flow--phase-3), [ADR-004](./decisions/ADR-004-oauth.md)).
+  ([§11](#11-gmail-flow--phase-3--m2m3), [ADR-004](./decisions/ADR-004-oauth.md)).
 - Security touchpoints → [Security §3–§4](../SECURITY.md#3-authentication).
 
 ---
