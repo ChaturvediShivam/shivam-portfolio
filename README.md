@@ -131,10 +131,14 @@ flowchart LR
   items with placeholder routes.
 - **Career CRM database foundation** — 10 additive tables, 10 enums, 60 indexes,
   full-text search, and RLS on every table (see below).
+- **Career CRM application (Phase 2)** — authenticated CRUD + UI for Companies,
+  Contacts, Opportunities (pipeline board), Messages, Tasks, plus Dashboard,
+  Analytics, and Settings; shipped to production and tagged `v1.0.0`.
 
 ### In progress / upcoming
 
-See the [roadmap](#roadmap). Phase 2 builds the CRUD + UI on top of the Phase 1 schema.
+See the [roadmap](#roadmap). Phase 3 adds Integrations (Gmail/Calendar), a
+background-job platform, an AI assistant, and workflow automation.
 
 ---
 
@@ -144,14 +148,13 @@ See the [roadmap](#roadmap). Phase 2 builds the CRUD + UI on top of the Phase 1 
 |-------|------|--------|
 | 0 | Portfolio Website | ✅ Complete |
 | 1 | Career CRM Foundation | ✅ Complete |
-| 2 | CRM Application (CRUD + UI) | ⬜ Not started |
-| 3 | Gmail Integration | ⬜ Not started |
-| 4 | AI Layer | ⬜ Not started |
-| 5 | Reporting | ⬜ Not started |
-| 6 | Production Hardening | ⬜ Not started |
+| 2 | CRM Application (CRUD + UI) | ✅ Complete (`v1.0.0`) |
+| 3 | Integrations, AI & Automation | ⬜ Not started |
+| 4 | Reporting | ⬜ Not started |
+| 5 | Production Hardening | ⬜ Not started |
 
-**Current progress:** Phase 1 complete and deployed. Full detail in
-[`docs/roadmap/PROJECT_ROADMAP.md`](docs/roadmap/PROJECT_ROADMAP.md).
+**Current progress:** Phase 2 complete and deployed (tagged `v1.0.0`); Phase 3 next.
+Full detail in [`docs/roadmap/PROJECT_ROADMAP.md`](docs/roadmap/PROJECT_ROADMAP.md).
 
 ---
 
@@ -224,13 +227,11 @@ in [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md).
 
 ## Future roadmap
 
-- **Phase 2 — CRM Application:** CRUD + UI for all entities; pipeline board;
-  split Dashboard from Inquiries.
-- **Phase 3 — Gmail Integration:** OAuth, incremental message/attachment sync,
-  background jobs, encrypted token storage.
-- **Phase 4 — AI Layer:** resume parsing, AI notes/summaries/timeline, copilot.
-- **Phase 5 — Reporting:** response/interview/offer rates, pipeline & funnel KPIs.
-- **Phase 6 — Production Hardening:** audit logs, monitoring, testing,
+- **Phase 3 — Integrations, AI & Automation:** Gmail/Calendar OAuth + incremental
+  sync, durable background jobs, AI assistant (summaries, drafting, RAG copilot),
+  workflow automation, and notifications — encrypted tokens, human-in-the-loop.
+- **Phase 4 — Reporting:** response/interview/offer rates, pipeline & funnel KPIs.
+- **Phase 5 — Production Hardening:** audit logs, monitoring, testing,
   performance, per-user security.
 
 ---
@@ -245,10 +246,10 @@ in [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md).
 | [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md) | Database guide + ER diagram |
 | [`docs/design/DESIGN_SYSTEM.md`](docs/design/DESIGN_SYSTEM.md) | Design system — tokens, states, a11y, motion |
 | [`docs/design/COMPONENT_LIBRARY.md`](docs/design/COMPONENT_LIBRARY.md) | Reusable component catalogue + reuse matrix |
-| [`docs/ai/AI_ARCHITECTURE.md`](docs/ai/AI_ARCHITECTURE.md) | Future AI layer design (Phase 4) |
+| [`docs/ai/AI_ARCHITECTURE.md`](docs/ai/AI_ARCHITECTURE.md) | AI layer design (Phase 3 · M6–M10) |
 
 ---
 
 <div align="center">
-<sub>Built with Next.js, Supabase, and Vercel · Phase 1 complete, Phase 2 pending.</sub>
+<sub>Built with Next.js, Supabase, and Vercel · Phase 2 complete (v1.0.0), Phase 3 pending.</sub>
 </div>

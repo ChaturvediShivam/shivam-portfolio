@@ -433,6 +433,70 @@ flowchart LR
 - **Determinism first:** conditions are declarative (field comparisons); AI is
   an *optional* action (e.g. "draft a reply"), never the rule evaluator.
 
+### 14.1 Automation Rule Schema (DSL)
+
+The `automation_rules` JSON columns follow a small, declarative, **non-Turing**
+DSL — **no user-authored code**. Validated by `lib/validation` on create/update
+(unknown keys/types rejected). These shapes are the M10 contract; they document the
+existing trigger→condition→action design and introduce no new architecture.
+
+**`trigger jsonb`** — exactly one trigger.
+
+| Field | Type | Rules |
+|-------|------|-------|
+| `type` | enum | `event` \| `schedule` (required) |
+| `event` | string | required when `type=event`; a domain-event `type` from [Events](./EVENTS.md) (e.g. `opportunity.stage_changed`, `message.received`, `task.overdue`) |
+| `schedule` | string | required when `type=schedule`; a cron expression (UTC) |
+
+**`conditions jsonb`** — an AND-array (all must pass; `[]` = always). Each entry is
+one field comparison against the trigger entity; **no nesting, no code**.
+
+| Field | Type | Rules |
+|-------|------|-------|
+| `field` | string | dotted path on the event entity (e.g. `opportunity.stage`, `message.direction`) |
+| `op` | enum | `eq · neq · in · not_in · gt · gte · lt · lte · contains · exists · is_null` |
+| `value` | scalar/array | required except for `exists`/`is_null`; type must match the field; `in`/`not_in` take arrays |
+
+**`actions jsonb`** — an ordered, non-empty array; each executes via the **same
+`lib/*` data layer the UI uses** (RLS + validation apply). External/high-impact
+actions are approval-gated (`ai_approvals`).
+
+| `action` (enum) | Payload | Approval |
+|-----------------|---------|:-------:|
+| `create_task` | `{ title, due_in_days?, priority?, opportunity_id? }` | no |
+| `send_notification` | `{ type, title, body? }` | no |
+| `add_note` | `{ opportunity_id, body }` | no |
+| `draft_email` | `{ template?, to? }` → `ai_approvals` | **yes** |
+| `change_stage` | `{ opportunity_id, to }` | **yes** |
+
+**Validation rules (enforced server-side before persist):**
+
+- `trigger.type`, `condition.op`, and `action.action` must be known enum members;
+  unknown keys are rejected.
+- `condition.field` must resolve to a readable field on the trigger entity, and
+  `value` is type-checked against it (including enum domains).
+- `change_stage.to` ∈ `opportunity_stage`; `create_task.priority` ∈ `task_priority`
+  (see [Schema Reference §2 Enums](../database/SCHEMA_REFERENCE.md)).
+- At least one action; approval-gated actions cannot be marked auto-execute.
+- `enabled=false` (or `FEATURE_AUTOMATION` off) makes the rule fully inert.
+
+**Loop safety:** an action that could re-fire its own trigger is bounded by
+per-entity run caps + cooldowns, recorded in `automation_runs` (see the loop-guard
+note above and [Events](./EVENTS.md)).
+
+```json
+{
+  "trigger": { "type": "event", "event": "opportunity.stage_changed" },
+  "conditions": [
+    { "field": "opportunity.stage", "op": "eq", "value": "interview" }
+  ],
+  "actions": [
+    { "action": "create_task", "title": "Send prep materials", "due_in_days": 2, "priority": "high" },
+    { "action": "send_notification", "type": "interview_prep", "title": "Interview stage reached" }
+  ]
+}
+```
+
 ---
 
 ## 15. Background Job Strategy
@@ -569,7 +633,7 @@ above; each milestone must pass before enablement.
 | **AI wrong/harmful action** | Trust/data | Approval-gating for all external/high-impact actions; full audit trail |
 | **Sync duplication/loss** | Data integrity | Idempotent upserts (unique index), cursor advance only after success, dead-letter |
 | **Provider API changes** | Breakage | Adapter abstraction + contract tests |
-| **Scope creep into Phase 4+** | Timeline | Strict milestone gating; non-goals fixed above |
+| **Scope creep into future phases** | Timeline | Strict milestone gating; non-goals fixed above |
 | **pgvector / infra availability** | AI retrieval | Confirm Supabase pgvector; degrade to FTS-only if unavailable |
 
 ---

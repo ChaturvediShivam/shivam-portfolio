@@ -40,7 +40,7 @@ flowchart TB
     RSC --> Resend
     V -. widget .-> Turnstile
     RSC -. Phase 3 .-> Google
-    RSC -. Phase 4 .-> LLM
+    RSC -. Phase 3 .-> LLM
     SB -. RLS enforced .- RSC
 ```
 
@@ -115,7 +115,8 @@ The backend is Next.js server-side code — there is no separate API server.
   middleware helper so Server Components see a fresh session.
 - **Authorization:** a single admin role model today — any authenticated user is
   treated as admin (enforced by RLS `auth.role() = 'authenticated'`). Per-user
-  authorization is a Phase 6 concern (columns already in place via `owner_id`).
+  authorization is a Phase 5 (Production Hardening) concern (columns already in
+  place via `owner_id`).
 
 ```mermaid
 sequenceDiagram
@@ -198,8 +199,8 @@ Designed for, but not yet built:
 - **Additional providers:** LinkedIn, Wellfound, Greenhouse, Lever, Ashby,
   Workday, Indeed, company portals — all fit the same `source` /
   `integration_account_id` / `external_ids` model with **no schema change**.
-- **AI layer (Phase 4):** agents read CRM data and write provenance-tracked
-  output (`ai_*` columns; `actor_type = 'agent'` events).
+- **AI layer (Phase 3 · M6–M10):** agents read CRM data and write
+  provenance-tracked output (`ai_*` columns; `actor_type = 'agent'` events).
 
 ```mermaid
 flowchart LR

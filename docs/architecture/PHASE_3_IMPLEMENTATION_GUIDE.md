@@ -421,6 +421,7 @@ specifics.
 
 ### M10 — Workflow Automation · `XL`
 - **Objective:** rule engine (trigger → condition → action).
+- **Rule DSL:** the `trigger`/`conditions`/`actions` JSON schema + validation rules are specified in [Phase 3 Architecture §14.1](./PHASE_3_ARCHITECTURE.md#141-automation-rule-schema-dsl).
 - **Folders/files:** `lib/automation/{engine,triggers,actions}.ts`, `lib/jobs/handlers/automation-run.ts`, `app/admin/(dashboard)/automations/*`, `components/admin/automations/*`; migration `automation_rules`, `automation_runs`. Minor additive `enqueue(event)` calls in emitting data layers.
 - **DB:** additive `automation_rules`, `automation_runs`. **Flag:** `FEATURE_AUTOMATION`.
 - **Security deltas:** actions run via existing `lib/*` (RLS/validation); external actions approval-gated; loop guard.

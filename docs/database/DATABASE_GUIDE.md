@@ -227,7 +227,8 @@ single-admin phase; revisit when multi-user lands.
   form writes only to inquiries, via the **service role** (server-only, bypasses
   RLS).
 - `owner_id` exists on every table so policies can later be narrowed to
-  per-user (`owner_id = auth.uid()`) with **no schema change** — a Phase 6 task.
+  per-user (`owner_id = auth.uid()`) with **no schema change** — a Phase 5
+  (Production Hardening) task.
 
 ---
 

@@ -179,7 +179,7 @@ Native Postgres enums (extend via `ALTER TYPE … ADD VALUE`). Defined in the Ph
 - **Soft delete:** n/a (delete → dependents `SET NULL`). **Audit:** Supabase auth logs. **Triggers:** managed.
 - **Events produced:** none in-app (sign-in/out handled by Auth). **Events consumed:** none.
 - **Typical queries:** `supabase.auth.getUser()`; allowlist check `isAdminEmail(user.email)`.
-- **Performance notes:** not queried in hot paths. **Migration history:** provisioned by Supabase. **Future:** multi-user roles/teams (Phase 6).
+- **Performance notes:** not queried in hot paths. **Migration history:** provisioned by Supabase. **Future:** multi-user roles/teams (Phase 5 · Production Hardening).
 
 > **Authorization model:** single-admin — any authenticated user is admin (RLS
 > `auth.role()='authenticated'`). The **allowlist** (`lib/auth/adminEmail.ts`) is
@@ -355,6 +355,7 @@ entity (no new columns needed there).
 
 - **Audit:** every run recorded in `automation_runs`; entity-affecting actions also write `opportunity_events` (`actor_type='agent'`). **Triggers:** `updated_at` on `automation_rules`.
 - **Events consumed:** domain events (as triggers) + schedules; **produced:** `automation.*` (see [Events §11](../architecture/EVENTS.md)).
+- **Rule DSL:** the `trigger`/`conditions`/`actions` JSON schema + validation rules are specified in [Phase 3 Architecture §14.1](../architecture/PHASE_3_ARCHITECTURE.md#141-automation-rule-schema-dsl).
 - **Typical queries:** enabled rules for a trigger type; run history for a rule. **Performance:** loop guards / run caps prevent cascades. **Future:** branching workflows (Inngest/WDK, ⚪). **Cross-ref:** [ADR-005 jobs](../architecture/decisions/ADR-005-background-jobs.md).
 
 ---

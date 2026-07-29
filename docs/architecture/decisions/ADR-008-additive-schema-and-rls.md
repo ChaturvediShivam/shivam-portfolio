@@ -32,12 +32,14 @@ ones; generated `tsvector` FTS.
 ## Cons
 - `owner_id`-scoped unique constraints are dormant while `owner_id` is null.
 - Additive discipline can accumulate unused columns/tables over time.
-- Coarse single-admin policy (any authenticated user = full access) until Phase 6.
+- Coarse single-admin policy (any authenticated user = full access) until Phase 5
+  (Production Hardening).
 
 ## Consequences
 - Every Phase 2/3 table follows the convention; migrations applied out-of-band.
 - Rollback strategy favors roll-forward; destructive teardown is a separate explicit migration.
 
 ## Future Impact
-- Multi-user (Phase 6) tightens policies to `owner_id = auth.uid()` — a migration,
-  not a redesign; the AI/integration tables inherit the same posture.
+- Multi-user (Phase 5 · Production Hardening) tightens policies to
+  `owner_id = auth.uid()` — a migration, not a redesign; the AI/integration tables
+  inherit the same posture.

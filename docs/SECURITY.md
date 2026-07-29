@@ -117,7 +117,8 @@ flowchart TD
   is the real membership boundary (gates signup). There is **no finer role system**.
 - **Future RBAC** ⚪ — multi-user/teams tighten RLS to `owner_id = auth.uid()` and
   introduce roles ([ADR-008](./architecture/decisions/ADR-008-additive-schema-and-rls.md),
-  Phase 6). `owner_id` already exists on every table to enable this without a redesign.
+  Phase 5 · Production Hardening). `owner_id` already exists on every table to enable
+  this without a redesign.
 
 ---
 
@@ -424,8 +425,10 @@ after mitigation.
 - **Phase 3** 🟡 — OAuth token custody (encryption/rotation), cron/webhook secret &
   signature auth, job ownership/dead-letter, AI approval gating + budgets +
   RLS-scoped retrieval, notification/automation auditing.
-- **Phase 4** 🟡/⚪ — AI hardening: prompt-injection defenses, eval/guardrail harness,
-  agent action scoping, per-agent budgets, PII redaction review.
+- **Phase 5 (Production Hardening)** 🟡/⚪ — AI hardening: prompt-injection defenses,
+  eval/guardrail harness, agent action scoping, per-agent budgets, PII redaction
+  review. *(Phase 3 ships AI with baseline approval-gating + RLS-scoped tools; the
+  deeper hardening pass lands here.)*
 - **Future enterprise** ⚪ — per-user/team **RLS + RBAC** (activate `owner_id`
   scoping), nonce/hash-based **CSP**, **SIEM**/log export + alerting, external error
   tracking/APM, secret management via a KMS/Vault, periodic **penetration testing**,

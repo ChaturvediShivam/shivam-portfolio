@@ -30,7 +30,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 - [Database Guide](../database/DATABASE_GUIDE.md) — ER diagram, tables, conventions
 - [Design System](../design/DESIGN_SYSTEM.md) — tokens, states, accessibility, motion
 - [Component Library](../design/COMPONENT_LIBRARY.md) — reusable components + reuse matrix
-- [AI Architecture](../ai/AI_ARCHITECTURE.md) — future AI layer design (Phase 4)
+- [AI Architecture](../ai/AI_ARCHITECTURE.md) — AI layer design (Phase 3 · M6–M10)
 - [Phase 1 Completion](./PHASE_1_COMPLETION.md) — Phase 1 report, decisions, debt
 
 ---
@@ -41,7 +41,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 |------|-------|
 | Live product | Portfolio + inquiry admin, in production |
 | Career CRM schema | Applied to production Supabase, verified |
-| Active phase | **Phase 1 complete** — Phase 2 not started |
+| Active phase | **Phase 2 complete** (tagged `v1.0.0` · `c2b5dc3`) — Phase 3 not started |
 | Production URL | https://www.shivamchaturvedi.com |
 | Latest phase report | [`PHASE_1_COMPLETION.md`](./PHASE_1_COMPLETION.md) |
 
@@ -51,11 +51,10 @@ product, reusing its authentication, middleware, and Supabase conventions.
 |-------|------|--------|
 | 0 | Portfolio Website | ✅ Complete |
 | 1 | Career CRM Foundation | ✅ Complete |
-| 2 | CRM Application | ⬜ Not started |
-| 3 | Gmail Integration | ⬜ Not started |
-| 4 | AI Layer | ⬜ Not started |
-| 5 | Reporting | ⬜ Not started |
-| 6 | Production Hardening | ⬜ Not started |
+| 2 | CRM Application | ✅ Complete (`v1.0.0`) |
+| 3 | Integrations, AI & Automation | ⬜ Not started |
+| 4 | Reporting | ⬜ Not started |
+| 5 | Production Hardening | ⬜ Not started |
 
 ---
 
@@ -118,7 +117,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 ---
 
 ### Phase 2 — CRM Application
-**Status: ⬜ Not started**
+**Status: ✅ Complete** (tagged `v1.0.0` · `c2b5dc3`)
 
 Build the application layer (CRUD + UI) on the Phase 1 schema, replacing the
 "Coming Soon" placeholders one module at a time.
@@ -146,56 +145,58 @@ Build the application layer (CRUD + UI) on the Phase 1 schema, replacing the
 - Every sidebar item is enabled and backed by a working page; no placeholder
   routes remain; RLS enforced on all reads/writes.
 
-**Current status** — Pending.
+**Current status** — Complete; shipped to production and tagged `v1.0.0`.
 
 ---
 
-### Phase 3 — Gmail Integration
+### Phase 3 — Integrations, AI & Automation
 **Status: ⬜ Not started**
 
-**Objectives**
-- Connect a Gmail inbox and continuously sync relevant mail into `messages`.
+The current build phase. Turns the CRM from a system of *record* into a system
+of *action*: real data sources (Gmail, Google Calendar), a durable background-job
+platform, an AI assistant that reads and (with approval) acts on CRM data, a
+rule-based automation engine, and notifications. Delivered as **ten additive,
+feature-flagged milestones (M1–M10)**, each independently deployable and reversible
+to the `v1.0.0` baseline. Full design and plan:
+[Phase 3 Architecture](../architecture/PHASE_3_ARCHITECTURE.md) ·
+[Phase 3 Implementation Guide](../architecture/PHASE_3_IMPLEMENTATION_GUIDE.md) ·
+[AI Architecture](../ai/AI_ARCHITECTURE.md).
 
-**Deliverables — milestones**
-- **OAuth** — Google OAuth connect flow; store credentials in
-  `integration_accounts` with **encrypted** tokens (Vault / pgsodium).
-- **Message Sync** — incremental sync via Gmail `historyId` (`sync_cursor`);
-  idempotent upsert keyed on `(integration_account_id, external_message_id)`.
-- **Attachment Sync** — persist attachment metadata to `message_attachments`
-  (+ storage strategy for blobs).
-- **Background Jobs** — scheduled/queued sync workers; retry & backoff; status
-  surfaced via `integration_accounts.status` / `last_error`.
+**Objectives**
+- Connect Gmail and Google Calendar; continuously sync mail/events into the schema.
+- Provide a durable background-job platform (queue + cron workers + retries).
+- Add an AI assistant (summaries, drafting, RAG copilot) that is human-in-the-loop.
+- Introduce a workflow automation engine (event → condition → action).
+- Add in-app + email notifications for operationally important events.
+
+**Deliverables — milestones (M1–M10)**
+- **M1 Jobs & Secrets** — durable Postgres `jobs` queue drained by Vercel Cron;
+  token encryption (Vault / pgsodium).
+- **M2 Google OAuth** — connect/disconnect with **encrypted** tokens in
+  `integration_accounts` (never plaintext).
+- **M3 Gmail Sync** — incremental sync via `historyId` (`sync_cursor`); idempotent
+  upsert on `(integration_account_id, external_message_id)`; attachment metadata.
+- **M4 Calendar** — sync Google Calendar events; create interview events.
+- **M5 Notifications** — in-app bell + email (Resend).
+- **M6 AI Foundation** — provider gateway, conversations, token accounting.
+- **M7 AI Summaries** — per-message/opportunity summaries (`ai_summary` + `ai_*`).
+- **M8 AI Assistant** — streaming RAG copilot (`pgvector` + tools).
+- **M9 Email Drafting** — AI drafts, **approval-gated**, sent via Gmail.
+- **M10 Workflow Automation** — rule engine (trigger → condition → action).
 
 **Completion criteria**
-- A connected Gmail account reliably populates messages/attachments and links
-  them to opportunities/contacts; tokens never stored in plaintext.
+- Gmail/Calendar reliably sync and link to opportunities/contacts; jobs drain with
+  retries/idempotency; AI outputs are provenance-stamped (`ai_model` /
+  `ai_prompt_version` / `ai_confidence` / `ai_processed_at`) and every external
+  action is approval-gated and auditable; each milestone ships flag-off then enabled,
+  with `v1.0.0` intact as the rollback point.
 
-**Current status** — Pending. Schema already supports it (no migration needed to start).
+**Current status** — Pending. Schema already supports it; new tables land additively
+per milestone (no migration needed to start M1/M3).
 
 ---
 
-### Phase 4 — AI Layer
-**Status: ⬜ Not started**
-
-**Objectives**
-- Add assistive intelligence that reads CRM data and writes provenance-tracked output.
-
-**Deliverables — milestones**
-- **Resume Parser** — extract structured profile/skills to seed matching.
-- **AI Notes** — draft notes on opportunities (provenance in `opportunity_notes.metadata`).
-- **AI Summary** — per-message and per-opportunity summaries (`ai_summary` + `ai_*`).
-- **AI Timeline** — agent-generated `opportunity_events` (`actor_type='agent'`).
-- **AI Copilot** — conversational assistant over the CRM (draft replies, next actions).
-
-**Completion criteria**
-- AI outputs are stored with `ai_model` / `ai_prompt_version` / `ai_confidence` /
-  `ai_processed_at`; agent actions are auditable in the event log.
-
-**Current status** — Pending. Provenance columns already exist (no migration to start).
-
----
-
-### Phase 5 — Reporting
+### Phase 4 — Reporting
 **Status: ⬜ Not started**
 
 **Objectives**
@@ -214,7 +215,7 @@ Build the application layer (CRUD + UI) on the Phase 1 schema, replacing the
 
 ---
 
-### Phase 6 — Production Hardening
+### Phase 5 — Production Hardening
 **Status: ⬜ Not started**
 
 **Objectives**

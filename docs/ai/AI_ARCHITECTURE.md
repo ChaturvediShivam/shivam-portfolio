@@ -1,6 +1,6 @@
 # AI Architecture (Design)
 
-Forward-looking design for the Career CRM's AI layer (**Phase 4**). This is a
+Design for the Career CRM's AI layer, realized in **Phase 3 (M6–M10)**. This is a
 **blueprint only** — no implementation, no migrations. Its central claim: the
 Phase 1 schema was built so the AI layer bolts on **additively** and requires
 **no redesign** of existing tables.
@@ -69,7 +69,7 @@ flowchart TB
 
 ## Shared AI service
 
-A single internal gateway (`lib/ai/*`, Phase 4) that every agent calls:
+A single internal gateway (`lib/ai/*`, Phase 3) that every agent calls:
 
 - **Provider abstraction** — pluggable (Claude/other); model routing by
   task class (cheap-fast vs deep-reasoning).
@@ -103,7 +103,7 @@ Every write it produces stamps the existing provenance columns:
 ## Conversation storage
 
 Copilot and multi-turn agent runs need history the current schema doesn't hold →
-**future additive tables** (Phase 4 migration), never edits to existing ones:
+**additive tables** (Phase 3 · M6 migration), never edits to existing ones:
 
 - `ai_conversations` — `id`, `owner_id`, optional `subject`, entity linkage
   (`entity_type`, `entity_id`), timestamps.
@@ -179,12 +179,17 @@ sequenceDiagram
 
 ## Background jobs
 
-- **Queue (future, additive):** `ai_jobs` — `id`, `type` (agent/task), `payload
-  jsonb`, `status` (pending/running/done/error), `attempts`, `scheduled_for`,
-  `owner_id`, timestamps, token/cost fields.
-- **Workers:** Vercel Cron / a queue runner drains `ai_jobs`; long agent runs are
+AI async work runs on the **shared durable `jobs` queue** — the single
+Postgres-backed queue drained by Vercel Cron
+([ADR-005](../architecture/decisions/ADR-005-background-jobs.md)) — **not** a
+separate AI-only table.
+
+- **Queue:** the unified `jobs` table (`type`, `payload jsonb`, `status`,
+  `attempts`, `max_attempts`, `run_after`, `locked_at`, `idempotency_key`,
+  `owner_id`). AI work is enqueued as AI **job types** — `ai_summarize`, `ai_embed`.
+- **Workers:** Vercel Cron / the queue runner drains `jobs`; long agent runs are
   async so requests stay fast. Retries with backoff; idempotency keys prevent
-  double-execution.
+  double-execution. Per-call token/cost is recorded in `ai_audit_log` / `ai_messages`.
 - **Uses:** message summarization on ingest, nightly follow-up scans, enrichment,
   embedding backfills.
 
@@ -197,7 +202,8 @@ Agents are driven by three sources (see the topology diagram):
 1. **User** — Copilot or an explicit "summarize/enrich/draft" action.
 2. **Data events** — e.g. a new `messages` row (from Phase 3 Gmail sync) enqueues
    an Inbox-Agent job; a `stage_changed` event enqueues a follow-up check.
-   Implemented as app-level emits and/or Postgres triggers that insert `ai_jobs`.
+   Implemented as app-level emits and/or Postgres triggers that enqueue a `jobs`
+   row (an AI job type).
 3. **Schedule** — cron scans (stale opportunities, overdue `next_action_at`).
 
 `opportunity_events` is both a **trigger source** and an **output sink** — the
@@ -243,7 +249,7 @@ flowchart LR
 ## Token management
 
 - **Per-call accounting** captured by the AI Service into `ai_messages` /
-  `ai_jobs` / `ai_audit_log` (prompt/completion tokens, cost, model).
+  `ai_audit_log` (prompt/completion tokens, cost, model).
 - **Budgets** per owner/agent/day; the orchestrator refuses or downgrades when a
   budget is exceeded.
 - **Cost control levers:** model routing (cheap model for classification/summaries,
@@ -258,7 +264,8 @@ flowchart LR
 Each agent is a prompt + tool bundle. The **Schema integration** line proves it
 needs **no redesign** — it reuses existing columns/tables (and, where noted, only
 *additive* AI tables shared by all agents: `ai_conversations`, `ai_messages`,
-`ai_embeddings`, `ai_jobs`, `ai_approvals`, `ai_audit_log`).
+`ai_embeddings`, `ai_approvals`, `ai_audit_log` — with async work running on the
+shared `jobs` queue).
 
 ### Recruiter Agent
 - **Role.** Nurture recruiter/contact relationships; draft personalized outreach.
@@ -325,7 +332,7 @@ needs **no redesign** — it reuses existing columns/tables (and, where noted, o
 
 ## Schema integration summary — no redesign required
 
-| Capability | Existing hook (no migration) | Future additive object (Phase 4) |
+| Capability | Existing hook (no migration) | Additive object (Phase 3) |
 |-----------|------------------------------|----------------------------------|
 | Provenance on AI output | `ai_model` · `ai_prompt_version` · `ai_confidence` · `ai_processed_at` | — |
 | Summaries | `messages.ai_summary` · `opportunities.ai_summary` | — |
@@ -335,7 +342,7 @@ needs **no redesign** — it reuses existing columns/tables (and, where noted, o
 | Cross-source identity | `external_ids jsonb` | — |
 | Conversations / Copilot | — | `ai_conversations`, `ai_messages` |
 | Semantic search | (complements `search_vector`) | `pgvector` + `ai_embeddings` |
-| Async processing | — | `ai_jobs` |
+| Async processing | — | shared `jobs` queue (ADR-005) — AI job types `ai_summarize` / `ai_embed` |
 | Approval workflow | — | `ai_approvals` |
 | Cross-cutting audit | — | `ai_audit_log` |
 | Editable prompts / A-B | in-repo templates | `prompt_templates` (optional) |
@@ -346,7 +353,7 @@ the "no redesign" constraint the Phase 1 schema was designed to guarantee.
 
 ---
 
-*Design only. Implementation is Phase 4 in the
+*Design only. Implementation is Phase 3 (M6–M10) in the
 [Project Roadmap](../roadmap/PROJECT_ROADMAP.md); it must land as additive
 migrations following the
 [Database Guide](../database/DATABASE_GUIDE.md#migration-conventions).*
