@@ -61,12 +61,19 @@ describe("google/oauth buildAuthorizationUrl", () => {
 });
 
 describe("google/oauth decodeIdToken", () => {
-  it("reads sub/email/name from a well-formed id_token", () => {
-    const payload = base64url(
-      JSON.stringify({ sub: "123", email: "a@b.com", email_verified: true, name: "Ada" }),
-    );
-    const idToken = `${base64url("hdr")}.${payload}.${base64url("sig")}`;
-    expect(decodeIdToken(idToken)).toEqual({
+  const tokenWith = (payload: Record<string, unknown>) =>
+    `${base64url("hdr")}.${base64url(JSON.stringify(payload))}.${base64url("sig")}`;
+  const valid = {
+    sub: "123",
+    email: "a@b.com",
+    email_verified: true,
+    name: "Ada",
+    iss: "https://accounts.google.com",
+    aud: config.clientId,
+  };
+
+  it("reads identity from a well-formed Google id_token", () => {
+    expect(decodeIdToken(tokenWith(valid), { expectedAudience: config.clientId })).toEqual({
       sub: "123",
       email: "a@b.com",
       emailVerified: true,
@@ -77,8 +84,20 @@ describe("google/oauth decodeIdToken", () => {
   it("returns null for malformed tokens or missing subject", () => {
     expect(decodeIdToken(undefined)).toBeNull();
     expect(decodeIdToken("not-a-jwt")).toBeNull();
-    const noSub = `${base64url("h")}.${base64url(JSON.stringify({ email: "x@y.com" }))}.${base64url("s")}`;
-    expect(decodeIdToken(noSub)).toBeNull();
+    expect(decodeIdToken(tokenWith({ email: "x@y.com", iss: valid.iss }))).toBeNull();
+  });
+
+  it("rejects a non-Google issuer or a missing issuer", () => {
+    expect(decodeIdToken(tokenWith({ ...valid, iss: "https://evil.example" }))).toBeNull();
+    expect(decodeIdToken(tokenWith({ sub: "1", aud: config.clientId }))).toBeNull();
+  });
+
+  it("rejects an audience mismatch only when expectedAudience is set", () => {
+    expect(
+      decodeIdToken(tokenWith({ ...valid, aud: "someone-else" }), { expectedAudience: config.clientId }),
+    ).toBeNull();
+    // Without an expected audience, aud is not enforced (issuer + sub still are).
+    expect(decodeIdToken(tokenWith({ ...valid, aud: "someone-else" }))).not.toBeNull();
   });
 });
 

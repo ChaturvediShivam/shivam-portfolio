@@ -57,7 +57,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   try {
     const tokens = await exchangeCodeForTokens({ config, code, codeVerifier: consumed.codeVerifier });
 
-    const identity = decodeIdToken(tokens.id_token);
+    const identity = decodeIdToken(tokens.id_token, { expectedAudience: config.clientId });
     if (!identity) return settings({ error: "oauth_identity" });
 
     await upsertGoogleAccount(supabase, {

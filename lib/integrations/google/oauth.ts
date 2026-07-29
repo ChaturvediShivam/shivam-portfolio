@@ -175,13 +175,25 @@ export interface GoogleIdentity {
   name: string | null;
 }
 
+export interface DecodeIdTokenOptions {
+  /** When set, the token's `aud` claim must match this client id. */
+  expectedAudience?: string;
+}
+
+/** Accepted `iss` values for Google-issued id_tokens. */
+const GOOGLE_ISSUERS = new Set(["https://accounts.google.com", "accounts.google.com"]);
+
 /**
- * Decode the identity from an id_token. The token arrives directly from
- * Google's token endpoint over TLS (a trusted channel), so the claims are read
- * without re-verifying the signature. Returns null if unparseable or missing a
- * subject.
+ * Decode + validate the identity from an id_token. The token arrives directly
+ * from Google's token endpoint over TLS (a trusted back-channel), so the
+ * signature is not re-verified; as defense-in-depth we still enforce the
+ * issuer (Google) and — when provided — the audience (our client id). Returns
+ * null if unparseable, missing a subject, or failing issuer/audience checks.
  */
-export function decodeIdToken(idToken: string | undefined): GoogleIdentity | null {
+export function decodeIdToken(
+  idToken: string | undefined,
+  options: DecodeIdTokenOptions = {},
+): GoogleIdentity | null {
   if (!idToken) return null;
   const parts = idToken.split(".");
   if (parts.length !== 3) return null;
@@ -191,8 +203,21 @@ export function decodeIdToken(idToken: string | undefined): GoogleIdentity | nul
       email?: string;
       email_verified?: boolean;
       name?: string;
+      iss?: string;
+      aud?: string | string[];
     };
+
     if (!payload.sub) return null;
+    // Issuer must be Google.
+    if (!payload.iss || !GOOGLE_ISSUERS.has(payload.iss)) return null;
+    // Audience must be our client when an expected value is provided.
+    if (options.expectedAudience) {
+      const audMatches = Array.isArray(payload.aud)
+        ? payload.aud.includes(options.expectedAudience)
+        : payload.aud === options.expectedAudience;
+      if (!audMatches) return null;
+    }
+
     return {
       sub: payload.sub,
       email: payload.email ?? null,

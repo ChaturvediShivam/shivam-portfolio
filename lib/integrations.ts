@@ -22,6 +22,14 @@ export async function createOAuthState(
   supabase: SupabaseClient,
   params: { ownerId: string; state: string; codeVerifier: string; redirectTo?: string | null },
 ): Promise<void> {
+  // Best-effort prune of this owner's expired/abandoned states, so the table
+  // stays self-cleaning without a dedicated reaper job (uses idx on expires_at).
+  await supabase
+    .from("oauth_states")
+    .delete()
+    .lt("expires_at", new Date().toISOString())
+    .eq("owner_id", params.ownerId);
+
   const { error } = await supabase.from("oauth_states").insert({
     provider: "gmail",
     state: params.state,
