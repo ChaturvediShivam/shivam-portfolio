@@ -89,28 +89,36 @@ export async function runJobs(
   let failed = 0;
 
   for (const job of jobs) {
-    const handler = registry.get(job.type);
-
-    if (!handler) {
-      // Unknown type is a permanent (fatal) failure — no amount of retrying
-      // will register a handler at runtime.
-      await markJobFailed(
-        ctx.client,
-        job,
-        `No handler registered for job type "${job.type}"`,
-        { fatal: true },
-      );
-      failed += 1;
-      continue;
-    }
-
+    // Isolate each job so a bookkeeping/DB error resolving one does not abort
+    // the rest of the batch. A job left unresolved stays 'running' and is
+    // reclaimed by the lease timeout on a later tick (handlers are idempotent).
     try {
-      await handler(job.payload ?? {}, ctx);
-      await markJobDone(ctx.client, job.id);
-      processed += 1;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await markJobFailed(ctx.client, job, message, { backoffMs: computeBackoffMs(job.attempts) });
+      const handler = registry.get(job.type);
+
+      if (!handler) {
+        // Unknown type is a permanent (fatal) failure — no amount of retrying
+        // will register a handler at runtime.
+        await markJobFailed(
+          ctx.client,
+          job,
+          `No handler registered for job type "${job.type}"`,
+          { fatal: true },
+        );
+        failed += 1;
+        continue;
+      }
+
+      try {
+        await handler(job.payload ?? {}, ctx);
+        await markJobDone(ctx.client, job.id);
+        processed += 1;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await markJobFailed(ctx.client, job, message, { backoffMs: computeBackoffMs(job.attempts) });
+        failed += 1;
+      }
+    } catch (bookkeepingErr) {
+      console.error(`[jobs] failed to resolve job ${job.id}:`, bookkeepingErr);
       failed += 1;
     }
   }

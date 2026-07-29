@@ -81,6 +81,10 @@ create index if not exists idx_jobs_type
   on jobs (type);
 create unique index if not exists uq_jobs_idempotency_key
   on jobs (idempotency_key) where idempotency_key is not null;
+-- Supports the stale-lease reclaim branch of claim_jobs (running jobs whose
+-- worker died before completing).
+create index if not exists idx_jobs_running_lease
+  on jobs (locked_at) where status = 'running';
 
 -- ----------------------------------------------------------------------------
 -- RLS: authenticated admin can read/manage; the anon key is denied. The cron
@@ -94,27 +98,39 @@ create policy "Authenticated admin full access" on jobs for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 -- ----------------------------------------------------------------------------
--- claim_jobs(batch_size) — atomically lease a bounded batch.
+-- claim_jobs(batch_size, lease_seconds) — atomically lease a bounded batch.
 --
--- One statement: select the next runnable pending rows with FOR UPDATE SKIP
--- LOCKED, flip them to 'running', stamp locked_at, and increment attempts.
--- Returns the leased rows. Safe under the transaction-mode pooler and against
--- concurrent drainers (no two workers claim the same row).
+-- One statement: select the next runnable rows with FOR UPDATE SKIP LOCKED,
+-- flip them to 'running', stamp locked_at, and increment attempts. Returns the
+-- leased rows. Safe under the transaction-mode pooler and against concurrent
+-- drainers (no two workers claim the same row). updated_at is maintained by the
+-- BEFORE UPDATE trigger, so it is not set here.
+--
+-- Runnable = pending-and-due OR a stale lease: a job left 'running' longer than
+-- lease_seconds (its worker crashed / the serverless function timed out) is
+-- reclaimed so it never orphans. Handlers are idempotent, so re-running is safe;
+-- a job that keeps timing out still counts attempts and eventually dead-letters.
+-- The default lease (300s) matches Vercel's max function duration.
 -- ----------------------------------------------------------------------------
-create or replace function claim_jobs(batch_size integer default 10)
+-- Drop the superseded single-arg signature if an earlier revision of this
+-- migration created it, so re-running never leaves an ambiguous overload.
+drop function if exists claim_jobs(integer);
+
+create or replace function claim_jobs(batch_size integer default 10, lease_seconds integer default 300)
 returns setof jobs
 language sql
 as $$
   update jobs j
-     set status     = 'running',
-         locked_at  = now(),
-         attempts   = j.attempts + 1,
-         updated_at = now()
+     set status    = 'running',
+         locked_at = now(),
+         attempts  = j.attempts + 1
    where j.id in (
      select id
        from jobs
-      where status = 'pending'
-        and run_after <= now()
+      where (status = 'pending' and run_after <= now())
+         or (status = 'running'
+             and locked_at is not null
+             and locked_at < now() - make_interval(secs => greatest(1, lease_seconds)))
       order by priority desc, run_after asc
       for update skip locked
       limit greatest(1, batch_size)
@@ -122,8 +138,8 @@ as $$
   returning j.*;
 $$;
 
-comment on function claim_jobs(integer) is
-  'Atomically lease up to batch_size runnable jobs (FOR UPDATE SKIP LOCKED). Increments attempts and sets status=running. Pooler-safe single statement.';
+comment on function claim_jobs(integer, integer) is
+  'Atomically lease up to batch_size runnable jobs (FOR UPDATE SKIP LOCKED): pending-and-due plus stale leases older than lease_seconds. Increments attempts, sets status=running. Pooler-safe single statement.';
 
-revoke all on function claim_jobs(integer) from public;
-grant execute on function claim_jobs(integer) to service_role, authenticated;
+revoke all on function claim_jobs(integer, integer) from public;
+grant execute on function claim_jobs(integer, integer) to service_role, authenticated;
