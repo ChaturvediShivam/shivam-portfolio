@@ -2,6 +2,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSettingsData, APP_VERSION, BUILD_TIME } from "@/lib/settings";
 import { PageHeader, Badge } from "@/components/admin/ui";
 import { SettingRow, SettingToggle, IntegrationCard } from "@/components/admin/settings/SettingsControls";
+import { JobsHealthPanel } from "@/components/admin/settings/JobsHealthPanel";
+import { featureEnabled } from "@/lib/featureFlags";
 
 export const metadata = { title: "Settings" };
 
@@ -33,6 +35,7 @@ export default async function SettingsPage() {
   const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
   const region = process.env.VERCEL_REGION ?? "—";
   const deployment = process.env.VERCEL_URL ?? "local";
+  const jobsEnabled = featureEnabled("FEATURE_JOBS");
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-6">
@@ -122,6 +125,13 @@ export default async function SettingsPage() {
           <IntegrationCard name="More providers" description="LinkedIn, Greenhouse, Lever, Ashby, and more." status="coming_soon" />
         </div>
       </Section>
+
+      {/* Background jobs (Phase 3 · M1) — only when the feature flag is on. */}
+      {jobsEnabled && (
+        <Section id="jobs-heading" title="Background jobs" description="Durable job queue health (Phase 3 · M1).">
+          <JobsHealthPanel />
+        </Section>
+      )}
 
       {/* System information */}
       <Section id="system-heading" title="System information">

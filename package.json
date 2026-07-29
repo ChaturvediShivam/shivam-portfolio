@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.3",
@@ -37,6 +39,7 @@
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }
