@@ -50,7 +50,7 @@ export const adminNavigation: NavItem[] = [
   { id: "contacts", label: "Contacts", href: "/admin/contacts", icon: Users, enabled: true },
   { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: true },
   { id: "tasks", label: "Tasks", href: "/admin/tasks", icon: ListChecks, enabled: true },
-  { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: false },
+  { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: true },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];

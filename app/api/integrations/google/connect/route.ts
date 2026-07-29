@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { featureEnabled } from "@/lib/featureFlags";
 import { createOAuthState } from "@/lib/integrations";
 import {
+  CALENDAR_SCOPES,
   GMAIL_SCOPES,
   GOOGLE_OAUTH_SCOPES,
   buildAuthorizationUrl,
@@ -56,11 +57,13 @@ export async function GET(req: NextRequest): Promise<Response> {
       redirectTo: "/admin/settings",
     });
 
-    // Request the Gmail read scope via incremental auth once M3 is enabled;
+    // Request feature scopes via incremental auth as milestones are enabled;
     // identity-only otherwise (M2 default — no restricted-scope verification).
-    const scopes = featureEnabled("FEATURE_GMAIL_SYNC")
-      ? [...GOOGLE_OAUTH_SCOPES, ...GMAIL_SCOPES]
-      : GOOGLE_OAUTH_SCOPES;
+    const scopes = [
+      ...GOOGLE_OAUTH_SCOPES,
+      ...(featureEnabled("FEATURE_GMAIL_SYNC") ? GMAIL_SCOPES : []),
+      ...(featureEnabled("FEATURE_CALENDAR") ? CALENDAR_SCOPES : []),
+    ];
 
     return NextResponse.redirect(buildAuthorizationUrl({ config, state, codeChallenge, scopes }));
   } catch (err) {

@@ -20,6 +20,9 @@ export const GOOGLE_OAUTH_SCOPES = ["openid", "email", "profile"] as const;
 /** Gmail read scope (M3). Restricted — added via incremental auth when enabled. */
 export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"] as const;
 
+/** Calendar events read+write scope (M4). Added via incremental auth when enabled. */
+export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"] as const;
+
 /** Refresh when the access token is within this window of expiry. */
 const REFRESH_SKEW_SECONDS = 60;
 

@@ -8,7 +8,11 @@ import "server-only";
  * (route gated, cron not draining, nav hidden). Rollback is flipping the flag,
  * no redeploy. Flags for later milestones are added to this union as they land.
  */
-export type FeatureFlag = "FEATURE_JOBS" | "FEATURE_GOOGLE_OAUTH" | "FEATURE_GMAIL_SYNC";
+export type FeatureFlag =
+  | "FEATURE_JOBS"
+  | "FEATURE_GOOGLE_OAUTH"
+  | "FEATURE_GMAIL_SYNC"
+  | "FEATURE_CALENDAR";
 
 /** True only when the flag env var is exactly the string "true". */
 export function featureEnabled(flag: FeatureFlag): boolean {

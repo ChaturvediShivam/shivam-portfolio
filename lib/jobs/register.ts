@@ -10,3 +10,4 @@ import "server-only";
  */
 
 import "@/lib/jobs/handlers/gmail-sync"; // M3
+import "@/lib/jobs/handlers/calendar-sync"; // M4
