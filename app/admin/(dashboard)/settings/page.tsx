@@ -6,6 +6,8 @@ import { JobsHealthPanel } from "@/components/admin/settings/JobsHealthPanel";
 import { IntegrationConnectCard } from "@/components/admin/settings/IntegrationConnectCard";
 import { featureEnabled } from "@/lib/featureFlags";
 import { getGmailAccount } from "@/lib/integrations";
+import { getPreferences } from "@/lib/notifications";
+import { NotificationPreferencesForm } from "@/components/admin/settings/NotificationPreferencesForm";
 
 export const metadata = { title: "Settings" };
 
@@ -40,6 +42,10 @@ export default async function SettingsPage() {
   const jobsEnabled = featureEnabled("FEATURE_JOBS");
   const oauthEnabled = featureEnabled("FEATURE_GOOGLE_OAUTH");
   const gmailAccount = oauthEnabled ? await getGmailAccount(supabase) : null;
+
+  const notificationsEnabled = featureEnabled("FEATURE_NOTIFICATIONS");
+  const notificationUser = notificationsEnabled ? (await supabase.auth.getUser()).data.user : null;
+  const notificationPrefs = notificationUser ? await getPreferences(supabase, notificationUser.id) : null;
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-6">
@@ -83,13 +89,17 @@ export default async function SettingsPage() {
       </Section>
 
       {/* Notifications */}
-      <Section id="notifications-heading" title="Notifications" description="Delivery preferences. Coming in a later phase.">
-        <div className="divide-y divide-white/[0.06]">
-          <SettingToggle label="Email notifications" description="Account and activity emails" />
-          <SettingToggle label="Task reminders" description="Reminders for due and overdue tasks" />
-          <SettingToggle label="Opportunity reminders" description="Nudges for next actions" />
-          <SettingToggle label="Message notifications" description="Alerts for new inbound messages" />
-        </div>
+      <Section id="notifications-heading" title="Notifications" description="Delivery preferences.">
+        {notificationsEnabled && notificationPrefs ? (
+          <NotificationPreferencesForm initial={notificationPrefs} />
+        ) : (
+          <div className="divide-y divide-white/[0.06]">
+            <SettingToggle label="Email notifications" description="Account and activity emails" />
+            <SettingToggle label="Task reminders" description="Reminders for due and overdue tasks" />
+            <SettingToggle label="Opportunity reminders" description="Nudges for next actions" />
+            <SettingToggle label="Message notifications" description="Alerts for new inbound messages" />
+          </div>
+        )}
       </Section>
 
       {/* Security */}

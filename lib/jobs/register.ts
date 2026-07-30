@@ -11,3 +11,5 @@ import "server-only";
 
 import "@/lib/jobs/handlers/gmail-sync"; // M3
 import "@/lib/jobs/handlers/calendar-sync"; // M4
+import "@/lib/jobs/handlers/notification-scan"; // M5
+import "@/lib/jobs/handlers/notification-dispatch"; // M5
