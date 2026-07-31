@@ -29,11 +29,17 @@ export async function loadCalendarSyncAccount(
   client: SupabaseClient,
   accountId: string,
 ): Promise<CalendarSyncAccountRow | null> {
+  // Archived / disconnected accounts are reported as absent so the handler
+  // terminates the sync chain instead of rescheduling against a dead account.
+  // disconnectAccount sets both status and archived_at; both are checked rather
+  // than relying on one implying the other.
   const { data, error } = await client
     .from("integration_accounts")
     .select(ACCOUNT_COLUMNS)
     .eq("id", accountId)
     .eq("provider", "gmail")
+    .is("archived_at", null)
+    .neq("status", "disconnected")
     .maybeSingle();
   if (error) throw error;
   return (data as CalendarSyncAccountRow | null) ?? null;

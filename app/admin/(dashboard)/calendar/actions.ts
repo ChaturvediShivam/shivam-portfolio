@@ -9,6 +9,7 @@ import {
   type ActionResult,
 } from "@/lib/actions";
 import { validate, required, maxLength } from "@/lib/validation";
+import { featureEnabled } from "@/lib/featureFlags";
 import { getGoogleOAuthConfig } from "@/lib/integrations/google/oauth";
 import { getFreshAccessToken } from "@/lib/integrations/google/tokens";
 import { GoogleCalendarProvider } from "@/lib/sync/calendar/google-provider";
@@ -47,6 +48,12 @@ export async function createInterviewAction(
   input: CreateInterviewInput,
 ): Promise<ActionResult<{ id: string }>> {
   return withAdminAction(async ({ supabase }) => {
+    // Gated too: this writes an event to the external Google Calendar, so it
+    // must not remain reachable once the feature is disabled.
+    if (!featureEnabled("FEATURE_CALENDAR")) {
+      return actionError({ formError: "Calendar is not enabled." });
+    }
+
     const v = validate(input, {
       title: [required("Title is required"), maxLength(300)],
       startsAt: [required("Start time is required")],
@@ -93,8 +100,16 @@ export async function createInterviewAction(
   });
 }
 
+/**
+ * Server Actions are POST endpoints addressable by action id, so they stay
+ * callable when the feature is off and the UI that invokes them is not rendered
+ * — a stale browser tab is the realistic case, exactly during a rollback.
+ */
 export async function syncCalendarNowAction(): Promise<ActionResult<{ enqueued: boolean }>> {
   return withAdminAction(async ({ supabase }) => {
+    if (!featureEnabled("FEATURE_CALENDAR")) {
+      return actionError({ formError: "Calendar is not enabled." });
+    }
     const account = await getGoogleSyncAccount(supabase);
     if (!account || account.status !== "connected") {
       return actionError({ formError: "Connect a Google account first." });

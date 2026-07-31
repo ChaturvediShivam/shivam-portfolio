@@ -1,5 +1,6 @@
 import "server-only";
 import { registerJobHandler } from "@/lib/jobs/runner";
+import { featureEnabled } from "@/lib/featureFlags";
 import { getGoogleOAuthConfig } from "@/lib/integrations/google/oauth";
 import { getFreshAccessToken } from "@/lib/integrations/google/tokens";
 import { GoogleCalendarProvider } from "@/lib/sync/calendar/google-provider";
@@ -13,8 +14,17 @@ import { loadCalendarSyncAccount } from "@/lib/calendar-events";
  * Wires the Google provider + sync engine + cron trigger. Idempotent (events
  * dedupe on (integration_account_id, external_event_id)); the syncToken advances
  * only on a fully drained run. On success schedules the next cycle.
+ *
+ * Two conditions terminate the chain instead of rescheduling, because this job
+ * re-enqueues itself and would otherwise run forever:
+ *   1. the feature flag is off — so flipping it is a real kill switch;
+ *   2. the account is gone, archived or disconnected (loadCalendarSyncAccount
+ *      returns null for all three).
+ * Both return BEFORE scheduleFollowUp.
  */
 registerJobHandler("calendar_sync", async (payload, ctx) => {
+  if (!featureEnabled("FEATURE_CALENDAR")) return;
+
   const accountId = typeof payload.accountId === "string" ? payload.accountId : null;
   if (!accountId) throw new Error("calendar_sync: missing accountId in payload");
 
