@@ -132,9 +132,14 @@ Cross-ref: [Schema Reference](./database/SCHEMA_REFERENCE.md) ·
 - **Policies** 🟢 — one policy per table, `"Authenticated admin full access"`
   (`auth.role() = 'authenticated'`, `USING` + `WITH CHECK`).
 - **Service-role usage** 🟢 — `lib/supabase/service.ts` (`import "server-only"`)
-  bypasses RLS and is imported by **only** `/api/contact` (insert inquiry + log
-  activity) and `/api/auth/signup` (`createUser`). It is **never** used in the
-  admin/CRM path.
+  bypasses RLS. It has exactly **three** import sites: `/api/contact` (insert
+  inquiry + log activity), `/api/auth/signup` (`createUser`), and — from Phase 3 —
+  `lib/jobs/context.ts`, which builds the background-job execution context.
+  Background jobs run from Vercel Cron with **no user session**, so
+  `auth.role() = 'authenticated'` cannot scope them; handlers therefore scope
+  every read and write to `owner_id` explicitly in application code
+  (freeze decision H5). It is **never** used in an interactive admin/CRM request
+  path — those always use the session-bound, RLS-scoped client.
 - **Foreign keys** 🟢 — cascade rules protect history: children `CASCADE`, cross-refs
   `SET NULL` (e.g. deleting a company nulls, never destroys, its opportunities).
 - **Constraints** 🟢 — partial unique indexes for dedup/idempotent ingest (domain,

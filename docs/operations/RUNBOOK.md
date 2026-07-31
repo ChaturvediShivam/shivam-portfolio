@@ -106,6 +106,43 @@ rebuild. See exact commands in **§17**.
 **Post-rollback:** verify (§16), confirm `git rev-list -n1 v1.0.0` still `c2b5dc3`,
 open a ticket, and root-cause before re-attempting the release.
 
+### 3.1 Feature-flag kill switches (Phase 3) — verified behaviour
+
+"Flip the flag off" only works as a rollback if the **whole execution chain** is
+gated, not just the UI. Every Phase-3 flag now gates its UI, its Server Actions,
+and — where one exists — its background job handler. Handlers that re-enqueue
+themselves return **before** scheduling the next cycle, so an in-flight chain
+drains itself out within one cycle rather than running forever.
+
+| Flag | Gated at | Chain stops within | Notes |
+|---|---|---|---|
+| `FEATURE_JOBS` | `/api/jobs/run`, `/api/jobs/health` | immediately | Global switch: stops **all** background work. Queued jobs remain and resume when re-enabled |
+| `FEATURE_GOOGLE_OAUTH` | connect + callback routes | immediately | No background job |
+| `FEATURE_GMAIL_SYNC` | page, `syncNowAction`, `gmail_sync` handler | one cycle (≤5 min) | Handler also stops the chain when the account is gone/archived/disconnected |
+| `FEATURE_CALENDAR` | page, `syncCalendarNowAction`, `createInterviewAction`, `calendar_sync` handler | one cycle (≤5 min) | `createInterviewAction` is gated because it writes to the external Google Calendar |
+| `FEATURE_NOTIFICATIONS` | page, layout bell, Settings, `scanNotificationsAction`, `notification_scan` + `notification_dispatch` handlers | one cycle (≤5 min) | Dispatch gate ensures no email leaves for jobs queued before the flip |
+| `FEATURE_AI` | gateway entry, Settings panel, self-test action | immediately | No AI job type exists yet, so there is no background chain |
+
+**Why Server Actions are gated too:** they are POST endpoints addressable by
+action id and stay callable when the button that invokes them is not rendered. A
+stale browser tab left open from before the rollback could otherwise restart a
+chain — the realistic case, precisely during an incident.
+
+**Verify a kill switch** (do this in preview before relying on it): start the
+chain, flip the flag off, wait one cycle, then confirm no successor job was
+queued:
+
+```sql
+select type, status, run_after from jobs
+ where type in ('gmail_sync','calendar_sync','notification_scan')
+   and status = 'pending';
+-- expect: no rows for the disabled feature
+```
+
+**Orphan-job note:** a disabled or dead chain leaves no self-scheduling
+successor. Jobs already `pending` when the flag flips will still be claimed once
+— the handler returns immediately and does not reschedule.
+
 ---
 
 ## 4. Secret Rotation ✅

@@ -46,7 +46,7 @@ the existing data model has to change to get there.
 
 ## M6 as-built
 
-What shipped on `feat/phase3-m6-ai-foundation` (commit `c2579db`), behind
+What shipped on `feat/phase3-m6-ai-foundation` (commit `829f275`), behind
 `FEATURE_AI`, with no public route and nothing user-facing. This section
 describes the code; everything after it describes the still-unbuilt design.
 
@@ -509,6 +509,6 @@ in the [Project Roadmap](../roadmap/PROJECT_ROADMAP.md).*
 - **Version:** 1.1
 - **Last Updated:** 2026-07-31
 - **v1.1:** added [§ M6 as-built](#m6-as-built) from
-  `feat/phase3-m6-ai-foundation` (`c2579db`); promoted vendor neutrality from an
+  `feat/phase3-m6-ai-foundation` (`829f275`); promoted vendor neutrality from an
   assumption to a binding, mechanically enforced invariant. M6 is implemented and
   **not deployed** — flag `FEATURE_AI` off, migration not applied.
