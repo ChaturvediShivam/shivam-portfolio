@@ -1,0 +1,289 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  AiCallOutcome,
+  AiCompletion,
+  AiMessage,
+  AiRequest,
+  AiToolCall,
+  AiUsage,
+} from "@/types/ai";
+import { featureEnabled } from "@/lib/featureFlags";
+import { AiDisabledError, aiErrorCode } from "@/lib/ai/errors";
+import { recordAiCall } from "@/lib/ai/audit";
+import { commitBudget, reserveBudget, type BudgetGrant } from "@/lib/ai/budget";
+import { getPromptTemplate } from "@/lib/ai/prompts/registry";
+import { redact } from "@/lib/ai/redaction";
+import { parseAndValidate } from "@/lib/ai/schema";
+import type { AiProvider } from "@/lib/ai/providers/provider";
+import { executeAiTool, toolSpecs } from "@/lib/ai/tools/registry";
+import type { AiToolContext } from "@/lib/ai/tools/tool";
+import "@/lib/ai/tools/catalog";
+
+/**
+ * AI gateway (Phase 3 · M6).
+ *
+ * The only path to a provider. Everything policy-shaped lives here — feature
+ * gating, prompt resolution, redaction, budget, tool authorization, output
+ * validation, audit — so no caller can obtain a completion that skipped any of
+ * it.
+ *
+ * It depends on the `AiProvider` interface and never on a concrete adapter, so
+ * the whole file is exercised in tests against a provider that has never heard
+ * of any vendor. That is the working proof of the neutrality invariant.
+ */
+
+/** Bounded tool rounds. M6 is not an agent loop — that is M8. */
+const DEFAULT_MAX_TOOL_ROUNDS = 1;
+const MAX_TOOL_ROUNDS_CEILING = 3;
+
+export interface AiGatewayDeps {
+  provider: AiProvider;
+  /** Session client (RLS) or service-role client (owner-scoped) — caller's choice. */
+  client: SupabaseClient;
+}
+
+export interface AiCompleteInput {
+  templateId: string;
+  templateVersion?: string;
+  variables?: Record<string, unknown>;
+  ownerId: string;
+  actor?: "user" | "agent" | "system";
+  /** Audit label for what this call was for. */
+  action?: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  conversationId?: string | null;
+  jobId?: string | null;
+  /** Prior turns to include, already bounded by the caller. */
+  history?: AiMessage[];
+  /** Offer the read-tool catalogue to the model. */
+  enableTools?: boolean;
+  maxToolRounds?: number;
+}
+
+function emptyUsage(): AiUsage {
+  return { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+}
+
+function addUsage(total: AiUsage, next: AiUsage): void {
+  total.inputTokens += next.inputTokens;
+  total.outputTokens += next.outputTokens;
+  total.cachedInputTokens += next.cachedInputTokens;
+}
+
+function outcomeOf(completion: AiCompletion): AiCallOutcome {
+  if (completion.stopReason === "refused") return "refused";
+  if (completion.stopReason === "truncated") return "truncated";
+  return "success";
+}
+
+/**
+ * Conservative token estimate for providers with no counting endpoint.
+ *
+ * Deliberately pessimistic (~3 chars/token rather than the usual ~4) so the
+ * budget over-reserves. Under-reserving would let a call slip past the ceiling.
+ */
+function estimateTokens(request: AiRequest): number {
+  const characters =
+    (request.system?.length ?? 0) + request.messages.reduce((sum, m) => sum + m.content.length, 0);
+  return Math.ceil(characters / 3) + request.maxOutputTokens;
+}
+
+export class AiGateway {
+  private readonly provider: AiProvider;
+  private readonly client: SupabaseClient;
+
+  constructor(deps: AiGatewayDeps) {
+    this.provider = deps.provider;
+    this.client = deps.client;
+  }
+
+  async complete<T = unknown>(input: AiCompleteInput): Promise<AiCompletion<T>> {
+    // Fail-closed before anything else happens: flag off means fully inert.
+    if (!featureEnabled("FEATURE_AI")) throw new AiDisabledError();
+
+    const template = getPromptTemplate(input.templateId, input.templateVersion);
+    const rendered = template.render(input.variables ?? {});
+
+    const wantsStructured = Boolean(template.responseSchema);
+    const needsPromptFallback = wantsStructured && !this.provider.capabilities.structuredOutput;
+
+    // Providers without native schema constraints get the instruction in the
+    // prompt instead. Validation is unchanged either way.
+    const system = redact(
+      needsPromptFallback
+        ? `${rendered.system}\n\nRespond with a single JSON object and nothing else.`
+        : rendered.system,
+    );
+
+    const offerTools = Boolean(input.enableTools) && this.provider.capabilities.toolCalling;
+
+    const request: AiRequest = {
+      taskClass: template.taskClass,
+      system,
+      messages: [...(input.history ?? []), { role: "user", content: redact(rendered.user) }],
+      maxOutputTokens: template.maxOutputTokens,
+      reasoningDepth: "standard",
+      cachePolicy: "prefix",
+      ...(wantsStructured && !needsPromptFallback ? { responseSchema: template.responseSchema } : {}),
+      ...(offerTools ? { tools: toolSpecs("read") } : {}),
+    };
+
+    const model = this.provider.resolveModel(template.taskClass);
+    const usage = emptyUsage();
+    let costMicros = 0;
+    let latencyMs = 0;
+
+    const estimate = await this.estimate(request);
+
+    let grant: BudgetGrant;
+    try {
+      grant = await reserveBudget(this.client, input.ownerId, estimate);
+    } catch (error) {
+      // A budget refusal is an operator-visible event, so it is audited even
+      // though no provider call was made.
+      await this.audit(input, template.version, model, usage, 0, 0, "error", aiErrorCode(error));
+      throw error;
+    }
+
+    try {
+      let completion = await this.provider.complete(request);
+      addUsage(usage, completion.usage);
+      costMicros += this.provider.estimateCostMicros(completion.model, completion.usage);
+      latencyMs += completion.latencyMs;
+
+      // Bounded tool rounds. Each round executes the requested read tools and
+      // asks the provider once more with the results appended.
+      const maxRounds = Math.min(
+        Math.max(0, input.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS),
+        MAX_TOOL_ROUNDS_CEILING,
+      );
+
+      for (let round = 0; round < maxRounds && completion.toolCalls.length > 0; round += 1) {
+        const results = await this.runTools(completion.toolCalls, {
+          client: this.client,
+          ownerId: input.ownerId,
+          actor: input.actor ?? "agent",
+        });
+
+        request.messages = [
+          ...request.messages,
+          { role: "assistant", content: completion.text },
+          ...results,
+        ];
+
+        completion = await this.provider.complete(request);
+        addUsage(usage, completion.usage);
+        costMicros += this.provider.estimateCostMicros(completion.model, completion.usage);
+        latencyMs += completion.latencyMs;
+      }
+
+      // Only a cleanly completed reply is parsed: a truncated or refused one has
+      // no contract to satisfy, and parsing it would turn a known outcome into a
+      // confusing validation error.
+      const parsed =
+        wantsStructured && completion.stopReason === "completed"
+          ? parseAndValidate<T>(completion.text, template.responseSchema as Record<string, unknown>)
+          : undefined;
+
+      await this.audit(
+        input,
+        template.version,
+        completion.model,
+        usage,
+        costMicros,
+        latencyMs,
+        outcomeOf(completion),
+        null,
+      );
+
+      return { ...completion, usage, parsed } as AiCompletion<T>;
+    } catch (error) {
+      await this.audit(
+        input,
+        template.version,
+        model,
+        usage,
+        costMicros,
+        latencyMs,
+        "error",
+        aiErrorCode(error),
+      );
+      throw error;
+    } finally {
+      // Always reconcile: on the error path this releases the unused portion of
+      // the reservation instead of stranding it for the rest of the day.
+      await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
+    }
+  }
+
+  /** Exact count when the provider offers one, conservative estimate otherwise. */
+  private async estimate(request: AiRequest): Promise<number> {
+    if (!this.provider.capabilities.tokenCounting || !this.provider.countTokens) {
+      return estimateTokens(request);
+    }
+    try {
+      return (await this.provider.countTokens(request)) + request.maxOutputTokens;
+    } catch {
+      // Counting is an optimisation; never let it block the call.
+      return estimateTokens(request);
+    }
+  }
+
+  /**
+   * Execute model-requested tools under policy.
+   *
+   * A tool that throws returns its error to the model as a tool result rather
+   * than aborting the call — the model can recover, and one bad argument should
+   * not discard the turn. Policy refusals (write/external) surface the same way.
+   */
+  private async runTools(calls: AiToolCall[], ctx: AiToolContext): Promise<AiMessage[]> {
+    const results: AiMessage[] = [];
+
+    for (const call of calls) {
+      let content: string;
+      try {
+        content = JSON.stringify(await executeAiTool(call.name, call.arguments, ctx));
+      } catch (error) {
+        content = JSON.stringify({
+          error: error instanceof Error ? redact(error.message) : "Tool execution failed.",
+        });
+      }
+      results.push({ role: "tool", content, toolCallId: call.id, toolName: call.name });
+    }
+
+    return results;
+  }
+
+  private async audit(
+    input: AiCompleteInput,
+    promptVersion: string,
+    model: string,
+    usage: AiUsage,
+    costMicros: number,
+    latencyMs: number,
+    outcome: AiCallOutcome,
+    errorCode: string | null,
+  ): Promise<void> {
+    await recordAiCall(this.client, {
+      actor: input.actor ?? "system",
+      action: input.action ?? "complete",
+      entityType: input.entityType ?? null,
+      entityId: input.entityId ?? null,
+      aiProvider: this.provider.name,
+      aiModel: model,
+      aiPromptVersion: promptVersion,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cachedInputTokens: usage.cachedInputTokens,
+      costMicros,
+      latencyMs,
+      outcome,
+      errorCode,
+      jobId: input.jobId ?? null,
+      conversationId: input.conversationId ?? null,
+      ownerId: input.ownerId,
+    });
+  }
+}

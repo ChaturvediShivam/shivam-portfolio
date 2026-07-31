@@ -8,6 +8,7 @@ import { featureEnabled } from "@/lib/featureFlags";
 import { getGmailAccount } from "@/lib/integrations";
 import { getPreferences } from "@/lib/notifications";
 import { NotificationPreferencesForm } from "@/components/admin/settings/NotificationPreferencesForm";
+import { AiStatusPanel } from "@/components/admin/settings/AiStatusPanel";
 
 export const metadata = { title: "Settings" };
 
@@ -40,6 +41,7 @@ export default async function SettingsPage() {
   const region = process.env.VERCEL_REGION ?? "—";
   const deployment = process.env.VERCEL_URL ?? "local";
   const jobsEnabled = featureEnabled("FEATURE_JOBS");
+  const aiEnabled = featureEnabled("FEATURE_AI");
   const oauthEnabled = featureEnabled("FEATURE_GOOGLE_OAUTH");
   const gmailAccount = oauthEnabled ? await getGmailAccount(supabase) : null;
 
@@ -148,6 +150,13 @@ export default async function SettingsPage() {
       {jobsEnabled && (
         <Section id="jobs-heading" title="Background jobs" description="Durable job queue health (Phase 3 · M1).">
           <JobsHealthPanel />
+        </Section>
+      )}
+
+      {/* AI (Phase 3 · M6) — only when the feature flag is on. */}
+      {aiEnabled && (
+        <Section id="ai-heading" title="AI" description="Provider status, token budget and self-test (Phase 3 · M6).">
+          <AiStatusPanel />
         </Section>
       )}
 
