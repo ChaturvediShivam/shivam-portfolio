@@ -147,6 +147,22 @@ Cross-ref: [Schema Reference](./database/SCHEMA_REFERENCE.md) ·
 - **Event integrity** 🟢 — `opportunity_events` is append-only with
   `actor_type ∈ {user, agent, system}`, giving a tamper-evident, attributable audit
   trail (§11).
+- **Function grants** 🟢 (Phase 3) — **mandatory pattern for every new SQL
+  function.** Postgres grants `EXECUTE` on new functions to `PUBLIC`, which means a
+  function is reachable by the `anon` role over PostgREST **regardless of RLS** —
+  RLS protects tables, not functions. Every Phase-3 function therefore ships with:
+
+  ```sql
+  revoke all on function <name>(<args>) from public;
+  grant execute on function <name>(<args>) to authenticated, service_role;
+  ```
+
+  Applied to `claim_jobs` and `enqueue_job` (M1) and to `ai_reserve_budget` /
+  `ai_commit_budget` (M6). `SECURITY DEFINER` functions additionally pin
+  `search_path` (`enqueue_job`, both AI budget functions) so the definer context
+  cannot be hijacked by a caller-controlled schema. Omitting the revoke on a
+  `SECURITY DEFINER` function is a **pre-auth privilege escalation**, not a
+  hardening nicety — review every new function for it.
 
 ---
 
@@ -166,7 +182,23 @@ Cross-ref: [Runbook §4 Secret Rotation](./operations/RUNBOOK.md).
   OAuth token custody; rotation requires re-encrypting stored tokens (dual-key
   backfill — see Runbook §4 warning).
 - **Future OAuth secrets** 🟡 — `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI`,
-  `CRON_SECRET`, `AI_PROVIDER_API_KEY`.
+  `CRON_SECRET`.
+- **AI provider key** 🟢 (Phase 3 · M6) — `AI_PROVIDER_API_KEY`. An **app-level**
+  secret, deliberately **not** wrapped in `TOKEN_ENCRYPTION_KEY`: that key exists
+  for per-user OAuth token custody at rest, whereas this one is a single
+  deployment credential whose custody is the Vercel env store. Read only inside
+  `lib/ai/providers/`, never logged, never returned in an error. Rotation is a
+  plain replace-and-redeploy with no data backfill (unlike `TOKEN_ENCRYPTION_KEY`).
+  Verified absent from client bundles at build time.
+- **Redaction of secret values** 🟢 (M6) — `lib/ai/redaction.ts` strips known
+  secret **values** read from the environment (`AI_PROVIDER_API_KEY`,
+  `CRON_SECRET`, `TOKEN_ENCRYPTION_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `GOOGLE_OAUTH_CLIENT_SECRET`, `RESEND_API_KEY`,
+  `CLOUDFLARE_TURNSTILE_SECRET_KEY`) plus secret-**shaped** strings (bearer
+  tokens, API-key prefixes, JWTs) from prompt text and anything persisted to
+  `ai_messages` / `ai_audit_log`. Idempotent, so it is safe at both boundaries.
+  Names in that list must match the deployed variable exactly — a typo'd name
+  silently never matches, so it is covered by a test.
 - **Secret rotation** 🟢/🟡 — rotate at source → update in Vercel → redeploy →
   revoke old (Runbook §4).
 - **Secret ownership** 🟢 — maintainer owns Vercel/Supabase/Google/Resend consoles;
@@ -225,26 +257,59 @@ Cross-ref: [API Reference](./architecture/API_REFERENCE.md) ·
 
 ---
 
-## 9. AI Security 🟡 (Phase 3 — not implemented at v1.0.0)
+## 9. AI Security (Phase 3 · M6 implemented, not deployed)
 
-Design in [AI Architecture](./ai/AI_ARCHITECTURE.md) ·
-[Phase 3 Architecture §13](./architecture/PHASE_3_ARCHITECTURE.md#13-ai-request-flow) ·
+As-built in [AI Architecture § M6](./ai/AI_ARCHITECTURE.md#m6-as-built) ·
+[Schema Reference §7a](./database/SCHEMA_REFERENCE.md) ·
 [ADR-006](./architecture/decisions/ADR-006-ai-approval.md).
 
-- **Prompt injection** 🟡 — treat all CRM/email content as untrusted; system-prompt
-  separation, tool-arg validation, output schema-constraints; never let retrieved
-  content escalate tool scope.
-- **Context isolation** 🟡 — retrieval is **RLS-scoped by `owner_id`**; a user's AI
-  only ever sees their own data; tools run under the session's RLS.
-- **Token limits** 🟡 — per-owner token/cost budgets in the gateway; refuse/downgrade
-  when exceeded (a `429`).
-- **Approval workflow / human review** 🟡 — every external/high-impact action is
-  gated in `ai_approvals`; nothing sends/acts without `approval_granted`
+**Implemented in M6** (behind `FEATURE_AI`, flag off, migration not applied):
+
+- **Fail-closed by default** 🟢 — the gateway throws on entry when the flag is off
+  **or** the provider key is unset. No route, no job, no query, no spend. Rollback
+  is flipping the flag; no redeploy.
+- **Consequence-classed tools** 🟢 — `read` · `write` · `external`, enforced **in
+  the registry** rather than inside each tool, so a tool cannot opt itself out. M6
+  registers **read tools only**; `write`/`external` raise
+  `AiApprovalRequiredError`. Model-requested tool names are looked up in a
+  registry, never dynamically dispatched.
+- **Context isolation / owner scoping** 🟢 — every AI read and write is
+  owner-scoped **in application code**, not merely by RLS, because job-path callers
+  use the service-role client which bypasses RLS (H5). A row belonging to another
+  owner is reported as *absent*, which leaks nothing about what exists.
+- **Token/cost budgets** 🟢 — per-owner daily ceiling enforced by an **atomic**
+  single-statement reserve (`ai_reserve_budget`); over budget raises a
+  non-retryable error so a job cannot hammer the ceiling. Reserve-then-reconcile
+  fails in the safe direction (over-count, never over-spend). This is also the
+  cost-DoS control.
+- **Secret handling** 🟢 — provider key server-only and never logged or returned;
+  prompt text and persisted content pass redaction (§6); provider errors are
+  classified into an internal taxonomy so raw vendor messages — which can echo
+  request content — never reach a client.
+- **Output validation** 🟢 — schema-constrained generation is treated as an
+  optimisation, not a guarantee: replies are independently parsed and validated
+  before any consumer sees them.
+- **No input surface** 🟢 — M6 exposes no public route and no free-text entry
+  point. The Settings self-test takes **no input** by design; a free-text
+  self-test would be a prompt surface shipped a milestone before any injection
+  defences.
+- **Vendor isolation** 🟢 — no provider SDK type or wire field escapes
+  `lib/ai/providers/**`, enforced by an ESLint rule and a leak test. Beyond
+  portability this bounds the blast radius of a compromised or misbehaving SDK to
+  one directory.
+
+**Deferred — known gaps, not oversights:**
+
+- **Prompt injection** 🟡 → **Phase 5.** All synced CRM/email content is
+  attacker-authorable. M6's containment is structural (no write tools, no
+  external tools, no user free text reaching a prompt), not defensive.
+  **Re-assess before M7 flag-on** — M7 is the first milestone to feed ingested
+  email into a model.
+- **Approval workflow** 🟡 → **M9.** The policy that refuses unapproved execution
+  ships in M6; the `ai_approvals` queue and its UI ship in M9
   ([ADR-006](./architecture/decisions/ADR-006-ai-approval.md)).
-- **Data-leakage prevention** 🟡 — the gateway redacts secrets/PII, bounds context,
-  and never sends tokens; provider key is server-only; no training on customer data.
-- **Future model abstraction** 🟡/⚪ — a pluggable provider gateway isolates the LLM;
-  model routing + eval/guardrail harness.
+- **Eval / guardrail harness** 🟡 → **Phase 5.**
+- **Retrieval scoping** 🟡 → **M8**, when retrieval exists.
 
 ---
 
@@ -417,6 +482,9 @@ after mitigation.
 - [ ] Review dependency advisories; re-run gates.
 - [ ] Revisit CSP relaxations, add external monitoring/alerting (⚪), dead-letter review (🟡).
 - [ ] (When applicable) pen-test before enabling AI/integration features.
+- [ ] **Every new SQL function** carries `revoke … from public` + explicit grants
+      (§5); `SECURITY DEFINER` functions additionally pin `search_path`.
+- [ ] **AI redaction key list** (§6) still matches the deployed env var names.
 
 ---
 

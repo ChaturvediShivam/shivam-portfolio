@@ -426,13 +426,118 @@ vercel env add <NAME> production        # paste new value; then redeploy
 
 ---
 
+## 19. AI Operations ⬜ (Phase 3 · M6 — implemented, not deployed)
+
+The AI layer is a **server-only library** behind `FEATURE_AI`. There is no public
+route and nothing user-facing; the only operator surfaces are **Settings → AI**
+and the `ai_*` tables. As-built detail:
+[AI Architecture § M6](../ai/AI_ARCHITECTURE.md#m6-as-built) ·
+[Schema Reference §7a](../database/SCHEMA_REFERENCE.md).
+
+### 19.1 Environment variables
+
+| Variable | Required | Default | Notes |
+|---|:--:|---|---|
+| `AI_PROVIDER_API_KEY` | ✅ | — | Provider credential. Server-only. Without it the gateway fails closed even with the flag on. |
+| `FEATURE_AI` | ✅ | off | `"true"` enables. Anything else = off. |
+| `AI_PROVIDER` | — | `anthropic` | Selects the adapter. An unknown value fails closed. |
+| `AI_MODEL_FAST` | — | provider default | Overrides the model for the `fast` task class. |
+| `AI_MODEL_REASONING` | — | provider default | Overrides the model for the `reasoning` task class. |
+| `AI_EFFORT_FAST` | — | `medium` | `low`/`medium`/`high`/`xhigh`/`max`. |
+| `AI_EFFORT_REASONING` | — | `high` | As above. |
+| `AI_DAILY_TOKEN_BUDGET` | — | unlimited | Per-owner daily token ceiling. **Set this before flag-on.** |
+
+> **Model choice is an operator decision.** Both task classes default to the
+> provider's strongest model. Downgrading the `fast` class is a deliberate
+> cost/quality trade — make it via `AI_MODEL_FAST`, not by editing code. Effort is
+> the cheaper first lever.
+
+> **`FEATURE_AI` does not require `FEATURE_JOBS`.** M6 is the first Phase-3
+> milestone callable synchronously, so it can be enabled independently of the cron
+> drainer. M7 onwards will need jobs.
+
+### 19.2 Enable procedure
+
+1. Apply migration `20260731090000_ai_foundation.sql` out-of-band. Verify: five
+   tables exist, RLS is on for each, both functions exist and are **revoked from
+   `public`**.
+2. Set `AI_PROVIDER_API_KEY` and `AI_DAILY_TOKEN_BUDGET` in Vercel (Production +
+   Preview). Leave `FEATURE_AI` off.
+3. Deploy. Confirm Settings shows **no** AI section (flag-off inertness).
+4. Set `FEATURE_AI=true`. Settings → AI should render.
+5. Click **Run self-test**. Expect `Passed · <provider>/<model> · N tokens · N ms`.
+   This exercises render → budget → provider → mapper → validation → audit
+   end-to-end.
+6. Verify one row landed in `ai_audit_log` (`outcome='success'`) and that
+   `ai_usage_counters` for today shows a non-zero `tokens_used`.
+
+### 19.3 Health checks
+
+Settings → AI shows provider configured/not, tokens used vs budget, request
+count, estimated cost, and 24h failures. Underlying queries:
+
+```sql
+-- Today's ledger for an owner
+select * from ai_usage_counters where owner_id = '<uuid>' and usage_date = current_date;
+
+-- Recent failures with their taxonomy code
+select created_at, ai_model, outcome, error_code, latency_ms
+  from ai_audit_log where outcome = 'error' order by created_at desc limit 20;
+
+-- Spend for the last 7 days (cost_micros is millionths of a USD)
+select date(created_at) as day,
+       sum(input_tokens + output_tokens) as tokens,
+       round(sum(cost_micros) / 1000000.0, 4) as usd
+  from ai_audit_log group by 1 order by 1 desc limit 7;
+```
+
+### 19.4 Common operations
+
+| Symptom | Cause | Action |
+|---|---|---|
+| Settings → AI missing | `FEATURE_AI` not `"true"` | Set the flag; runtime, no redeploy. |
+| "AI ledger not available yet" | Migration not applied | Apply `20260731090000`. |
+| "AI provider is not configured" | Key unset/blank | Set `AI_PROVIDER_API_KEY`, redeploy. |
+| `error_code='budget_exceeded'` | Daily ceiling hit | Expected protection. Raise `AI_DAILY_TOKEN_BUDGET` or wait for the date to roll. **Do not** edit counters to "unblock" — see the caution below. |
+| `error_code='transient'` | Rate limit / 5xx / timeout | Self-heals; job callers retry under M1 backoff. Persisting → check provider status. |
+| `error_code='permanent'` | Bad request, auth, unknown model | Check `AI_MODEL_*` overrides and key validity. |
+| `error_code='invalid_output'` | Model reply failed schema validation | Prompt/template issue; not retryable. |
+| `outcome='refused'` | Provider safety classifier declined | Not an error path. Inspect the prompt/content. |
+| `outcome='truncated'` | Hit the output ceiling | Raise the template's `maxOutputTokens`; **remember thinking shares that budget.** |
+| Tokens climb with no requests | Reservations not reconciled (crashes) | Expected conservative over-count; resets at date rollover. |
+
+> **Caution — budget counters.** `tokens_reserved` can legitimately exceed
+> `tokens_used` (an un-reconciled reservation after a crash). Resist "fixing" it
+> by hand: the ledger is the enforcement mechanism, and a manual reset removes the
+> guard rail. Raise the ceiling instead, or wait for the day to roll.
+
+### 19.5 Kill switch / rollback
+
+In escalating order:
+
+1. **`FEATURE_AI=false`** — runtime, no redeploy. Gateway inert, panel hidden,
+   zero spend. **This is the first response to any AI incident.**
+2. **Revoke the provider key at the provider** — hard stop independent of the
+   flag; the gateway fails closed.
+3. **Promote the previous deployment** (§3).
+4. **`v1.0.0` (`c2b5dc3`)** — the standing baseline.
+
+Tables are additive and inert when unwritten; **never drop them during an
+incident**. Rolling back code does not require rolling back the migration.
+
+---
+
 ## Document Control
 
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Repository maintainer / on-call (Shivam Chaturvedi)
-- **Last Updated:** 2026-07-28
+- **Last Updated:** 2026-07-31
 - **Scope:** ✅ sections apply to the live v1.0.0 system; ⬜ sections (cron, queue,
-  jobs, OAuth) apply as their Phase 3 milestones ship.
+  jobs, OAuth, AI) apply as their Phase 3 milestones ship.
+- **v1.1 (2026-07-31):** added §19 AI Operations for **Phase 3 · M6** — env vars,
+  enable procedure, health queries, failure triage, and the kill switch.
+  Implemented on `feat/phase3-m6-ai-foundation`; **not deployed** (`FEATURE_AI`
+  off, migration not applied).
 
 ### Related Documents
 - [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md)

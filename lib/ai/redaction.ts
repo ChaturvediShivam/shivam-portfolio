@@ -27,7 +27,7 @@ const SECRET_ENV_KEYS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "GOOGLE_OAUTH_CLIENT_SECRET",
   "RESEND_API_KEY",
-  "TURNSTILE_SECRET_KEY",
+  "CLOUDFLARE_TURNSTILE_SECRET_KEY",
 ] as const;
 
 /** Shapes that are almost certainly credentials regardless of origin. */

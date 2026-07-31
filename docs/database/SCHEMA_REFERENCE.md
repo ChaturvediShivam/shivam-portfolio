@@ -143,9 +143,12 @@ flowchart LR
     JOBS --> NT["notifications 🟡"]
     JOBS --> AIS["ai_* jobs 🟡"]
     AUTH["auth.users"] --> OS["oauth_states 🟡"]
-    AICONV["ai_conversations 🟡"] --> AIMSG["ai_messages 🟡"]
-    AIAPP["ai_approvals 🟡"] --> AILOG["ai_audit_log 🟡"]
-    EMB["ai_embeddings 🟡 (pgvector)"] --> RET["retrieval"]
+    AICONV["ai_conversations (M6, as-built)"] --> AIMSG["ai_messages (M6)"]
+    AICONV --> AILOG["ai_audit_log (M6)"]
+    AUTH --> AIUC["ai_usage_counters (M6)"]
+    PT["prompt_templates (M6)"]
+    AIAPP["ai_approvals 🟡 M9"] --> AILOG
+    EMB["ai_embeddings 🟡 M8 (pgvector)"] --> RET["retrieval"]
 ```
 
 ---
@@ -323,26 +326,83 @@ Native Postgres enums (extend via `ALTER TYPE … ADD VALUE`). Defined in the Ph
 
 ---
 
-## 7. AI Tables 🟡 (Phase 3 · M6–M9)
+## 7. AI Tables (Phase 3 · M6–M9)
 
 Full internals in [AI Architecture](../ai/AI_ARCHITECTURE.md). All standard
 conventions; provenance columns (`ai_model`/`ai_prompt_version`/`ai_confidence`/
 `ai_processed_at`) reuse existing entity columns where the output lands on an
 entity (no new columns needed there).
 
-| Table | Status | Purpose | PK / key FKs | Notable columns | Indexes | RLS | Soft delete | Events produced | Consumed | Migration |
-|-------|:------:|---------|--------------|-----------------|---------|-----|-------------|-----------------|----------|-----------|
-| `ai_conversations` | 🟡 M6 | Copilot sessions | `id`; `owner_id`; poly `entity_type/id` | `subject`, entity linkage | `(owner_id)`, `(entity_type,entity_id)` | standard | `archived_at` | `ai.conversation_message` | chat route | M6 |
-| `ai_messages` | 🟡 M6 | Turns in a conversation | `id`; `conversation_id → ai_conversations CASCADE` | `role`, `content`, `tool_calls jsonb`, `tokens`, `ai_model`, `ai_prompt_version` | `(conversation_id, created_at)` | standard | none (append) | `ai.conversation_message` | chat route | M6 |
-| `ai_audit_log` | 🟡 M6 | Cross-cutting AI action audit | `id`; poly `entity_type/id` | `actor`(agent), `action`, `tokens`, `cost`, `ai_model`, `ai_prompt_version` | `(entity_type,entity_id)`, `(created_at desc)` | standard | none (append) | — (record) | all AI actions | M6 |
-| `prompt_templates` | 🟡 M6 (opt) | Versioned/editable prompts | `id` | `key`, `version`, `body`, `active` | `(key, version)` unique | standard | `archived_at` | — | gateway | M6 |
-| `ai_embeddings` | 🟡 M8 | Semantic vectors (**pgvector**) | `id`; poly `entity_type/id` | `chunk`, `embedding vector`, `ai_model`, content hash | vector (IVFFlat/HNSW), `(entity_type,entity_id)` | standard | none | `ai.embedding_created` | retrieval | M8 |
-| `ai_approvals` | 🟡 M6/M9 | Human-in-the-loop gate | `id`; poly `entity_type/id`; `decided_by → auth.users` | `agent`, `action_type`, `proposed_payload jsonb`, `rationale`, `ai_confidence`, `status`, `decided_at` | `(status)`, `(entity_type,entity_id)` | standard | none | `ai.approval_requested/granted/rejected`, `ai.action_executed` | drafting/automation | M6/M9 |
+> **Status split.** The five M6 tables below are **as-built** — documented from
+> `supabase/migrations/20260731090000_ai_foundation.sql`, implemented on
+> `feat/phase3-m6-ai-foundation`, **not yet applied to any database**. The M8/M9
+> rows remain 🟡 design-only.
 
-- **Audit strategy:** AI writes stamp `ai_*`; opportunity-affecting actions also write `opportunity_events` (`actor_type='agent'`). **Triggers:** `updated_at` on mutable tables.
-- **Typical queries:** conversation history; pending approvals queue; hybrid retrieval (FTS `search_vector` + `ai_embeddings` KNN, `owner_id`-scoped).
-- **Performance:** vector index sizing; token/cost budgets bound spend. **Future:** the nine specialized agents ([AI Architecture](../ai/AI_ARCHITECTURE.md#future-agents)); `ai_profiles` (resume, ⚪).
-- **Cross-ref:** [ADR-006 approval gating](../architecture/decisions/ADR-006-ai-approval.md).
+### 7a. M6 — AI Foundation (as-built)
+
+| Table | Purpose | PK / key FKs | Notable columns | Indexes | RLS | Soft delete |
+|-------|---------|--------------|-----------------|---------|-----|-------------|
+| `ai_conversations` | Multi-turn run container | `id`; `owner_id → auth.users SET NULL`; poly `entity_type` + `entity_id` | `subject`, `status` (default `active`), `metadata jsonb` | `(owner_id, created_at desc)`, `(entity_type, entity_id)` | standard | `archived_at` |
+| `ai_messages` | Individual turns | `id`; `conversation_id → ai_conversations CASCADE`; `owner_id` | `role`, `content`, `tool_calls jsonb`, `input_tokens`, `output_tokens`, `ai_provider`, `ai_model`, `ai_prompt_version`, `metadata jsonb` | `(conversation_id, created_at)`, `(owner_id)` | standard | none (append) |
+| `ai_audit_log` | One row per provider call | `id`; `conversation_id → ai_conversations SET NULL`; `owner_id` | `actor`, `action`, `ai_provider`, `ai_model`, `ai_prompt_version`, `input_tokens`, `output_tokens`, `cached_input_tokens`, `cost_micros`, `latency_ms`, `outcome`, `error_code`, `job_id` | `(owner_id, created_at desc)`, `(created_at desc)`, `(outcome)` | standard | none (append) |
+| `prompt_templates` | Runtime mirror / A-B surface | `id`; `owner_id` | `template_id`, `version`, `body`, `task_class`, `is_active`, `metadata jsonb` | **unique** `(template_id, version)`, `(is_active)` | standard | none |
+| `ai_usage_counters` | Atomic daily budget ledger | `id`; `owner_id → auth.users **CASCADE**` | `usage_date`, `tokens_reserved`, `tokens_used`, `cost_micros bigint`, `request_count` | **unique** `(owner_id, usage_date)` | standard | none |
+
+**Notes that differ from the original design and matter when reading the code:**
+
+- **`ai_usage_counters` is an addition beyond the design's four tables** (approved
+  as decision D2). Budget enforcement must be atomic: aggregating `ai_audit_log`
+  is racy — two concurrent calls both read the pre-spend total and both proceed —
+  and its scan cost grows with every call ever made. A counter row makes the check
+  a single indexed conditional `UPDATE`: correct under concurrency, O(1), and safe
+  under PgBouncer transaction pooling (the constraint that also shaped
+  `claim_jobs`).
+- **`ai_provider` is a first-class column** on `ai_messages` and `ai_audit_log`.
+  Together with `ai_model` it is **opaque provenance** — recorded, never branched
+  on. This is what lets the provider be swapped with no migration.
+- **`cost_micros`** is millionths of a USD. `bigint` on the ledger, `integer` on
+  the audit row (a single call cannot approach the `int4` ceiling).
+- **`outcome`** is one of `success` / `refused` / `truncated` / `error` —
+  refusal and truncation are recorded distinctly so a partial reply is never
+  mistaken for a successful one.
+- **`prompt_templates` ships unread.** M6 resolves templates from the repo
+  (`lib/ai/prompts/`) so they stay reviewable and diffable; the table is the
+  future runtime-override surface.
+
+#### Functions
+
+| Function | Security | Purpose |
+|---|---|---|
+| `ai_reserve_budget(p_owner_id uuid, p_tokens integer, p_limit integer) → boolean` | `SECURITY DEFINER`, `search_path = public, pg_temp`; **revoked from `public`**, granted to `authenticated` + `service_role` | Atomically reserve tokens or refuse. One statement, both branches guarded: the `INSERT` (first call of the day) refuses when a single request alone exceeds the limit; the `ON CONFLICT DO UPDATE` refuses when it would push the running total past it. **No rows returned = refused** (the caller treats `NULL` as denial). `p_limit IS NULL` means unlimited. |
+| `ai_commit_budget(p_owner_id uuid, p_estimate integer, p_actual integer, p_cost_micros bigint) → void` | same | Reconcile a reservation to measured usage: `tokens_reserved = greatest(0, reserved - estimate + actual)`, accumulate `tokens_used` and `cost_micros`. |
+
+> **Why the explicit `REVOKE`:** Postgres grants `EXECUTE` on new functions to
+> `PUBLIC`. Without the revoke, a `SECURITY DEFINER` budget function is callable
+> by the `anon` role over PostgREST — an unauthenticated caller could inflate any
+> owner's counters and disable the AI layer. This mirrors the existing
+> `claim_jobs` / `enqueue_job` grants from M1.
+
+**Budget lifecycle:** reserve an estimate → call → reconcile to actual. If the
+commit never lands (crash, or a DB failure after a successful provider call) the
+reservation stands. That over-counts the day's usage, which is the safe direction:
+the budget can under-spend, never over-spend.
+
+### 7b. M8/M9 — design only 🟡
+
+| Table | Status | Purpose | Notable columns | Indexes | Migration |
+|-------|:------:|---------|-----------------|---------|-----------|
+| `ai_embeddings` | 🟡 M8 | Semantic vectors (**pgvector**) | `entity_type`, `entity_id`, `chunk`, `embedding vector`, `ai_model` | vector (IVFFlat/HNSW), `(entity_type, entity_id)` | M8 |
+| `ai_approvals` | 🟡 M9 | Human-in-the-loop gate | `agent`, `action_type`, `proposed_payload jsonb`, `rationale`, `ai_confidence`, `status`, `decided_by`, `decided_at` | `(status)`, `(entity_type, entity_id)` | M9 |
+
+`ai_approvals` was **deferred from M6 to M9** (decision D4): M6 registers no
+`write`/`external` tools, so an approvals queue would have had no producers. The
+policy that refuses unapproved execution ships in M6; the queue that satisfies it
+ships in M9.
+
+- **Audit strategy:** AI writes stamp `ai_*`; opportunity-affecting actions also write `opportunity_events` (`actor_type='agent'`). **Triggers:** `updated_at` on every table above.
+- **Typical queries:** conversation history (`(conversation_id, created_at)`); today's ledger (`(owner_id, usage_date)`); failure count (`(outcome)`); hybrid retrieval, M8.
+- **Performance:** budget check is one indexed statement; vector index sizing is an M8 concern. **Future:** the nine specialized agents ([AI Architecture](../ai/AI_ARCHITECTURE.md#future-agents)); `ai_profiles` (resume, ⚪).
+- **Cross-ref:** [ADR-006 approval gating](../architecture/decisions/ADR-006-ai-approval.md) · [Security §9](../SECURITY.md).
 
 ---
 
@@ -430,10 +490,16 @@ All would follow the standard conventions (§0) and land as additive migrations.
 
 ## Document Control
 
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Repository maintainer (Shivam Chaturvedi)
-- **Last Updated:** 2026-07-28
+- **Last Updated:** 2026-07-31
 - **Status:** 🟢 tables documented as-built (v1.0.0 — baseline `supabase/schema.sql`
   + `supabase/migrations/20260726183601_career_crm_foundation.sql`); 🟡 tables are
   the approved Phase 3 contract; ⚪ tables are future candidates. Baseline `v1.0.0`
   (`c2b5dc3`).
+- **v1.1 (2026-07-31):** §7 rewritten as-built for **Phase 3 · M6** from
+  `supabase/migrations/20260731090000_ai_foundation.sql` — five tables
+  (`ai_conversations`, `ai_messages`, `ai_audit_log`, `prompt_templates`,
+  `ai_usage_counters`) plus `ai_reserve_budget` / `ai_commit_budget`. Implemented
+  on `feat/phase3-m6-ai-foundation`, **not applied to any database**. M8/M9 AI
+  tables remain design-only.

@@ -1,17 +1,27 @@
-# AI Architecture (Design)
+# AI Architecture
 
-Design for the Career CRM's AI layer, realized in **Phase 3 (M6–M10)**. This is a
-**blueprint only** — no implementation, no migrations. Its central claim: the
-Phase 1 schema was built so the AI layer bolts on **additively** and requires
-**no redesign** of existing tables.
+Design for the Career CRM's AI layer, realized in **Phase 3 (M6–M10)**. Its
+central claim: the Phase 1 schema was built so the AI layer bolts on
+**additively** and requires **no redesign** of existing tables.
 
 **Related:** [README](../../README.md) · [Project Roadmap](../roadmap/PROJECT_ROADMAP.md) ·
 [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md) ·
-[Database Guide](../database/DATABASE_GUIDE.md)
+[Database Guide](../database/DATABASE_GUIDE.md) ·
+[Schema Reference §7](../database/SCHEMA_REFERENCE.md) ·
+[Security §9](../SECURITY.md)
 
-> **Provider-agnostic.** The design assumes a pluggable LLM provider (e.g. Claude)
-> behind a gateway; no specific model ids or pricing are asserted here — those are
-> chosen at build time against current provider docs.
+> **Status.** **M6 (AI Foundation) is implemented** — see
+> [§ M6 as-built](#m6-as-built) for what actually shipped, which is the
+> authoritative description of the gateway, tools, prompts and accounting.
+> M7–M10 below remain **design only**: no implementation, no migrations.
+
+> **Vendor neutrality is a binding invariant, not an aspiration.** No provider
+> SDK type, enum, stop reason, or request/response field may escape
+> `lib/ai/providers/**`. Everything above that line depends only on internal
+> contracts, so Anthropic can be replaced by OpenAI, Gemini, OpenRouter, Azure
+> OpenAI, Ollama, vLLM or anything else **without changing the gateway, business
+> logic, database layer, tools, prompts, or consumers**. Enforcement is
+> mechanical — see [§ M6 as-built](#m6-as-built).
 
 ---
 
@@ -31,6 +41,139 @@ the existing data model has to change to get there.
   before anything external happens (sending mail, changing stages).
 - **Auditable:** agent actions are logged as first-class events.
 - **Bounded:** tokens, cost, and tool scope are budgeted and enforced.
+
+---
+
+## M6 as-built
+
+What shipped on `feat/phase3-m6-ai-foundation` (commit `3efa283`), behind
+`FEATURE_AI`, with no public route and nothing user-facing. This section
+describes the code; everything after it describes the still-unbuilt design.
+
+### Layering
+
+```
+Callers (M7 job handler · M8 route · Settings self-test action)
+                  │
+          ┌───────▼───────┐
+          │   AiGateway   │  policy lives here, not in callers
+          └───────┬───────┘
+   ┌──────┬───────┼────────┬──────────────┬─────────────┐
+   ▼      ▼       ▼        ▼              ▼             ▼
+Prompt  Budget  Audit  ToolRegistry   Redaction    AiProvider ◄── interface
+registry (atomic)                                        │
+                                                  AnthropicProvider
+                                                         │
+                                                 AiCompletionMapper ◄── DTO boundary
+                                                         │
+                                                   vendor SDK
+```
+
+`AiGateway` imports the `AiProvider` **interface** and never a concrete adapter —
+the same inversion `CalendarSyncEngine` uses against `CalendarProvider` in M4.
+The entire gateway test suite runs against a stub provider that imports no SDK.
+
+### The neutral contract (`types/ai.ts`)
+
+Providers spell the same concepts differently; each adapter maps its own
+vocabulary onto ours, and consumers only ever see ours.
+
+| Concept | Neutral form | Vendor spellings it absorbs |
+|---|---|---|
+| Stop reason | `completed` · `tool_call` · `truncated` · `refused` | `end_turn`/`stop`/`STOP`, `tool_use`/`tool_calls`, `max_tokens`/`length`, `refusal`/`content_filter`/`SAFETY` |
+| Request intent | `taskClass`, `reasoningDepth`, `cachePolicy`, `responseSchema`, `maxOutputTokens` | `output_config.effort`, `thinking`, `cache_control`, native schema constraints |
+| Usage | `inputTokens`, `outputTokens`, `cachedInputTokens` | per-vendor usage blocks |
+| Errors | `AiTransientError` · `AiPermanentError` · `AiBudgetExceededError` · `AiApprovalRequiredError` · `AiInvalidOutputError` · `AiDisabledError` · `AiUnconfiguredError` · `AiUnknownTemplateError` · `AiUnknownToolError` | vendor SDK error classes |
+
+`model` and `provider` cross the boundary as **opaque provenance strings** —
+recorded for audit, never branched on.
+
+### Capability negotiation
+
+Not every provider supports everything, so `AiCapabilities` declares
+`structuredOutput`, `toolCalling`, `tokenCounting`, `prefixCaching` and
+`reasoningControl`, and the gateway degrades deliberately rather than assuming:
+
+- **No native structured output** → the JSON contract moves into the prompt.
+  Validation is unchanged, because our own validator (`lib/ai/schema.ts`) was
+  always the real guarantee; the provider feature is an optimisation that makes
+  it pass more often.
+- **No token-counting endpoint** → a conservative character-based estimate
+  (~3 chars/token) that **over**-reserves budget. Under-reserving would let a
+  call slip past the ceiling.
+- **No tool calling** → tools are simply not offered.
+
+### Enforcement of the invariant
+
+1. **ESLint** `no-restricted-imports` bans the vendor SDK outside
+   `lib/ai/providers/**` (verified to fire).
+2. **`test/ai/neutrality.test.ts`** scans `lib/`, `app/`, `components/`, `types/`
+   for vendor names, model ids and wire-format fields (`anthropic`, `claude-*`,
+   `openai`, `gpt-*`, `gemini`, `stop_reason`, `finish_reason`, `output_config`,
+   `cache_control`, `tool_use`). It caught a real leak on its first run.
+3. **The gateway suite compiles only against the interface.**
+
+**Adding a provider** = one new directory under `lib/ai/providers/` implementing
+`AiProvider`, plus one `case` in the factory and one env var. If a swap ever
+requires editing anything above the adapter line, that is a defect in the
+boundary — not a normal migration.
+
+### Request lifecycle
+
+```
+featureEnabled("FEATURE_AI")   → false ⇒ AiDisabledError (fail-closed)
+prompt registry render          → unknown template throws before any call
+redact                          → secrets stripped from prompt text
+provider.countTokens | estimate
+budget.reserve (atomic)         → over budget ⇒ AiBudgetExceededError
+provider.complete               → adapter maps vendor payload → AiCompletion
+[bounded tool rounds ≤ 3]       → read tools only; write/external refuse
+guard stopReason                → refused / truncated are non-throwing outcomes
+validate structured output      → invalid ⇒ AiPermanentError
+audit → ai_audit_log
+budget.commit                   → reconcile estimate to actual (always, incl. errors)
+```
+
+### Tools
+
+`AiTool` carries a consequence class — `read` · `write` · `external` — enforced
+**in the registry**, so a future tool cannot opt itself out by forgetting to
+check. M6 registers **read tools only** (`get_opportunity`,
+`search_opportunities`); `write` and `external` raise
+`AiApprovalRequiredError` because the approval queue is M9.
+
+Tools receive an `AiToolContext` carrying the Supabase client, `ownerId` and
+actor. **Dual execution context (H5):** interactive callers pass the session
+client (RLS applies); job callers pass the service-role client (RLS bypassed), so
+tools **assert ownership in application code** rather than assuming the client
+enforces it.
+
+### Accounting
+
+Two-phase, backed by `ai_usage_counters` and two SQL functions — see
+[Schema Reference §7a](../database/SCHEMA_REFERENCE.md). Reserve an estimate
+before the call, reconcile to actual after. A lost commit over-counts, so the
+budget can under-spend but never over-spend.
+
+### Deliberately not built in M6
+
+Streaming · public routes · embeddings/pgvector/retrieval · `ai_approvals` and
+its UI · summarisation · email drafting · automation · any write or external
+tool · prompt-injection hardening (Phase 5) · vendor-specific server-side
+refusal fallback (failover belongs at the neutral layer once a second adapter
+exists).
+
+### Known limitations
+
+- `ai_conversations` / `ai_messages` and `prompt_templates` ship **uncalled**;
+  M8 is their consumer. `lib/ai/conversations.ts` has no unit tests.
+- Tool-round calls reserve budget **once, before the first round**, so a
+  multi-round call can overshoot the daily ceiling by a bounded amount before the
+  reconcile lands. Revisit in M8, the first real tool consumer.
+- `search_opportunities` filters by owner **after** the query, because the
+  Phase-2 data layer takes no owner filter and is frozen. Equivalent under the
+  single-operator model; a multi-owner deployment must push the predicate into
+  the query so paging stays exact.
 
 ---
 
@@ -353,7 +496,19 @@ the "no redesign" constraint the Phase 1 schema was designed to guarantee.
 
 ---
 
-*Design only. Implementation is Phase 3 (M6–M10) in the
-[Project Roadmap](../roadmap/PROJECT_ROADMAP.md); it must land as additive
-migrations following the
-[Database Guide](../database/DATABASE_GUIDE.md#migration-conventions).*
+*M6 (AI Foundation) is implemented — see [§ M6 as-built](#m6-as-built), which is
+authoritative where it differs from the design above. M7–M10 remain design only;
+they must land as additive migrations following the
+[Database Guide](../database/DATABASE_GUIDE.md#migration-conventions). Sequencing
+in the [Project Roadmap](../roadmap/PROJECT_ROADMAP.md).*
+
+---
+
+## Document Control
+
+- **Version:** 1.1
+- **Last Updated:** 2026-07-31
+- **v1.1:** added [§ M6 as-built](#m6-as-built) from
+  `feat/phase3-m6-ai-foundation` (`3efa283`); promoted vendor neutrality from an
+  assumption to a binding, mechanically enforced invariant. M6 is implemented and
+  **not deployed** — flag `FEATURE_AI` off, migration not applied.

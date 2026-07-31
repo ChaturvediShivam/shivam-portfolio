@@ -14,6 +14,28 @@ describe("redaction", () => {
     expect(redact("key is super-secret-value-1234 ok")).toBe("key is [redacted] ok");
   });
 
+  it("redacts every secret env var under its real deployed name", () => {
+    // Guards against a typo'd key silently never matching — the entry name must
+    // be the variable that is actually set in the environment.
+    const names = [
+      "AI_PROVIDER_API_KEY",
+      "CRON_SECRET",
+      "TOKEN_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "GOOGLE_OAUTH_CLIENT_SECRET",
+      "RESEND_API_KEY",
+      "CLOUDFLARE_TURNSTILE_SECRET_KEY",
+    ];
+
+    for (const name of names) {
+      const previous = process.env[name];
+      process.env[name] = `value-for-${name}-0123456789`;
+      expect(redact(`leak: value-for-${name}-0123456789`)).toBe("leak: [redacted]");
+      if (previous === undefined) delete process.env[name];
+      else process.env[name] = previous;
+    }
+  });
+
   it("ignores short env values, which would false-positive across ordinary text", () => {
     process.env.AI_PROVIDER_API_KEY = "abc";
     expect(redact("the abc company")).toBe("the abc company");
