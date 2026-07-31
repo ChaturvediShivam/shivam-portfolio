@@ -39,6 +39,12 @@ interface SyncAccount {
   refresh_token_encrypted: string | null;
   token_expires_at: string | null;
   archived_at: string | null;
+  status: string | null;
+}
+
+/** An account no longer eligible for sync: gone, archived, or disconnected. */
+function isInactive(account: SyncAccount | null): boolean {
+  return !account || Boolean(account.archived_at) || account.status === "disconnected";
 }
 
 // ---------------------------------------------------------------------------
@@ -48,15 +54,24 @@ interface SyncAccount {
 export async function syncGmailAccount(
   client: SupabaseClient,
   accountId: string,
-): Promise<{ processed: number; caughtUp: boolean }> {
+): Promise<{ processed: number; caughtUp: boolean; active: boolean }> {
   const { data: account, error } = await client
     .from("integration_accounts")
-    .select("id, owner_id, sync_cursor, access_token_encrypted, refresh_token_encrypted, token_expires_at, archived_at")
+    .select(
+      "id, owner_id, sync_cursor, access_token_encrypted, refresh_token_encrypted, token_expires_at, archived_at, status",
+    )
     .eq("id", accountId)
     .eq("provider", "gmail")
     .maybeSingle();
   if (error) throw error;
-  if (!account || (account as SyncAccount).archived_at) return { processed: 0, caughtUp: true };
+
+  // `active` is reported separately from `caughtUp` so the handler can tell
+  // "nothing left to do right now" (reschedule) apart from "this account is
+  // finished" (stop). Collapsing the two into caughtUp:true made a dead account
+  // re-enqueue itself forever — a no-op chain with no terminating condition.
+  if (isInactive(account as SyncAccount | null)) {
+    return { processed: 0, caughtUp: true, active: false };
+  }
 
   const acct = account as SyncAccount;
   const config = getGoogleOAuthConfig();
@@ -121,7 +136,7 @@ export async function syncGmailAccount(
     .eq("id", acct.id);
   if (cursorError) throw cursorError;
 
-  return { processed, caughtUp };
+  return { processed, caughtUp, active: true };
 }
 
 /** Return the subset of ids not already stored for this account (quota saver). */

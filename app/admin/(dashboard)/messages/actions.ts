@@ -17,6 +17,7 @@ import {
   searchActiveOpportunities,
 } from "@/lib/messages";
 import { getGmailAccount } from "@/lib/integrations";
+import { featureEnabled } from "@/lib/featureFlags";
 import { enqueueGmailSyncNow } from "@/lib/sync/gmail-sync";
 import type { MessageLinkInput } from "@/types/message";
 
@@ -47,8 +48,17 @@ export async function restoreMessageAction(id: string): Promise<ActionResult<{ i
   });
 }
 
+/**
+ * Server Actions are POST endpoints addressable by action id, so they stay
+ * callable when the feature is off and the button that invokes them is not
+ * rendered — a stale browser tab is the realistic case, exactly during a
+ * rollback. Actions that start background work re-check the flag themselves.
+ */
 export async function syncNowAction(): Promise<ActionResult<{ enqueued: boolean }>> {
   return withAdminAction(async ({ supabase }) => {
+    if (!featureEnabled("FEATURE_GMAIL_SYNC")) {
+      return actionError({ formError: "Gmail sync is not enabled." });
+    }
     const account = await getGmailAccount(supabase);
     if (!account || account.status !== "connected") {
       return actionError({ formError: "Connect a Gmail account first." });
