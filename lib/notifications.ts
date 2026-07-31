@@ -156,11 +156,31 @@ export function emailAllowed(prefs: NotificationPreferences, type: string): bool
   return prefs.typePrefs[type] !== false;
 }
 
-/** Owners that own notifiable data (distinct owner_id across source tables). */
+/**
+ * Owners that own notifiable data (distinct owner_id across source tables).
+ *
+ * Known limitation (documented, not fixed in M5): PostgREST cannot express
+ * `DISTINCT`, so this reads up to `OWNER_SCAN_LIMIT` rows per table and dedupes
+ * client-side. An owner whose rows all fall beyond that cut would never be
+ * notified. Exact at single-operator scale; a multi-owner deployment needs a
+ * `distinct owner_id` SQL function, which is a migration change and therefore
+ * out of scope for a review fix.
+ *
+ * Errors throw rather than degrading to an empty set — a swallowed error here
+ * silently disables the entire scan. Note this makes the M4 migration a hard
+ * prerequisite: `calendar_events` must exist before the scan runs.
+ */
+const OWNER_SCAN_LIMIT = 1000;
+
 export async function getNotifiableOwners(client: SupabaseClient): Promise<string[]> {
   const owners = new Set<string>();
   for (const table of ["tasks", "messages", "calendar_events"]) {
-    const { data } = await client.from(table).select("owner_id").not("owner_id", "is", null).limit(1000);
+    const { data, error } = await client
+      .from(table)
+      .select("owner_id")
+      .not("owner_id", "is", null)
+      .limit(OWNER_SCAN_LIMIT);
+    if (error) throw error;
     for (const row of data ?? []) {
       if (row.owner_id) owners.add(row.owner_id as string);
     }

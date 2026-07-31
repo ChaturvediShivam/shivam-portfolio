@@ -43,7 +43,7 @@ export class OverdueTaskSource implements NotificationSource {
   async detect(client: SupabaseClient, ownerId: string): Promise<NotificationInput[]> {
     const now = new Date();
     const since = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await client
+    const { data, error } = await client
       .from("tasks")
       .select("id, title, due_at, opportunity_id")
       .eq("owner_id", ownerId)
@@ -52,6 +52,9 @@ export class OverdueTaskSource implements NotificationSource {
       .lt("due_at", now.toISOString())
       .gte("due_at", since)
       .limit(LIMIT);
+    // Throw rather than degrade to []: a swallowed error would make the scan
+    // report success and self-schedule forever while producing nothing.
+    if (error) throw error;
     return (data ?? []).map((t) => overdueTaskToInput(t as OverdueTaskRow, ownerId));
   }
 }

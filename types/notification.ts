@@ -73,6 +73,35 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   typePrefs: {},
 };
 
+/** Types a preference row may reference. Anything else is dropped on save. */
+export const KNOWN_NOTIFICATION_TYPES: string[] = [
+  NotificationType.TASK_OVERDUE,
+  NotificationType.MESSAGE_RECEIVED,
+  NotificationType.INTERVIEW_REMINDER,
+  NotificationType.SYSTEM,
+];
+
+/**
+ * Coerce untrusted client input into storable preferences.
+ *
+ * `type_prefs` is a jsonb column written straight from a Server Action, so
+ * without this an authenticated caller could persist arbitrary keys and an
+ * unbounded payload. Only known types survive, and — because the model is
+ * opt-OUT — only explicit `false` is stored, which also bounds the object to at
+ * most one key per known type.
+ */
+export function sanitizeNotificationPreferences(input: unknown): NotificationPreferences {
+  const source = (input ?? {}) as Partial<NotificationPreferences>;
+  const typePrefs: Record<string, boolean> = {};
+  const candidate = (source.typePrefs ?? {}) as Record<string, unknown>;
+
+  for (const type of KNOWN_NOTIFICATION_TYPES) {
+    if (candidate[type] === false) typePrefs[type] = false;
+  }
+
+  return { emailEnabled: source.emailEnabled !== false, typePrefs };
+}
+
 /** Stable dedupe key for idempotent creation (owner scoping is via the index). */
 export function buildDedupeKey(type: string, entityType: string, entityId: string): string {
   return `${type}:${entityType}:${entityId}`;

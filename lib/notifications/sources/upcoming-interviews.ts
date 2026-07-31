@@ -45,7 +45,7 @@ export class UpcomingInterviewSource implements NotificationSource {
   async detect(client: SupabaseClient, ownerId: string): Promise<NotificationInput[]> {
     const now = new Date();
     const until = new Date(now.getTime() + WINDOW_HOURS_AHEAD * 60 * 60 * 1000).toISOString();
-    const { data } = await client
+    const { data, error } = await client
       .from("calendar_events")
       .select("id, title, starts_at, calendar_id, opportunity_id")
       .eq("owner_id", ownerId)
@@ -53,6 +53,9 @@ export class UpcomingInterviewSource implements NotificationSource {
       .gte("starts_at", now.toISOString())
       .lte("starts_at", until)
       .limit(LIMIT);
+    // Throw rather than degrade to []: a swallowed error would make the scan
+    // report success and self-schedule forever while producing nothing.
+    if (error) throw error;
     return (data ?? []).map((e) => upcomingInterviewToInput(e as UpcomingEventRow, ownerId));
   }
 }

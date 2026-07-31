@@ -10,14 +10,25 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Notification bell: only mounted when the feature is enabled (inert otherwise).
+  //
+  // This layout wraps every admin page and there is no error boundary above it,
+  // so an unhandled throw here would take down the whole admin area rather than
+  // just the bell. The reads therefore degrade to "no bell" — the same
+  // null-on-failure contract getJobsHealth uses for the M1 queue panel. The
+  // realistic trigger is the flag being enabled before the M5 migration is
+  // applied.
   let bell: React.ReactNode = null;
   if (featureEnabled("FEATURE_NOTIFICATIONS")) {
-    const supabase = await createServerSupabaseClient();
-    const [unreadCount, recent] = await Promise.all([
-      getUnreadCount(supabase),
-      listRecentNotifications(supabase, 8),
-    ]);
-    bell = <NotificationBell unreadCount={unreadCount} recent={recent} />;
+    try {
+      const supabase = await createServerSupabaseClient();
+      const [unreadCount, recent] = await Promise.all([
+        getUnreadCount(supabase),
+        listRecentNotifications(supabase, 8),
+      ]);
+      bell = <NotificationBell unreadCount={unreadCount} recent={recent} />;
+    } catch (err) {
+      console.error("[admin layout] notification bell unavailable:", err);
+    }
   }
 
   return (

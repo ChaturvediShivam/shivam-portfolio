@@ -45,7 +45,7 @@ export class NewMessageSource implements NotificationSource {
 
   async detect(client: SupabaseClient, ownerId: string): Promise<NotificationInput[]> {
     const since = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-    const { data } = await client
+    const { data, error } = await client
       .from("messages")
       .select("id, subject, from_address, from_name, opportunity_id, received_at")
       .eq("owner_id", ownerId)
@@ -54,6 +54,9 @@ export class NewMessageSource implements NotificationSource {
       .is("archived_at", null)
       .gte("received_at", since)
       .limit(LIMIT);
+    // Throw rather than degrade to []: a swallowed error would make the scan
+    // report success and self-schedule forever while producing nothing.
+    if (error) throw error;
     return (data ?? []).map((m) => newMessageToInput(m as NewMessageRow, ownerId));
   }
 }

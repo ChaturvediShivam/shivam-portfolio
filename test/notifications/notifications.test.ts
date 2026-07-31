@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  KNOWN_NOTIFICATION_TYPES,
   NotificationType,
   buildDedupeKey,
   priorityFromInt,
   priorityToInt,
+  sanitizeNotificationPreferences,
   type NotificationView,
 } from "@/types/notification";
 import { emailAllowed } from "@/lib/notifications";
@@ -47,6 +49,50 @@ describe("preference gating (opt-out model)", () => {
     expect(emailAllowed({ emailEnabled: false, typePrefs: {} }, "TASK_OVERDUE")).toBe(false);
     expect(emailAllowed({ emailEnabled: true, typePrefs: { TASK_OVERDUE: false } }, "TASK_OVERDUE")).toBe(false);
     expect(emailAllowed({ emailEnabled: true, typePrefs: { TASK_OVERDUE: false } }, "MESSAGE_RECEIVED")).toBe(true);
+  });
+});
+
+describe("preference sanitization (untrusted client input)", () => {
+  it("keeps a valid opt-out for a known type", () => {
+    expect(
+      sanitizeNotificationPreferences({ emailEnabled: true, typePrefs: { TASK_OVERDUE: false } }),
+    ).toEqual({ emailEnabled: true, typePrefs: { TASK_OVERDUE: false } });
+  });
+
+  it("drops unknown types, so the jsonb column cannot be used as free storage", () => {
+    const result = sanitizeNotificationPreferences({
+      emailEnabled: true,
+      typePrefs: { TASK_OVERDUE: false, NOT_A_REAL_TYPE: false, injected: "payload" },
+    });
+    expect(result.typePrefs).toEqual({ TASK_OVERDUE: false });
+  });
+
+  it("bounds the stored object to the known types regardless of input size", () => {
+    const hostile: Record<string, unknown> = {};
+    for (let i = 0; i < 5000; i += 1) hostile[`key-${i}`] = false;
+    const result = sanitizeNotificationPreferences({ emailEnabled: true, typePrefs: hostile });
+    expect(Object.keys(result.typePrefs).length).toBeLessThanOrEqual(KNOWN_NOTIFICATION_TYPES.length);
+  });
+
+  it("stores only explicit false (opt-out model), never redundant true", () => {
+    const result = sanitizeNotificationPreferences({
+      emailEnabled: true,
+      typePrefs: { TASK_OVERDUE: true, MESSAGE_RECEIVED: false },
+    });
+    expect(result.typePrefs).toEqual({ MESSAGE_RECEIVED: false });
+  });
+
+  it("coerces a non-boolean emailEnabled to the safe default (enabled)", () => {
+    expect(sanitizeNotificationPreferences({ emailEnabled: "yes" as never, typePrefs: {} }).emailEnabled).toBe(true);
+    expect(sanitizeNotificationPreferences({ emailEnabled: false, typePrefs: {} }).emailEnabled).toBe(false);
+  });
+
+  it("survives null/undefined/garbage input", () => {
+    expect(sanitizeNotificationPreferences(null)).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
+    expect(sanitizeNotificationPreferences(undefined)).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
+    expect(sanitizeNotificationPreferences({ typePrefs: "not-an-object" })).toEqual(
+      DEFAULT_NOTIFICATION_PREFERENCES,
+    );
   });
 });
 

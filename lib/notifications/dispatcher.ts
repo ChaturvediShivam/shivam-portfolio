@@ -61,7 +61,17 @@ export async function dispatchNotification(
     result = delivery;
   }
 
-  await client
+  // Conditional stamp: only write when the notification is still unstamped, so
+  // two concurrent dispatches cannot clobber each other's metadata (a plain
+  // read-modify-write would lose whichever update landed first).
+  //
+  // Residual, accepted: the window between the check above and the send is not
+  // closed, so delivery remains at-least-once — a crash or lease reclaim
+  // mid-send could re-send. Closing it fully means claiming before sending,
+  // which trades a duplicate email for a silently dropped one. Reaching it also
+  // requires two dispatch jobs for the same notification, which the create-once
+  // enqueue makes unreachable in practice.
+  const { error: stampError } = await client
     .from("notifications")
     .update({
       metadata: {
@@ -70,5 +80,12 @@ export async function dispatchNotification(
         email_result: result.delivered ? "delivered" : result.reason ?? "skipped",
       },
     })
-    .eq("id", notificationId);
+    .eq("id", notificationId)
+    .is("metadata->>email_dispatched_at", null);
+
+  // Log, never throw. The email has already been sent by this point, so throwing
+  // would hand the job back to the runner and re-send on every retry — turning a
+  // lost bookkeeping write into an email storm. Losing the stamp is the strictly
+  // safer failure.
+  if (stampError) console.error("[notifications] dispatch stamp failed:", stampError.message);
 }
