@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueJob } from "@/lib/jobs/queue";
+import { featureEnabled } from "@/lib/featureFlags";
 import { getGoogleOAuthConfig } from "@/lib/integrations/google/oauth";
 import { getFreshAccessToken } from "@/lib/integrations/google/tokens";
 import {
@@ -221,7 +222,42 @@ async function ingestMessage(
     });
   }
 
+  // Only reached for a genuinely new row — the unique-violation path returned
+  // false above — so a message is never enqueued for summary twice.
+  if (account.owner_id) await requestMessageSummary(client, account.owner_id, messageId);
+
   return true;
+}
+
+/**
+ * Request an AI summary for a newly ingested message (Phase 3 · M7).
+ *
+ * Fire-and-forget: this must never fail the sync job. The message row is
+ * already committed and `filterUningested` will not revisit it, so throwing
+ * here would trade a missing summary for a stalled inbox. A lost enqueue is
+ * recovered by the operator backfill instead.
+ *
+ * Gated here as well as in the handler so that flipping the flag off stops new
+ * work being created, not just work being done.
+ */
+export async function requestMessageSummary(
+  client: SupabaseClient,
+  ownerId: string,
+  messageId: string,
+): Promise<void> {
+  if (!featureEnabled("FEATURE_AI_SUMMARIES")) return;
+
+  try {
+    await enqueueJob(client, {
+      type: "ai_summarize",
+      // The handler receives only the payload, never the job row, so the owner
+      // it must scope to travels here rather than in the jobs.owner_id column.
+      payload: { entityType: "message", entityId: messageId, ownerId },
+      ownerId,
+    });
+  } catch (err) {
+    console.error(`[gmail-sync] could not enqueue summary for message ${messageId}:`, err);
+  }
 }
 
 interface AutoLinks {

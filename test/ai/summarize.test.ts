@@ -2,8 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { AiCapabilities, AiCompletion, AiRequest, AiTaskClass, AiUsage } from "@/types/ai";
 import { AiGateway } from "@/lib/ai/gateway";
 import type { AiProvider } from "@/lib/ai/providers/provider";
-import { AiPermanentError } from "@/lib/ai/errors";
+import {
+  AiBudgetExceededError,
+  AiDisabledError,
+  AiPermanentError,
+  AiTransientError,
+  AiUnconfiguredError,
+} from "@/lib/ai/errors";
 import { summarizeMessage } from "@/lib/ai/summarize";
+import { requestMessageSummary } from "@/lib/sync/gmail-sync";
+import { runJobs } from "@/lib/jobs/runner";
+import { isAbsorbable } from "@/lib/jobs/handlers/ai-summarize";
 import { createSupabaseStub, type StubOperation } from "@/test/stubs/supabase";
 
 /**
@@ -333,6 +342,118 @@ describe("provider capability degradation", () => {
 
     expect(result).toMatchObject({ status: "written", summary: "s" });
     expect(provider.requests[0].responseSchema).toBeUndefined();
+  });
+});
+
+describe("the ai_summarize job handler (M7.2)", () => {
+  function jobRow(payload: Record<string, unknown>) {
+    return { id: "job-1", type: "ai_summarize", payload, attempts: 1, max_attempts: 5 };
+  }
+
+  /** Drive the real runner so registration under the right type is proven too. */
+  async function drain(payload: Record<string, unknown>) {
+    const stub = createSupabaseStub({
+      select: { messages: messageRow() },
+      update: { messages: [{ id: "msg-1" }] },
+      rpc: { claim_jobs: [jobRow(payload)] },
+    });
+    const result = await runJobs({ client: stub.client }, { limit: 1 });
+    const write = stub.opsFor("jobs").find((operation) => operation.type === "update");
+    return { stub, result, status: write?.values?.status, lastError: write?.values?.last_error };
+  }
+
+  const VALID = { entityType: "message", entityId: "msg-1", ownerId: OWNER };
+
+  afterEach(() => {
+    delete process.env.FEATURE_AI_SUMMARIES;
+  });
+
+  it("does no work and completes the job when the flag is off", async () => {
+    const { stub, status } = await drain(VALID);
+
+    expect(status).toBe("done");
+    expect(stub.opsFor("messages")).toHaveLength(0);
+  });
+
+  it("dead-letters a malformed payload instead of completing it quietly", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    const { status, lastError } = await drain({ entityType: "message" });
+
+    expect(status).toBe("pending"); // rescheduled, then dead-letters at max_attempts
+    expect(String(lastError)).toContain("invalid payload");
+  });
+
+  it("rejects an entity type this milestone does not handle", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    const { status } = await drain({ ...VALID, entityType: "opportunity" });
+
+    expect(status).toBe("pending");
+  });
+
+  it("absorbs a non-retryable AI failure rather than burning five retries", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    delete process.env.AI_PROVIDER_API_KEY; // -> AiUnconfiguredError, retryable: false
+
+    const { status, lastError } = await drain(VALID);
+
+    expect(status).toBe("done");
+    expect(lastError).toBeNull();
+  });
+});
+
+describe("the runner retry contract", () => {
+  it("absorbs every non-retryable member of the taxonomy", () => {
+    expect(isAbsorbable(new AiPermanentError("bad request"))).toBe(true);
+    expect(isAbsorbable(new AiBudgetExceededError())).toBe(true);
+    expect(isAbsorbable(new AiDisabledError())).toBe(true);
+    expect(isAbsorbable(new AiUnconfiguredError())).toBe(true);
+  });
+
+  it("returns a transient failure to the runner so backoff still applies", () => {
+    expect(isAbsorbable(new AiTransientError("rate limited"))).toBe(false);
+  });
+
+  it("never absorbs a failure from outside the taxonomy", () => {
+    expect(isAbsorbable(new Error("database exploded"))).toBe(false);
+    expect(isAbsorbable(undefined)).toBe(false);
+  });
+});
+
+describe("enqueueing a summary from ingest (M7.2)", () => {
+  afterEach(() => {
+    delete process.env.FEATURE_AI_SUMMARIES;
+  });
+
+  it("enqueues nothing when the flag is off", async () => {
+    const stub = createSupabaseStub({});
+    await requestMessageSummary(stub.client, OWNER, "msg-1");
+    expect(stub.operations).toHaveLength(0);
+  });
+
+  it("carries the owner in the payload, because the handler never sees the job row", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    const stub = createSupabaseStub({});
+
+    await requestMessageSummary(stub.client, OWNER, "msg-1");
+
+    const enqueued = stub.opsFor("jobs");
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0].values).toMatchObject({
+      type: "ai_summarize",
+      payload: { entityType: "message", entityId: "msg-1", ownerId: OWNER },
+      owner_id: OWNER,
+    });
+  });
+
+  it("swallows an enqueue failure so ingest can never be stalled by it", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    const exploding = {
+      from() {
+        throw new Error("queue unavailable");
+      },
+    } as unknown as Parameters<typeof requestMessageSummary>[0];
+
+    await expect(requestMessageSummary(exploding, OWNER, "msg-1")).resolves.toBeUndefined();
   });
 });
 
