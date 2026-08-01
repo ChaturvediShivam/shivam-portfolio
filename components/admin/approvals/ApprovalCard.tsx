@@ -6,7 +6,12 @@ import { Badge, Button, useToast } from "@/components/admin/ui";
 import { isActionError, type ActionResult } from "@/lib/action-result";
 import { approvalStatusBadgeVariant, approvalStatusLabel } from "@/types/approval";
 import type { Approval, EmailReplyPayload } from "@/types/approval";
-import { approveAction, rejectAction, sendAction } from "@/app/admin/(dashboard)/approvals/actions";
+import {
+  approveAction,
+  dismissAction,
+  rejectAction,
+  sendAction,
+} from "@/app/admin/(dashboard)/approvals/actions";
 
 /**
  * One proposed reply awaiting a decision (Phase 3 · M9).
@@ -24,7 +29,7 @@ interface ApprovalCardProps {
   approval: Approval;
 }
 
-type Pending = "approve" | "reject" | "send" | null;
+type Pending = "approve" | "reject" | "send" | "dismiss" | null;
 
 function isEmailPayload(payload: unknown): payload is EmailReplyPayload {
   return Boolean(payload && typeof payload === "object" && "bodyText" in payload);
@@ -162,10 +167,31 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
           )}
 
           {approval.status === "sending" && (
-            <span className="flex items-center gap-2 text-xs text-slate-500">
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              Sending…
-            </span>
+            <div className="space-y-2">
+              <span className="flex items-center gap-2 text-xs text-slate-500">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Sending…
+              </span>
+              {/*
+                A request that died mid-send leaves this state permanently, and
+                after a crash nobody can say whether the mail went out. The
+                escape hatch is honest about that rather than offering a retry
+                that might duplicate a delivered email.
+              */}
+              <p className="text-xs text-slate-500">
+                Stuck here? The send may or may not have completed — check your sent mail before
+                drafting another reply.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                isLoading={pending === "dismiss"}
+                onClick={() => run("dismiss", () => dismissAction(approval.id), "Set aside.")}
+              >
+                Set aside
+              </Button>
+            </div>
           )}
         </div>
       )}

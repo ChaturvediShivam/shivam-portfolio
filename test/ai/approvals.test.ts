@@ -4,6 +4,7 @@ import {
   approve,
   claimForSend,
   createApproval,
+  dismiss,
   DuplicateApprovalError,
   markFailed,
   markSent,
@@ -181,6 +182,27 @@ describe("claimForSend", () => {
     const { client } = fakeClient({ rows: [] });
 
     expect(await claimForSend(client, "a1", "owner-1")).toBeNull();
+  });
+});
+
+describe("dismiss", () => {
+  it("archives from any status, including a row stranded in sending", async () => {
+    const { client, calls } = fakeClient({ rows: [row("sending")] });
+
+    const result = await dismiss(client, "a1", "owner-1");
+
+    expect(result).not.toBeNull();
+    // Deliberately unconditional on status: it is the one operation that must
+    // work on a row the state machine has no answer for.
+    expect(calls[0].inFilter).toBeUndefined();
+    expect(calls[0].patch).toHaveProperty("archived_at");
+    expect(calls[0].eq).toMatchObject({ id: "a1", owner_id: "owner-1" });
+  });
+
+  it("returns null when the row was already set aside", async () => {
+    const { client } = fakeClient({ rows: [] });
+
+    expect(await dismiss(client, "a1", "owner-1")).toBeNull();
   });
 });
 

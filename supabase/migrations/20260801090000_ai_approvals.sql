@@ -121,9 +121,16 @@ create index if not exists ai_approvals_owner_idx
 -- One open proposal per logical action. Scoped to the states that can still
 -- produce a send, so a rejected or already-sent proposal stops blocking and the
 -- operator can draft again. See the header note on why `failed` still blocks.
+--
+-- `archived_at is null` is the escape hatch. A process that dies between the
+-- claim and the result strands a row in `sending`, which no transition leaves —
+-- and after a crash nobody can honestly say whether the mail went out, so no
+-- automatic recovery is correct. Archiving lets the operator set that row aside
+-- and draft again without the system asserting something it does not know.
 create unique index if not exists ai_approvals_open_idempotency_uidx
   on ai_approvals (idempotency_key)
   where idempotency_key is not null
+    and archived_at is null
     and status in ('pending', 'approved', 'sending', 'failed');
 
 alter table ai_approvals enable row level security;

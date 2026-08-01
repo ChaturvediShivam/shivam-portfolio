@@ -253,6 +253,37 @@ export async function markSent(
 }
 
 /**
+ * Set a proposal aside without claiming to know its outcome.
+ *
+ * The recovery path for a row stranded in `sending` — a process that died
+ * between the claim and the result leaves one, and no transition leaves that
+ * state because after a crash nobody can honestly say whether the mail went
+ * out. Archiving asserts nothing about that; it only frees the idempotency key
+ * so the operator can draft again.
+ *
+ * Deliberately unconditional on status: it is the one operation that must work
+ * on a row the state machine has no answer for. It cannot cause a send, and it
+ * cannot un-send one.
+ */
+export async function dismiss(
+  client: SupabaseClient,
+  id: string,
+  ownerId: string,
+): Promise<Approval | null> {
+  const { data, error } = await client
+    .from("ai_approvals")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("owner_id", ownerId)
+    .is("archived_at", null)
+    .select(SELECT);
+
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as Approval[];
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/**
  * Record a failed execution.
  *
  * Lands in `failed`, which the operator can approve again — the send did not

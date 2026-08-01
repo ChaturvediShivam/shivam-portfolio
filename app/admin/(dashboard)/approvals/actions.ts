@@ -8,7 +8,7 @@ import { AiGateway } from "@/lib/ai/gateway";
 import { getAiProvider } from "@/lib/ai/providers";
 import { draftReply, type DraftSkipReason } from "@/lib/ai/drafting";
 import { sendApprovedReply } from "@/lib/ai/send";
-import { approve, reject } from "@/lib/approvals";
+import { approve, dismiss, reject } from "@/lib/approvals";
 import type { ApprovalStatus } from "@/types/approval";
 
 /**
@@ -117,6 +117,25 @@ export async function rejectAction(id: string): Promise<ActionResult<{ status: A
 
     revalidate();
     return actionSuccess({ status: updated.status });
+  });
+}
+
+/**
+ * Set a proposal aside.
+ *
+ * Ungated like `rejectAction`, and for a stronger reason: this is the only way
+ * out of a row stranded in `sending` by a crashed request. It sends nothing and
+ * makes no claim about whether the mail went out.
+ */
+export async function dismissAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    const updated = await dismiss(supabase, id, userId);
+    if (!updated) {
+      return actionError({ formError: "This proposal has already been set aside." });
+    }
+
+    revalidate();
+    return actionSuccess({ id: updated.id });
   });
 }
 

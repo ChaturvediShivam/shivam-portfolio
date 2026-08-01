@@ -41,7 +41,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 |------|-------|
 | Live product | Portfolio + inquiry admin, in production |
 | Career CRM schema | Applied to production Supabase, verified |
-| Active phase | **Phase 3 in progress** — M1–M7 implemented, plus M8a (streaming copilot). **Not yet deployed** (all flags off). Production still runs `v1.0.0` (`c2b5dc3`) |
+| Active phase | **Phase 3 in progress** — M1–M7, M8a (streaming copilot) and M9 (email drafting) implemented. **Not yet deployed** (all flags off). Production still runs `v1.0.0` (`c2b5dc3`) |
 | Production URL | https://www.shivamchaturvedi.com |
 | Latest phase report | [`PHASE_1_COMPLETION.md`](./PHASE_1_COMPLETION.md) |
 
@@ -52,7 +52,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 | 0 | Portfolio Website | ✅ Complete |
 | 1 | Career CRM Foundation | ✅ Complete |
 | 2 | CRM Application | ✅ Complete (`v1.0.0`) |
-| 3 | Integrations, AI & Automation | 🟡 In progress — M1–M7 + M8a built; M8b (vector retrieval), M9–M10 pending |
+| 3 | Integrations, AI & Automation | 🟡 In progress — M1–M7 + M8a + M9 built; M8b (vector retrieval) and M10 pending |
 | 4 | Reporting | ⬜ Not started |
 | 5 | Production Hardening | ⬜ Not started |
 
@@ -186,7 +186,11 @@ to the `v1.0.0` baseline. Full design and plan:
   recall, and is blocked until an embedding provider is configured (the current
   provider exposes no embeddings endpoint, so `AiProvider` has nothing to
   implement `embed()` with). See `lib/ai/retrieval.ts` for the seam.
-- **M9 Email Drafting** — AI drafts, **approval-gated**, sent via Gmail.
+- **M9 Email Drafting** — AI drafts, **approval-gated**, sent via Gmail. Ships
+  `ai_approvals` (deferred from M6 by decision D4), the `gmail.send` scope via
+  incremental auth, and the draft/approve/reject/send workflow behind
+  `FEATURE_EMAIL_DRAFTING`. Enabling it requires reconnecting Google, and
+  `gmail.send` is a restricted scope needing Google verification for production.
 - **M10 Workflow Automation** — rule engine (trigger → condition → action).
 
 **Completion criteria**
