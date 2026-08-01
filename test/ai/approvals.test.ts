@@ -27,6 +27,7 @@ interface Captured {
   patch?: Record<string, unknown>;
   eq: Record<string, unknown>;
   inFilter?: { column: string; values: unknown[] };
+  isFilters: string[];
   insert?: Record<string, unknown>;
 }
 
@@ -39,7 +40,7 @@ function fakeClient(options: { rows?: unknown[]; insertError?: { code?: string }
 
   const client = {
     from(table: string) {
-      const captured: Captured = { table, eq: {} };
+      const captured: Captured = { table, eq: {}, isFilters: [] };
       calls.push(captured);
 
       const builder: Record<string, unknown> = {};
@@ -62,7 +63,10 @@ function fakeClient(options: { rows?: unknown[]; insertError?: { code?: string }
           captured.inFilter = { column, values };
           return builder;
         },
-        is: self,
+        is(column: string) {
+          captured.isFilters.push(column);
+          return builder;
+        },
         order: self,
         range: self,
         maybeSingle: () => Promise.resolve({ data: options.rows?.[0] ?? null, error: null }),
@@ -168,6 +172,16 @@ describe("claimForSend", () => {
     // finds the row in `sending`, not `approved`, and gets nothing.
     expect(calls[0].inFilter).toEqual({ column: "status", values: ["approved"] });
     expect(calls[0].patch).toEqual({ status: "sending" });
+  });
+
+  it("refuses to claim a proposal that was set aside", async () => {
+    const { client, calls } = fakeClient({ rows: [row("sending")] });
+
+    await claimForSend(client, "a1", "owner-1");
+
+    // "Set aside" has to mean no further action — otherwise dismissing an
+    // approved proposal would leave it sendable by a stale tab.
+    expect(calls[0].isFilters).toContainEqual("archived_at");
   });
 
   it("yields null to the loser of a concurrent claim", async () => {

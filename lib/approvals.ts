@@ -177,14 +177,23 @@ async function transition(
   ownerId: string,
   from: ApprovalStatus[],
   patch: Record<string, unknown>,
+  options: { requireActive?: boolean } = {},
 ): Promise<Approval | null> {
-  const { data, error } = await client
+  let query = client
     .from("ai_approvals")
     .update(patch)
     .eq("id", id)
     .eq("owner_id", ownerId)
-    .in("status", from)
-    .select(SELECT);
+    .in("status", from);
+
+  // Entry transitions refuse an archived row: "set aside" has to mean no
+  // further action, or dismissing an approved proposal would leave it still
+  // sendable by a stale tab. Terminal transitions deliberately do NOT check
+  // this — a row archived while its send was in flight must still be able to
+  // record what happened.
+  if (options.requireActive) query = query.is("archived_at", null);
+
+  const { data, error } = await query.select(SELECT);
 
   if (error) throw error;
   const rows = (data ?? []) as unknown as Approval[];
@@ -201,12 +210,19 @@ export async function approve(
   ownerId: string,
   decidedBy: string,
 ): Promise<Approval | null> {
-  return transition(client, id, ownerId, ["pending", "failed"], {
-    status: "approved",
-    decided_by: decidedBy,
-    decided_at: new Date().toISOString(),
-    last_error: null,
-  });
+  return transition(
+    client,
+    id,
+    ownerId,
+    ["pending", "failed"],
+    {
+      status: "approved",
+      decided_by: decidedBy,
+      decided_at: new Date().toISOString(),
+      last_error: null,
+    },
+    { requireActive: true },
+  );
 }
 
 export async function reject(
@@ -215,11 +231,18 @@ export async function reject(
   ownerId: string,
   decidedBy: string,
 ): Promise<Approval | null> {
-  return transition(client, id, ownerId, ["pending", "failed"], {
-    status: "rejected",
-    decided_by: decidedBy,
-    decided_at: new Date().toISOString(),
-  });
+  return transition(
+    client,
+    id,
+    ownerId,
+    ["pending", "failed"],
+    {
+      status: "rejected",
+      decided_by: decidedBy,
+      decided_at: new Date().toISOString(),
+    },
+    { requireActive: true },
+  );
 }
 
 /**
@@ -235,7 +258,7 @@ export async function claimForSend(
   id: string,
   ownerId: string,
 ): Promise<Approval | null> {
-  return transition(client, id, ownerId, ["approved"], { status: "sending" });
+  return transition(client, id, ownerId, ["approved"], { status: "sending" }, { requireActive: true });
 }
 
 export async function markSent(
