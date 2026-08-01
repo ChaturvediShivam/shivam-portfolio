@@ -199,7 +199,7 @@ secrets). Configure in Vercel (Preview + Production) before enabling the flag.
 | `GOOGLE_OAUTH_CLIENT_SECRET` | M2 | Google OAuth client | ✅ |
 | `GOOGLE_OAUTH_REDIRECT_URI` | M2 | Allow-listed callback URL | — |
 | `AI_PROVIDER_API_KEY` (e.g. `ANTHROPIC_API_KEY`) | M6 | LLM provider auth | ✅ |
-| `AI_DAILY_TOKEN_BUDGET` (optional) | M6 | Cost guardrail | — |
+| `AI_DAILY_TOKEN_BUDGET` | M6 (optional) · **M7 required** | Cost guardrail for **unattended paths only** — ingest and backfill refuse to enqueue without it. Manual actions are exempt by design | — |
 | `RESEND_API_KEY` | M5 (exists) | Email delivery | ✅ |
 | Feature-flag vars (§9) | per-M | Gate each capability | — |
 

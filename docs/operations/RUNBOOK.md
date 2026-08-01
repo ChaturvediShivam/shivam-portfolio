@@ -486,7 +486,7 @@ and opportunity detail pages, and the `ai_*` tables. As-built detail:
 | `AI_MODEL_REASONING` | — | provider default | Overrides the model for the `reasoning` task class. |
 | `AI_EFFORT_FAST` | — | `medium` | `low`/`medium`/`high`/`xhigh`/`max`. |
 | `AI_EFFORT_REASONING` | — | `high` | As above. |
-| `AI_DAILY_TOKEN_BUDGET` | — | unlimited | Per-owner daily token ceiling. **Set this before flag-on.** |
+| `AI_DAILY_TOKEN_BUDGET` | ✅ from M7 | unlimited | Per-owner daily token ceiling. **Set this before flag-on.** Guards the unattended paths only — see §19.6. |
 
 > **Model choice is an operator decision.** Both task classes default to the
 > provider's strongest model. Downgrading the `fast` class is a deliberate
@@ -591,11 +591,31 @@ automatic retry beyond the job runner's ordinary backoff.
 
 | Variable | Enforced? | Consequence if unset |
 |---|:--:|---|
-| `AI_DAILY_TOKEN_BUDGET` | **Yes, in code** | Automatic ingest and backfill **refuse to enqueue**. The feature appears not to work. Settings → AI shows *"(no daily limit set)"* |
+| `AI_DAILY_TOKEN_BUDGET` | **Yes — unattended paths only** | Automatic ingest and backfill **refuse to enqueue**. The feature appears not to work. Settings → AI shows *"(no daily limit set)"* |
 | `AI_MODEL_FAST` | **No** | Summaries silently run on the provider's strongest model — roughly **5× the cost** of the intended one |
 
 `AI_MODEL_FAST` is the one prerequisite with no code guard. Verify it by eye
 before enabling; there is no error to catch it.
+
+> ### Budget scope — read this before using the budget as a stop
+>
+> The daily token budget applies **only to unattended execution paths**:
+>
+> - Automatic Gmail ingestion
+> - Operator backfill
+>
+> The manual actions — **Summarize Message** and **Summarize Opportunity** — are
+> **intentionally exempt**, because each run is administrator-authenticated,
+> feature-flag protected, and explicitly user-initiated. The operator is the
+> bound on those paths, not the ledger.
+>
+> **Setting `AI_DAILY_TOKEN_BUDGET` will not prevent manual summaries.**
+> To stop all manual AI operations, use **`FEATURE_AI_SUMMARIES=false`**.
+>
+> This matters during a cost incident: raising or lowering the budget changes
+> what the queue will do, and changes nothing about what a signed-in
+> administrator can still do by hand. The flag is the only control that stops
+> both.
 
 ### Eligibility — what is and is not summarized
 

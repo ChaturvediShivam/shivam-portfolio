@@ -242,6 +242,13 @@ means unlimited and those are the paths that spend without a human. `AI_MODEL_FA
 has no such guard and defaults to the most expensive model; see
 [Runbook §19.6](../operations/RUNBOOK.md).
 
+The budget deliberately guards **unattended paths only**. The manual *Summarize*
+actions are exempt: each is administrator-authenticated, flag-gated and
+explicitly user-initiated, so the operator is the bound rather than the ledger.
+Setting a budget will not stop a manual summary — `FEATURE_AI_SUMMARIES=false`
+is the control that stops every path. The exemption is pinned by a test, so it
+reads as a decision rather than an omission.
+
 ### `ai_summary` is untrusted-origin content
 
 A summary is derived from attacker-authorable email. It is rendered as plain
