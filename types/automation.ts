@@ -153,7 +153,7 @@ export interface AutomationRule {
   archived_at: string | null;
 }
 
-export const RUN_STATUSES = ["skipped", "matched", "partial", "failed"] as const;
+export const RUN_STATUSES = ["skipped", "running", "matched", "partial", "failed"] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
 
 export interface ActionResultEntry {
@@ -186,6 +186,7 @@ export function runStatusBadgeVariant(status: string): BadgeVariant {
     case "failed":
       return "danger";
     case "partial":
+    case "running":
       return "progress";
     default:
       return "neutral";
@@ -198,6 +199,8 @@ export function runStatusLabel(status: string): string {
       return "Ran";
     case "skipped":
       return "No match";
+    case "running":
+      return "Running";
     case "partial":
       return "Partly ran";
     case "failed":

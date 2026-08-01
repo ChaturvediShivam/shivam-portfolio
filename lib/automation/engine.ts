@@ -35,8 +35,10 @@ import type {
  *   3. Actions that could cascade externally are approval-gated, so the worst a
  *      loop can produce is a queue of proposals a human never approves.
  *
- * The cap counts only runs that executed something. A rule seeing many
- * non-matching events must not throttle itself out of ever firing.
+ * The cap counts runs that executed or began executing, not `skipped` ones. A
+ * rule seeing many non-matching events must not throttle itself out of ever
+ * firing; equally, a crashed in-flight run may already have acted, so it must
+ * not quietly free budget either.
  */
 
 /** How far back the governor looks. */
@@ -120,7 +122,7 @@ export async function evaluateRule(
   // index here and stops, so at-least-once delivery cannot mean twice-executed.
   let claimed;
   try {
-    claimed = await recordRun(client, { ...base, status: "skipped", reason: "Executing…" });
+    claimed = await recordRun(client, { ...base, status: "running" });
   } catch (error) {
     if (error instanceof DuplicateRunError) {
       return { ruleId: rule.id, status: "skipped", reason: "already_run" };
@@ -160,7 +162,8 @@ export async function evaluateRule(
       action_results: results,
       error: status === "matched" ? null : "One or more actions failed.",
     })
-    .eq("id", claimed.id);
+    .eq("id", claimed.id)
+    .eq("owner_id", envelope.ownerId);
 
   return { ruleId: rule.id, status };
 }
@@ -179,6 +182,12 @@ export async function dispatchEvent(
 ): Promise<EvaluationSummary[]> {
   const rules = await listEnabledRulesForEvent(client, envelope.ownerId, envelope.type);
   const summaries: EvaluationSummary[] = [];
+
+  if (rules.length > MAX_RULES_PER_EVENT) {
+    console.warn(
+      `[automation] ${rules.length} rules listen for ${envelope.type}; evaluating the first ${MAX_RULES_PER_EVENT}.`,
+    );
+  }
 
   for (const rule of rules.slice(0, MAX_RULES_PER_EVENT)) {
     try {

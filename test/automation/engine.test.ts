@@ -152,6 +152,16 @@ describe("evaluateRule — loop safety", () => {
     expect(result.status).toBe("matched");
   });
 
+  it("claims the run as `running`, not as a `skipped` row that lies", async () => {
+    const { client } = fakeClient();
+
+    await evaluateRule(client, rule(), envelope());
+
+    // A process that dies mid-execution leaves this row behind. Recording it as
+    // `skipped` would tell the operator nothing happened when actions may have.
+    expect(recordRun).toHaveBeenCalledWith(client, expect.objectContaining({ status: "running" }));
+  });
+
   it("claims the run before executing, so a redelivered job cannot run twice", async () => {
     vi.mocked(recordRun).mockRejectedValueOnce(new DuplicateRunError());
     const { client } = fakeClient();

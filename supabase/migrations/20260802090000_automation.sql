@@ -97,11 +97,14 @@ create table if not exists automation_runs (
   entity_id     uuid,
 
   -- 'skipped'    conditions did not match, or the loop guard refused
+  -- 'running'    claimed, actions in flight. A row left here means the process
+  --              died mid-execution: the actions may or may not have happened,
+  --              so it is deliberately never reclaimed automatically.
   -- 'matched'    conditions matched and every action succeeded
   -- 'partial'    conditions matched, some action failed
   -- 'failed'     evaluation itself failed
   status        text        not null
-                  check (status in ('skipped', 'matched', 'partial', 'failed')),
+                  check (status in ('skipped', 'running', 'matched', 'partial', 'failed')),
   reason        text,                          -- why it was skipped, in words
   -- [{ action, status, detail? }] — per-action outcome, for debugging a rule.
   action_results jsonb      not null default '[]'::jsonb,

@@ -270,6 +270,9 @@ export async function recordRun(
  * `skipped` evaluations cost nothing external and must not consume the budget,
  * or a rule that legitimately sees many non-matching events would throttle
  * itself out of ever firing.
+ *
+ * `running` counts: an in-flight execution has already begun acting, and a
+ * crashed one may have acted, so neither may quietly free budget.
  */
 export async function countRecentRuns(
   client: SupabaseClient,
@@ -281,7 +284,7 @@ export async function countRecentRuns(
     .from("automation_runs")
     .select("id", { count: "exact", head: true })
     .eq("rule_id", ruleId)
-    .in("status", ["matched", "partial", "failed"])
+    .in("status", ["running", "matched", "partial", "failed"])
     .gte("created_at", since.toISOString());
 
   query = entityId ? query.eq("entity_id", entityId) : query.is("entity_id", null);
