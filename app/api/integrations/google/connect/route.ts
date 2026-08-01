@@ -5,6 +5,7 @@ import { createOAuthState } from "@/lib/integrations";
 import {
   CALENDAR_SCOPES,
   GMAIL_SCOPES,
+  GMAIL_SEND_SCOPES,
   GOOGLE_OAUTH_SCOPES,
   buildAuthorizationUrl,
   codeChallengeFromVerifier,
@@ -63,6 +64,9 @@ export async function GET(req: NextRequest): Promise<Response> {
       ...GOOGLE_OAUTH_SCOPES,
       ...(featureEnabled("FEATURE_GMAIL_SYNC") ? GMAIL_SCOPES : []),
       ...(featureEnabled("FEATURE_CALENDAR") ? CALENDAR_SCOPES : []),
+      // M9. An operator connected before this milestone must reconnect to grant
+      // it; `include_granted_scopes` preserves the earlier ones.
+      ...(featureEnabled("FEATURE_EMAIL_DRAFTING") ? GMAIL_SEND_SCOPES : []),
     ];
 
     return NextResponse.redirect(buildAuthorizationUrl({ config, state, codeChallenge, scopes }));

@@ -16,7 +16,8 @@ export type FeatureFlag =
   | "FEATURE_NOTIFICATIONS"
   | "FEATURE_AI"
   | "FEATURE_AI_SUMMARIES"
-  | "FEATURE_ASSISTANT";
+  | "FEATURE_ASSISTANT"
+  | "FEATURE_EMAIL_DRAFTING";
 
 /** True only when the flag env var is exactly the string "true". */
 export function featureEnabled(flag: FeatureFlag): boolean {
