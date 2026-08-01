@@ -76,7 +76,6 @@ export async function syncNowAction(): Promise<ActionResult<{ enqueued: boolean 
 /** Why nothing was written, in words the operator can act on. */
 const SKIP_MESSAGES: Record<SummarizeSkipReason, string> = {
   not_found: "Message not found.",
-  no_owner: "This message has no owner and cannot be summarized.",
   outbound: "Only received messages are summarized.",
   archived: "Restore this message before summarizing it.",
   too_short: "This message is short enough to read in full.",

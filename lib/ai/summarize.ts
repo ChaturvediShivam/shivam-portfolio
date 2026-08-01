@@ -53,7 +53,6 @@ const TRUNCATION_NOTE =
 /** Why a summary did not happen. Every value is a deliberate outcome, not a failure. */
 export type SummarizeSkipReason =
   | "not_found"
-  | "no_owner"
   | "outbound"
   | "archived"
   | "too_short"
@@ -83,13 +82,12 @@ interface MessageRow {
   subject: string | null;
   from_address: string | null;
   body_text: string | null;
-  snippet: string | null;
   metadata: unknown;
   ai_processed_at: string | null;
 }
 
 const MESSAGE_SELECT =
-  "id, owner_id, direction, archived_at, subject, from_address, body_text, snippet, metadata, ai_processed_at";
+  "id, owner_id, direction, archived_at, subject, from_address, body_text, metadata, ai_processed_at";
 
 interface SummaryOutput {
   summary: string;
@@ -102,9 +100,13 @@ function isBulkMail(metadata: unknown): boolean {
   return Array.isArray(labels) && labels.includes(EXCLUDED_LABEL);
 }
 
-/** The first reason this message may not be summarized, or null when it may. */
+/**
+ * The first reason this message may not be summarized, or null when it may.
+ *
+ * There is no owner check here: the read filters on `owner_id`, so a row with a
+ * null or foreign owner never reaches this function — it is reported absent.
+ */
 function ineligibleBecause(row: MessageRow): SummarizeSkipReason | null {
-  if (!row.owner_id) return "no_owner";
   if (row.direction !== "inbound") return "outbound";
   if (row.archived_at) return "archived";
   if (isBulkMail(row.metadata)) return "bulk_mail";
@@ -112,9 +114,14 @@ function ineligibleBecause(row: MessageRow): SummarizeSkipReason | null {
   return null;
 }
 
-/** Bound the source text, and say so in the prompt when it was cut. */
+/**
+ * Bound the source text, and say so in the prompt when it was cut.
+ *
+ * `body_text` is non-empty by the time this runs — eligibility already rejected
+ * anything below MIN_BODY_CHARS — so there is no fallback source to reach for.
+ */
 function boundSource(row: MessageRow): { body: string; truncationNote: string } {
-  const full = (row.body_text ?? row.snippet ?? "").trim();
+  const full = (row.body_text ?? "").trim();
   if (full.length <= MAX_SOURCE_CHARS) return { body: full, truncationNote: "" };
   return { body: full.slice(0, MAX_SOURCE_CHARS), truncationNote: TRUNCATION_NOTE };
 }

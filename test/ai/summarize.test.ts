@@ -113,7 +113,6 @@ describe("eligibility", () => {
     ["archived mail", { archived_at: "2026-07-01T00:00:00Z" }, "archived"],
     ["a message shorter than the snippet is worth", { body_text: "Thanks!" }, "too_short"],
     ["promotional mail", { metadata: { labelIds: ["INBOX", "CATEGORY_PROMOTIONS"] } }, "bulk_mail"],
-    ["a message with no owner", { owner_id: null }, "no_owner"],
   ];
 
   for (const [label, overrides, reason] of cases) {
