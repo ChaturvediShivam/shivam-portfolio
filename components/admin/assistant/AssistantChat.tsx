@@ -77,6 +77,19 @@ export function AssistantChat() {
   const conversationId = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const endRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * Synchronous twin of `busy`.
+   *
+   * `busy` is state, so it is stale inside a handler until the next render —
+   * two submits in the same tick (Enter twice, or Enter plus a Send click) would
+   * both read `false` and both start a stream. Two concurrent streams would
+   * interleave into the same bubble, strand the first one's spinner forever, and
+   * orphan the first request beyond the reach of `abortRef`, which the second
+   * would have overwritten. A ref flips immediately, so the second submit loses.
+   */
+  const inFlight = React.useRef(false);
+  /** Monotonic id source: two sends in one millisecond must not collide as keys. */
+  const seq = React.useRef(0);
 
   React.useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -93,16 +106,19 @@ export function AssistantChat() {
 
   async function send(question: string) {
     const trimmed = question.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || inFlight.current) return;
+    inFlight.current = true;
 
     const controller = new AbortController();
     abortRef.current = controller;
     setBusy(true);
     setInput("");
+
+    const turn = (seq.current += 1);
     setMessages((current) => [
       ...current,
-      { id: `${Date.now()}-q`, role: "user", content: trimmed, tools: [] },
-      { id: `${Date.now()}-a`, role: "assistant", content: "", tools: [], pending: true },
+      { id: `${turn}-q`, role: "user", content: trimmed, tools: [] },
+      { id: `${turn}-a`, role: "assistant", content: "", tools: [], pending: true },
     ]);
 
     try {
@@ -159,6 +175,7 @@ export function AssistantChat() {
       }
     } finally {
       abortRef.current = null;
+      inFlight.current = false;
       setBusy(false);
     }
   }

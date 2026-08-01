@@ -92,14 +92,28 @@ class TruncatedStreamProvider extends StubStreamProvider {
  * suite fails for streaming reasons only.
  */
 function stubClient(): SupabaseClient {
-  return {
+  return trackedClient().client;
+}
+
+/** Same double, but recording rpc names and audit rows for assertions. */
+function trackedClient() {
+  const rpc: string[] = [];
+  const audits: Record<string, unknown>[] = [];
+  const client = {
     rpc(name: string) {
+      rpc.push(name);
       return Promise.resolve({ data: name === "ai_reserve_budget" ? true : null, error: null });
     },
-    from() {
-      return { insert: () => Promise.resolve({ error: null }) };
+    from(table: string) {
+      return {
+        insert(row: Record<string, unknown>) {
+          if (table === "ai_audit_log") audits.push(row);
+          return Promise.resolve({ error: null });
+        },
+      };
     },
   } as unknown as SupabaseClient;
+  return { client, rpc, audits };
 }
 
 async function collect(stream: AsyncIterable<AiGatewayEvent>): Promise<AiGatewayEvent[]> {
@@ -289,6 +303,43 @@ describe("AiGateway.stream", () => {
     await expect(
       collect(gateway.stream({ templateId: "assistant", variables: { question: "q", today: "2026-08-01" }, ownerId: "owner-1" })),
     ).rejects.toBeInstanceOf(AiTransientError);
+  });
+
+  it("audits and reconciles a stream its consumer abandoned", async () => {
+    const { client, rpc, audits } = trackedClient();
+    const provider = new StubStreamProvider([
+      { deltas: ["one ", "two ", "three"], completion: completion() },
+    ]);
+    const gateway = new AiGateway({ provider, client });
+
+    // Walk away after the first delta — what a client disconnect looks like
+    // from the generator's side.
+    for await (const event of gateway.stream({
+      templateId: "assistant",
+      variables: { question: "q", today: "2026-08-01" },
+      ownerId: "owner-1",
+    })) {
+      if (event.type === "text") break;
+    }
+
+    // Tokens were spent, so exactly one audit row must exist. Without this the
+    // budget ledger would record spend that the audit log never saw.
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ outcome: "error", error_code: "cancelled" });
+    expect(rpc).toContain("ai_commit_budget");
+  });
+
+  it("audits a completed stream exactly once, as a success", async () => {
+    const { client, audits } = trackedClient();
+    const provider = new StubStreamProvider([{ deltas: ["done"], completion: completion() }]);
+    const gateway = new AiGateway({ provider, client });
+
+    await collect(
+      gateway.stream({ templateId: "assistant", variables: { question: "q", today: "2026-08-01" }, ownerId: "owner-1" }),
+    );
+
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ outcome: "success", error_code: null });
   });
 
   it("is inert while the AI flag is off", async () => {

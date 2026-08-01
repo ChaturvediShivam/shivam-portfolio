@@ -261,8 +261,11 @@ export class AiGateway {
    * those callers use `complete()`. The copilot's template is prose.
    *
    * Cancellation matters on this path in a way it does not on the other: when a
-   * client disconnects, the consumer stops pulling and the generator's `finally`
-   * still reconciles the budget for whatever was actually spent.
+   * client disconnects, the consumer stops pulling, and the generator resumes at
+   * its `finally` without ever reaching the success or error audit. Both halves
+   * of the accounting therefore live in `finally` — every reservation produces
+   * exactly one audit row and one reconciliation, including the abandoned ones.
+   * Spend that no one recorded is the one outcome this must not have.
    */
   async *stream(input: AiCompleteInput): AsyncIterable<AiGatewayEvent> {
     const { template, request } = this.prepare(input);
@@ -271,6 +274,7 @@ export class AiGateway {
     const usage = emptyUsage();
     let costMicros = 0;
     let latencyMs = 0;
+    let settled: { outcome: AiCallOutcome; errorCode: string | null; model: string } | null = null;
 
     const estimate = await this.estimate(request);
 
@@ -313,31 +317,30 @@ export class AiGateway {
         ];
       }
 
-      await this.audit(
-        input,
-        template.version,
-        completion.model,
-        usage,
-        costMicros,
-        latencyMs,
-        outcomeOf(completion),
-        null,
-      );
+      settled = { outcome: outcomeOf(completion), errorCode: null, model: completion.model };
 
       yield { type: "done", completion: { ...completion, usage } };
     } catch (error) {
+      settled = { outcome: "error", errorCode: aiErrorCode(error), model };
+      throw error;
+    } finally {
+      // `settled` is still null when the consumer abandoned the generator
+      // mid-answer. That is not an error the caller can see, but it did cost
+      // tokens, so it is audited under a distinct code rather than going
+      // unrecorded. `outcome` is a text column, so this needs no migration.
+      const final = settled ?? { outcome: "error" as AiCallOutcome, errorCode: "cancelled", model };
+
       await this.audit(
         input,
         template.version,
-        model,
+        final.model,
         usage,
         costMicros,
         latencyMs,
-        "error",
-        aiErrorCode(error),
+        final.outcome,
+        final.errorCode,
       );
-      throw error;
-    } finally {
+
       await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
     }
   }
