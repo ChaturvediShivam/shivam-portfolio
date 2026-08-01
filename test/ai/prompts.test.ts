@@ -28,6 +28,16 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     question: "What should I follow up on this week?",
     today: "2026-08-01",
   },
+  email_reply: {
+    operatorName: "Shivam",
+    instruction: "Confirm Thursday at 14:00 works.",
+    opportunityTitle: "Senior Engineer",
+    companyName: "Example Ltd",
+    subject: "Interview availability",
+    from: "recruiter@example.com",
+    body: "Are you free on Thursday at 14:00?",
+    truncationNote: "",
+  },
 };
 
 describe("prompt interpolation", () => {

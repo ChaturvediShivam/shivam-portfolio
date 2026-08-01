@@ -124,6 +124,132 @@ export async function getMessage(accessToken: string, id: string): Promise<Gmail
 }
 
 // ---------------------------------------------------------------------------
+// Sending (M9)
+// ---------------------------------------------------------------------------
+
+export interface OutgoingMessage {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  bodyText: string;
+  /** Gmail thread to reply within, so the reply lands in the right conversation. */
+  threadId?: string | null;
+  /** RFC 5322 Message-ID of the message being answered. */
+  inReplyTo?: string | null;
+}
+
+export interface SentMessage {
+  id: string;
+  threadId: string;
+  labelIds?: string[];
+}
+
+/**
+ * Strip anything that could inject an extra header.
+ *
+ * A subject or address carrying CR/LF would end the current header and begin
+ * one the caller never wrote — the email equivalent of SQL injection, and the
+ * classic way a "reply" becomes a Bcc to somewhere else. Header values are
+ * single-line by definition, so folding is discarded rather than escaped.
+ */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+/**
+ * Encode a header value that may contain non-ASCII.
+ *
+ * RFC 2047 base64 ("encoded-word") rather than raw UTF-8, because a bare
+ * high-byte subject is not legal in a header and is mangled by some receivers.
+ * Pure ASCII is passed through so the common case stays readable on the wire.
+ */
+function encodeHeaderValue(value: string): string {
+  const clean = sanitizeHeaderValue(value);
+  // eslint-disable-next-line no-control-regex
+  if (!/[^\x00-\x7F]/.test(clean)) return clean;
+  return `=?UTF-8?B?${Buffer.from(clean, "utf8").toString("base64")}?=`;
+}
+
+/** Keep only well-formed addresses; a malformed one would break the header. */
+function sanitizeAddressList(addresses: string[]): string[] {
+  return addresses
+    .map((address) => sanitizeHeaderValue(address).toLowerCase())
+    .filter((address) => EMAIL_RE.test(address));
+}
+
+/**
+ * Build an RFC 5322 message.
+ *
+ * Pure and exported for tests: this is the exact byte sequence that reaches a
+ * real inbox, so it is worth asserting on directly rather than through a mock.
+ */
+export function buildRawMessage(message: OutgoingMessage): string {
+  const to = sanitizeAddressList(message.to);
+  const cc = sanitizeAddressList(message.cc ?? []);
+  if (to.length === 0) throw new GmailApiError("Refusing to send with no valid recipient.", 400);
+
+  const headers = [
+    `To: ${to.join(", ")}`,
+    ...(cc.length ? [`Cc: ${cc.join(", ")}`] : []),
+    `Subject: ${encodeHeaderValue(message.subject)}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+  ];
+
+  // Threading headers. `References` carries the same id, which is what most
+  // clients actually use to group a conversation.
+  if (message.inReplyTo) {
+    const parent = sanitizeHeaderValue(message.inReplyTo);
+    headers.push(`In-Reply-To: ${parent}`, `References: ${parent}`);
+  }
+
+  // The body is base64'd rather than inlined so a line of arbitrary length, a
+  // lone "." or a stray CRLF in the model's prose cannot alter the structure.
+  const body = Buffer.from(message.bodyText, "utf8").toString("base64");
+
+  return `${headers.join("\r\n")}\r\n\r\n${body}`;
+}
+
+/**
+ * Send a message.
+ *
+ * The one irreversible call in the integration layer. It performs no gating of
+ * its own — the caller must already hold an approval claim (see
+ * `lib/approvals.ts`), because a send cannot be undone by anything downstream.
+ */
+export async function sendMessage(
+  accessToken: string,
+  message: OutgoingMessage,
+): Promise<SentMessage> {
+  const raw = Buffer.from(buildRawMessage(message), "utf8").toString("base64url");
+
+  const res = await fetch(`${GMAIL_BASE}/messages/send`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      raw,
+      ...(message.threadId ? { threadId: message.threadId } : {}),
+    }),
+  });
+
+  if (res.ok) return (await res.json()) as SentMessage;
+
+  // A missing send scope arrives as 403, which the read path treats as a quota
+  // problem. Here it almost always means the operator has not reconnected since
+  // M9, so it is surfaced as an auth error the UI can act on.
+  if (res.status === 401) throw new GmailAuthError("Gmail access token rejected (401).");
+  if (res.status === 403) {
+    throw new GmailAuthError("Gmail refused the send (403) — reconnect to grant send access.");
+  }
+  if (res.status === 429) throw new GmailRateLimitError("Gmail rate/quota (429).");
+  throw new GmailApiError(`Gmail send failed (${res.status}).`, res.status);
+}
+
+// ---------------------------------------------------------------------------
 // Pure parsing (exported for tests)
 // ---------------------------------------------------------------------------
 

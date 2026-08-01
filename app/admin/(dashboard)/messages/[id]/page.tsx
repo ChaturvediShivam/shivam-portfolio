@@ -8,6 +8,7 @@ import { MessageActions } from "@/components/admin/messages/MessageActions";
 import { MessageBody } from "@/components/admin/messages/MessageBody";
 import { MessageLinkPanel } from "@/components/admin/messages/MessageLinkPanel";
 import { SummarizeButton } from "@/components/admin/messages/SummarizeButton";
+import { DraftReplyPanel } from "@/components/admin/approvals/DraftReplyPanel";
 import { featureEnabled } from "@/lib/featureFlags";
 import { directionBadgeVariant, directionLabel, type Message } from "@/types/message";
 import { providerLabel } from "@/types/contact";
@@ -56,6 +57,9 @@ export default async function MessageDetailPage({ params }: PageProps) {
   // Gates the whole block, not just generation: flipping the flag off is the
   // first response to a bad summary, so it has to stop displaying them too.
   const summariesEnabled = featureEnabled("FEATURE_AI_SUMMARIES");
+  // Same reasoning as summaries: the flag gates the whole affordance, so a
+  // rollback stops new drafts being proposed at all.
+  const draftingEnabled = featureEnabled("FEATURE_EMAIL_DRAFTING");
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
@@ -118,6 +122,12 @@ export default async function MessageDetailPage({ params }: PageProps) {
               <MessageBody html={safeHtml} text={message.body_text} />
             </div>
           </div>
+
+          {/* Draft a reply (M9). Inbound, unarchived messages only: those are
+              the ones deriveRecipients can answer correctly. */}
+          {draftingEnabled && message.direction === "inbound" && !isArchived && (
+            <DraftReplyPanel messageId={message.id} />
+          )}
 
           {/* Attachments */}
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-5">

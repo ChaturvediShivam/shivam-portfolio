@@ -392,12 +392,20 @@ the budget can under-spend, never over-spend.
 | Table | Status | Purpose | Notable columns | Indexes | Migration |
 |-------|:------:|---------|-----------------|---------|-----------|
 | `ai_embeddings` | 🟡 M8 | Semantic vectors (**pgvector**) | `entity_type`, `entity_id`, `chunk`, `embedding vector`, `ai_model` | vector (IVFFlat/HNSW), `(entity_type, entity_id)` | M8 |
-| `ai_approvals` | 🟡 M9 | Human-in-the-loop gate | `agent`, `action_type`, `proposed_payload jsonb`, `rationale`, `ai_confidence`, `status`, `decided_by`, `decided_at` | `(status)`, `(entity_type, entity_id)` | M9 |
+| `ai_approvals` | ✅ M9 | Human-in-the-loop gate | `agent`, `action_type`, `proposed_payload jsonb`, `rationale`, `ai_confidence`, `status`, `decided_by`, `decided_at`, `executed_at`, `result_message_id`, `idempotency_key`, `last_error` | `(status, created_at desc)`, `(entity_type, entity_id)`, `(owner_id, created_at desc)`, partial unique on `idempotency_key` | M9 |
 
 `ai_approvals` was **deferred from M6 to M9** (decision D4): M6 registers no
 `write`/`external` tools, so an approvals queue would have had no producers. The
-policy that refuses unapproved execution ships in M6; the queue that satisfies it
-ships in M9.
+policy that refuses unapproved execution shipped in M6; the queue that satisfies
+it shipped in M9.
+
+The partial unique index on `idempotency_key` covers only
+`status in ('pending','approved','sending','failed') and archived_at is null`.
+That scoping is load-bearing: an unconditional unique index would ban ever
+replying to a message twice, even after rejecting a bad draft, and would leave a
+crash-stranded `sending` row blocking that action forever. One-send-per-approval
+is a *separate* guarantee, enforced by the conditional `approved -> sending`
+transition, not by this index.
 
 - **Audit strategy:** AI writes stamp `ai_*`; opportunity-affecting actions also write `opportunity_events` (`actor_type='agent'`). **Triggers:** `updated_at` on every table above.
 - **Typical queries:** conversation history (`(conversation_id, created_at)`); today's ledger (`(owner_id, usage_date)`); failure count (`(outcome)`); hybrid retrieval, M8.

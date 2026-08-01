@@ -23,6 +23,21 @@ export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"] a
 /** Calendar events read+write scope (M4). Added via incremental auth when enabled. */
 export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"] as const;
 
+/**
+ * Gmail send scope (M9). Added via incremental auth when email drafting is on.
+ *
+ * `gmail.send` rather than `gmail.compose` or full `gmail.modify`: it is the
+ * narrowest scope that can deliver mail, and it grants no additional read or
+ * mutate access beyond what M3 already holds.
+ *
+ * Two operational consequences, neither of which code can remove:
+ *   • It is a RESTRICTED scope, so production use requires Google app
+ *     verification (the M2/M9 risk the plan already names).
+ *   • An operator connected before this milestone holds a token without it, and
+ *     must reconnect. `include_granted_scopes` keeps the earlier grants intact.
+ */
+export const GMAIL_SEND_SCOPES = ["https://www.googleapis.com/auth/gmail.send"] as const;
+
 /** Refresh when the access token is within this window of expiry. */
 const REFRESH_SKEW_SECONDS = 60;
 

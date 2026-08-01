@@ -452,12 +452,18 @@ specifics.
 - **Security deltas:** retrieval RLS-scoped; tools consequence-classed; no key client-side.
 - **Risk:** high (pgvector availability, streaming, tool correctness) → confirm pgvector; contract-test tools; guardrail evals.
 
-### M9 — Email Drafting · `L`
+### M9 — Email Drafting · `L` · shipped
 - **Objective:** AI drafts, approval-gated, sent via Gmail.
-- **Folders/files:** `lib/ai/drafting.ts`, Gmail send in `lib/integrations/google/gmail.ts`, approvals data layer + UI, draft/approve/reject/send actions; migration `ai_approvals` (if not in M6).
-- **DB:** additive `ai_approvals` (or none). **Flag:** `FEATURE_EMAIL_DRAFTING`.
-- **Security deltas:** **no send without approval**; idempotent send; audit `message_sent`.
-- **Risk:** high (accidental send) → hard approval gate + idempotency key on send.
+- **Delivered:** migration `ai_approvals` (it was NOT in M6 — deferred by decision D4); `lib/approvals.ts` state machine; `lib/ai/drafting.ts`; `email_reply` prompt template; `lib/ai/send.ts` executor; `sendMessage` + `buildRawMessage` in `lib/integrations/google/gmail.ts`; `GMAIL_SEND_SCOPES` via incremental auth; `/admin/approvals` + `components/admin/approvals/*`; draft panel on the message detail page.
+- **DB:** additive `ai_approvals`. **Flag:** `FEATURE_EMAIL_DRAFTING` (requires `FEATURE_AI`).
+- **Two distinct guarantees, deliberately not conflated:**
+  1. *One send per approval* — `claimForSend` moves `approved -> sending` conditionally; whoever wins owns the effect. This is ADR-006's "keyed on approval_id".
+  2. *One open proposal per action* — `idempotency_key` uniquely indexed, but only across states that can still send and only while un-archived, so a rejected or sent proposal stops blocking and re-drafting works.
+- **Security deltas:** no send without an `approved` row; recipients derived from the synced message, never from model output; subject and addresses stripped of CR/LF before reaching a header; `no send without approval` re-enforced in the executor rather than trusted from the client.
+- **Ordering invariant:** mark sent *before* CRM bookkeeping. Past the Gmail call the mail exists, so reporting failure would invite a duplicate-producing retry; bookkeeping errors are logged, not raised.
+- **Known limitation:** a request that dies between claim and result strands a row in `sending`. No automatic recovery is correct — after a crash nobody can say whether the mail went out — so the operator can archive it ("Set aside"), which frees the idempotency key without asserting an outcome.
+- **Operational prerequisites (not code):** `gmail.send` is a **restricted** scope requiring Google app verification for production, and anyone connected before M9 must reconnect to grant it.
+- **Tests:** `test/ai/approvals.test.ts` (transition predicates), `test/ai/drafting.test.ts` (recipients never from model output), `test/ai/send.test.ts` (irreversibility ordering), `test/integrations/gmail-send.test.ts` (header injection).
 
 ### M10 — Workflow Automation · `XL`
 - **Objective:** rule engine (trigger → condition → action).
