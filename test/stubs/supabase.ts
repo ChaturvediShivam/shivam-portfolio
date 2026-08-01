@@ -42,6 +42,11 @@ export interface SupabaseStubConfig {
   update?: Record<string, unknown[]>;
   /** Result data for an `rpc` by function name. */
   rpc?: Record<string, unknown>;
+  /**
+   * Session user returned by `auth.getUser()`. Omit to simulate no session,
+   * which is how Server Actions are driven down their unauthenticated path.
+   */
+  user?: { id: string } | null;
 }
 
 export interface SupabaseStub {
@@ -164,6 +169,9 @@ export function createSupabaseStub(config: SupabaseStubConfig = {}): SupabaseStu
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
       return Promise.resolve({ data: config.rpc?.[name] ?? null, error: null });
+    },
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: config.user ?? null }, error: null }),
     },
   } as unknown as SupabaseClient;
 
