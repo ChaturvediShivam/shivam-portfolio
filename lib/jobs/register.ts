@@ -14,3 +14,5 @@ import "@/lib/jobs/handlers/calendar-sync"; // M4
 import "@/lib/jobs/handlers/notification-scan"; // M5
 import "@/lib/jobs/handlers/notification-dispatch"; // M5
 import "@/lib/jobs/handlers/ai-summarize"; // M7
+import "@/lib/jobs/handlers/automation-run"; // M10
+import "@/lib/jobs/handlers/automation-scan"; // M10

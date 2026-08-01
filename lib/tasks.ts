@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emitAutomationEvent } from "@/lib/automation/emit";
 import {
   TASK_PRIORITIES,
   TASK_SORT_FIELDS,
@@ -118,6 +119,23 @@ export async function searchActiveOpportunities(
   }));
 }
 
+/**
+ * The readable snapshot automation conditions evaluate against (M10).
+ *
+ * Deliberately narrower than the row: `lib/automation/schema.ts` allow-lists
+ * exactly these paths, and a field absent here is a field no rule can read.
+ */
+function taskEntity(task: Task): Record<string, unknown> {
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    due_at: task.due_at,
+    opportunity_id: task.opportunity_id,
+  };
+}
+
 export async function createTask(
   supabase: SupabaseClient,
   ownerId: string,
@@ -130,7 +148,17 @@ export async function createTask(
     .select()
     .single();
   if (error) throw error;
-  return data as Task;
+
+  const created = data as Task;
+  await emitAutomationEvent(supabase, {
+    type: "task.created",
+    ownerId,
+    entityType: "task",
+    entityId: created.id,
+    entity: { task: taskEntity(created) },
+  });
+
+  return created;
 }
 
 export async function updateTask(
@@ -150,6 +178,9 @@ export async function updateTask(
 }
 
 export async function changeStatus(supabase: SupabaseClient, id: string, status: TaskStatus): Promise<Task> {
+  const { data: current } = await supabase.from("tasks").select("status").eq("id", id).maybeSingle();
+  const fromStatus = (current as { status?: string } | null)?.status ?? null;
+
   const { data, error } = await supabase
     .from("tasks")
     .update({ status, completed_at: status === "done" ? new Date().toISOString() : null })
@@ -157,7 +188,20 @@ export async function changeStatus(supabase: SupabaseClient, id: string, status:
     .select()
     .single();
   if (error) throw error;
-  return data as Task;
+
+  const updated = data as Task;
+  if (fromStatus !== status) {
+    await emitAutomationEvent(supabase, {
+      type: "task.status_changed",
+      ownerId: updated.owner_id,
+      entityType: "task",
+      entityId: updated.id,
+      entity: { task: { ...taskEntity(updated), from_status: fromStatus } },
+      discriminator: `${fromStatus ?? "none"}->${status}`,
+    });
+  }
+
+  return updated;
 }
 
 export async function setTaskArchived(supabase: SupabaseClient, id: string, archived: boolean): Promise<Task> {

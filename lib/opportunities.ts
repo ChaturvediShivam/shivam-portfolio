@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emitAutomationEvent } from "@/lib/automation/emit";
 import {
   OPPORTUNITY_SORT_FIELDS,
   OPPORTUNITY_STAGES,
@@ -217,6 +218,28 @@ export async function createOpportunity(
     detail: `Created at stage “${stage}”`,
     metadata: { stage },
   });
+
+  await emitAutomationEvent(supabase, {
+    type: "opportunity.created",
+    ownerId,
+    entityType: "opportunity",
+    entityId: created.id,
+    entity: {
+      opportunity: {
+        id: created.id,
+        stage: created.stage,
+        title: created.title,
+        source: created.source,
+        location: created.location,
+        location_type: created.location_type,
+        employment_type: created.employment_type,
+        seniority: created.seniority,
+        applied_at: created.applied_at,
+        next_action_at: created.next_action_at,
+      },
+    },
+  });
+
   return created;
 }
 
@@ -250,6 +273,32 @@ export async function changeStage(
       ownerId,
       detail: `Stage: ${fromStage} → ${toStage}`,
       metadata: { from: fromStage, to: toStage },
+    });
+
+    // M10. Best-effort and never throwing (see lib/automation/emit.ts): moving
+    // a stage must not fail because a rule about moving stages is broken.
+    const row = data as Opportunity;
+    await emitAutomationEvent(supabase, {
+      type: "opportunity.stage_changed",
+      ownerId,
+      entityType: "opportunity",
+      entityId: id,
+      entity: {
+        opportunity: {
+          id,
+          stage: toStage,
+          from_stage: fromStage,
+          title: row.title,
+          source: row.source,
+          location: row.location,
+          location_type: row.location_type,
+          employment_type: row.employment_type,
+          seniority: row.seniority,
+          applied_at: row.applied_at,
+          next_action_at: row.next_action_at,
+        },
+      },
+      discriminator: `${fromStage}->${toStage}`,
     });
   }
   return data as Opportunity;

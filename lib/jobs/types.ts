@@ -24,7 +24,8 @@ export type JobType =
   | "ai_summarize"
   | "ai_embed"
   | "notification_dispatch"
-  | "automation_run";
+  | "automation_run"
+  | "automation_scan";
 
 /** A row of the `jobs` table as returned by PostgREST. */
 export interface JobRow {
