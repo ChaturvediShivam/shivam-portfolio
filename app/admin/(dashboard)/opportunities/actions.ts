@@ -27,6 +27,11 @@ import {
   type OpportunityInput,
   type OpportunityStage,
 } from "@/types/opportunity";
+import { featureEnabled } from "@/lib/featureFlags";
+import { AiGateway } from "@/lib/ai/gateway";
+import { getAiProvider } from "@/lib/ai/providers";
+import { AiError } from "@/lib/ai/errors";
+import { summarizeOpportunity, type SummarizeSkipReason } from "@/lib/ai/summarize";
 
 const numericIfPresent: Validator = (v) =>
   v == null || v === "" || Number.isFinite(Number(v)) ? null : "Enter a number";
@@ -102,6 +107,57 @@ export async function addNoteAction(id: string, body: string): Promise<ActionRes
     await addNote(supabase, id, body, userId);
     revalidatePath(`/admin/opportunities/${id}`);
     return actionSuccess({ id });
+  });
+}
+
+/** Why nothing was written, in words the operator can act on. */
+const SKIP_MESSAGES: Partial<Record<SummarizeSkipReason, string>> = {
+  not_found: "Opportunity not found.",
+  archived: "Restore this opportunity before summarizing it.",
+  no_history: "There are no messages or notes to summarize yet.",
+  already_summarized: "This opportunity already has a summary.",
+  claim_lost: "A summary was just written by another request.",
+  refused: "The AI declined to summarize this opportunity.",
+};
+
+/**
+ * Summarize one opportunity on demand (Phase 3 · M7.3).
+ *
+ * Runs inline like the message action: one completion, and the rollup is on
+ * screen when this resolves. `force` is set because an opportunity keeps
+ * changing — the whole point of the control is to refresh a stale rollup, and
+ * nothing refreshes one automatically in this milestone.
+ */
+export async function summarizeOpportunityAction(
+  id: string,
+): Promise<ActionResult<{ summary: string }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_AI_SUMMARIES")) {
+      return actionError({ formError: "AI summaries are not enabled." });
+    }
+
+    try {
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const result = await summarizeOpportunity(supabase, gateway, id, {
+        ownerId: userId,
+        force: true,
+        actor: "user",
+      });
+
+      if (result.status === "skipped") {
+        return actionError({
+          formError: SKIP_MESSAGES[result.reason] ?? "Could not summarize this opportunity.",
+        });
+      }
+
+      revalidatePath(`/admin/opportunities/${id}`);
+      return actionSuccess({ summary: result.summary });
+    } catch (error) {
+      const message =
+        error instanceof AiError ? error.message : "Could not summarize this opportunity.";
+      console.error("[ai summarize] opportunity failed:", error);
+      return actionError({ formError: message });
+    }
   });
 }
 

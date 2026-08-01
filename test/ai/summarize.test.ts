@@ -9,7 +9,7 @@ import {
   AiTransientError,
   AiUnconfiguredError,
 } from "@/lib/ai/errors";
-import { summarizeMessage } from "@/lib/ai/summarize";
+import { summarizeMessage, summarizeOpportunity } from "@/lib/ai/summarize";
 import { requestMessageSummary } from "@/lib/sync/gmail-sync";
 import { runJobs } from "@/lib/jobs/runner";
 import { isAbsorbable } from "@/lib/jobs/handlers/ai-summarize";
@@ -342,6 +342,234 @@ describe("provider capability degradation", () => {
 
     expect(result).toMatchObject({ status: "written", summary: "s" });
     expect(provider.requests[0].responseSchema).toBeUndefined();
+  });
+});
+
+describe("opportunity rollups (M7.3)", () => {
+  function opportunityRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "opp-1",
+      owner_id: OWNER,
+      title: "Senior Engineer",
+      stage: "on_hold",
+      archived_at: null,
+      ai_processed_at: null,
+      company: { name: "Example Ltd" },
+      ...overrides,
+    };
+  }
+
+  const MESSAGES = [
+    { subject: "Interview invite", from_address: "r@example.com", direction: "inbound", received_at: "2026-07-20T09:00:00Z", sent_at: null },
+  ];
+  const NOTES = [{ body: "Prefers remote", created_at: "2026-07-21T09:00:00Z" }];
+
+  function rollupStub(options: {
+    opportunity?: unknown;
+    messages?: unknown[];
+    notes?: unknown[];
+    claimed?: unknown[];
+  } = {}) {
+    return createSupabaseStub({
+      select: {
+        opportunities: options.opportunity ?? opportunityRow(),
+        messages: options.messages ?? MESSAGES,
+        opportunity_notes: options.notes ?? NOTES,
+      },
+      update: { opportunities: options.claimed ?? [{ id: "opp-1" }] },
+      rpc: { ai_reserve_budget: true },
+    });
+  }
+
+  const rollup = completion({ text: '{"summary":"Interview stage. Next: send prep.","confidence":0.8}' });
+
+  it("writes the rollup with full provenance", async () => {
+    const stub = rollupStub();
+    const result = await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    expect(result).toMatchObject({ status: "written", promptVersion: "1.0.0" });
+    const write = stub.opsFor("opportunities").find((operation) => operation.type === "update")!;
+    expect(Object.keys(write.values!).sort()).toEqual([
+      "ai_confidence",
+      "ai_model",
+      "ai_processed_at",
+      "ai_prompt_version",
+      "ai_summary",
+    ]);
+    expect(write.values).toMatchObject({ ai_prompt_version: "1.0.0", ai_confidence: 0.8 });
+  });
+
+  it("scopes every read and the write to the owner (H5)", async () => {
+    const stub = rollupStub();
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    for (const table of ["opportunities", "messages", "opportunity_notes"]) {
+      const read = stub.opsFor(table)[0];
+      expect(stub.hasFilter(read, "eq", "owner_id", OWNER)).toBe(true);
+    }
+  });
+
+  it("claims the write conditionally, exactly as the message path does", async () => {
+    const stub = rollupStub();
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    const write = stub.opsFor("opportunities").find((operation) => operation.type === "update")!;
+    expect(stub.hasFilter(write, "is", "ai_processed_at", null)).toBe(true);
+  });
+
+  it("reports a lost claim without error", async () => {
+    const stub = rollupStub({ claimed: [] });
+    const result = await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    expect(result).toEqual({ status: "skipped", reason: "claim_lost" });
+  });
+
+  it("bounds the history to the agreed limits rather than fetching everything", async () => {
+    const stub = rollupStub();
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    expect(stub.opsFor("messages")[0].limit).toBe(10);
+    expect(stub.opsFor("opportunity_notes")[0].limit).toBe(5);
+  });
+
+  it("humanizes the stage so the raw enum never reaches the prompt", async () => {
+    const stub = rollupStub();
+    const provider = new StubProvider([rollup]);
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider, client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    const sent = provider.requests[0].messages.at(-1)!.content;
+    expect(sent).toContain("On hold");
+    expect(sent).not.toContain("on_hold");
+  });
+
+  it("puts the history inside the delimited region", async () => {
+    const stub = rollupStub();
+    const provider = new StubProvider([rollup]);
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider, client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    const sent = provider.requests[0].messages.at(-1)!.content;
+    expect(sent.indexOf("Interview invite")).toBeGreaterThan(sent.indexOf("---BEGIN HISTORY---"));
+    expect(sent.indexOf("Prefers remote")).toBeLessThan(sent.indexOf("---END HISTORY---"));
+  });
+
+  it("spends nothing on an opportunity with no history at all", async () => {
+    const stub = rollupStub({ messages: [], notes: [] });
+    const provider = new StubProvider([rollup]);
+
+    const result = await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider, client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+
+    expect(result).toEqual({ status: "skipped", reason: "no_history" });
+    expect(provider.requests).toHaveLength(0);
+  });
+
+  it("refuses an archived opportunity but allows every stage, including terminal ones", async () => {
+    const archived = rollupStub({ opportunity: opportunityRow({ archived_at: "2026-07-01T00:00:00Z" }) });
+    const provider = new StubProvider([rollup]);
+    expect(
+      await summarizeOpportunity(
+        archived.client,
+        new AiGateway({ provider, client: archived.client }),
+        "opp-1",
+        { ownerId: OWNER },
+      ),
+    ).toEqual({ status: "skipped", reason: "archived" });
+    expect(provider.requests).toHaveLength(0);
+
+    // A rejected pursuit is exactly the kind worth a retrospective summary.
+    const rejected = rollupStub({ opportunity: opportunityRow({ stage: "rejected" }) });
+    const result = await summarizeOpportunity(
+      rejected.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: rejected.client }),
+      "opp-1",
+      { ownerId: OWNER },
+    );
+    expect(result.status).toBe("written");
+  });
+
+  it("skips an already-summarized rollup unless the operator forces a refresh", async () => {
+    const seen = opportunityRow({ ai_processed_at: "2026-07-30T00:00:00Z" });
+
+    const passive = rollupStub({ opportunity: seen });
+    const idleProvider = new StubProvider([rollup]);
+    expect(
+      await summarizeOpportunity(
+        passive.client,
+        new AiGateway({ provider: idleProvider, client: passive.client }),
+        "opp-1",
+        { ownerId: OWNER },
+      ),
+    ).toEqual({ status: "skipped", reason: "already_summarized" });
+    expect(idleProvider.requests).toHaveLength(0);
+
+    const forced = rollupStub({ opportunity: seen });
+    const result = await summarizeOpportunity(
+      forced.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: forced.client }),
+      "opp-1",
+      { ownerId: OWNER, force: true },
+    );
+    expect(result.status).toBe("written");
+    const write = forced.opsFor("opportunities").find((operation) => operation.type === "update")!;
+    expect(forced.hasFilter(write, "is", "ai_processed_at", null)).toBe(false);
+  });
+
+  it("audits the call against the opportunity, not the messages it read", async () => {
+    const stub = rollupStub();
+    await summarizeOpportunity(
+      stub.client,
+      new AiGateway({ provider: new StubProvider([rollup]), client: stub.client }),
+      "opp-1",
+      { ownerId: OWNER, actor: "user" },
+    );
+
+    const audit = stub.operations.find((operation) => operation.table === "ai_audit_log");
+    expect(audit?.values).toMatchObject({
+      action: "summarize",
+      entity_type: "opportunity",
+      entity_id: "opp-1",
+      outcome: "success",
+      owner_id: OWNER,
+    });
   });
 });
 

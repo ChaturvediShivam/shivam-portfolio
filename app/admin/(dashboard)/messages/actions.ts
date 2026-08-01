@@ -73,8 +73,13 @@ export async function syncNowAction(): Promise<ActionResult<{ enqueued: boolean 
   });
 }
 
-/** Why nothing was written, in words the operator can act on. */
-const SKIP_MESSAGES: Record<SummarizeSkipReason, string> = {
+/**
+ * Why nothing was written, in words the operator can act on.
+ *
+ * Partial because the skip reasons are shared across entity types: `no_history`
+ * belongs to opportunity rollups and cannot arise for a single message.
+ */
+const SKIP_MESSAGES: Partial<Record<SummarizeSkipReason, string>> = {
   not_found: "Message not found.",
   outbound: "Only received messages are summarized.",
   archived: "Restore this message before summarizing it.",
@@ -112,7 +117,9 @@ export async function summarizeMessageAction(id: string): Promise<ActionResult<{
       });
 
       if (result.status === "skipped") {
-        return actionError({ formError: SKIP_MESSAGES[result.reason] });
+        return actionError({
+          formError: SKIP_MESSAGES[result.reason] ?? "Could not summarize this message.",
+        });
       }
 
       revalidatePath("/admin/messages");

@@ -12,6 +12,8 @@ import { PageHeader, Badge } from "@/components/admin/ui";
 import { OpportunityActions } from "@/components/admin/opportunities/OpportunityActions";
 import { OpportunityContactsPanel } from "@/components/admin/opportunities/OpportunityContactsPanel";
 import { OpportunityNotesPanel } from "@/components/admin/opportunities/OpportunityNotesPanel";
+import { SummarizeButton } from "@/components/admin/opportunities/SummarizeButton";
+import { featureEnabled } from "@/lib/featureFlags";
 import { humanize, stageBadgeVariant, stageLabel, type Opportunity } from "@/types/opportunity";
 
 interface PageProps {
@@ -58,6 +60,9 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
 
   const isArchived = opportunity.archived_at != null;
   const salary = formatSalary(opportunity);
+  // Gates the whole block, not just generation: flipping the flag off is the
+  // first response to a bad summary, so it has to stop displaying them too.
+  const summariesEnabled = featureEnabled("FEATURE_AI_SUMMARIES");
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
@@ -76,6 +81,32 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
         <div className="flex items-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm text-slate-400">
           <Badge variant="neutral">Archived</Badge>
           <span>This opportunity is archived and hidden from the pipeline.</span>
+        </div>
+      )}
+
+      {/* AI rollup (Phase 3 · M7.3) — a rollup goes stale as the pursuit moves,
+          and nothing refreshes it automatically, so it always states its date. */}
+      {summariesEnabled && (
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-white">AI summary</h2>
+              {opportunity.ai_processed_at && (
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Generated {formatDate(opportunity.ai_processed_at) ?? "—"}
+                </p>
+              )}
+            </div>
+            <SummarizeButton
+              opportunityId={opportunity.id}
+              hasSummary={Boolean(opportunity.ai_summary)}
+            />
+          </div>
+          {opportunity.ai_summary ? (
+            <p className="mt-3 text-sm text-slate-300">{opportunity.ai_summary}</p>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">No summary yet.</p>
+          )}
         </div>
       )}
 

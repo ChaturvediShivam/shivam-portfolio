@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AiPermanentError } from "@/lib/ai/errors";
 import type { AiGateway } from "@/lib/ai/gateway";
 import { getPromptTemplate } from "@/lib/ai/prompts/registry";
+import { humanize } from "@/types/opportunity";
 
 /**
  * Summary generation (Phase 3 · M7).
@@ -25,6 +26,11 @@ import { getPromptTemplate } from "@/lib/ai/prompts/registry";
  */
 
 const MESSAGE_TEMPLATE_ID = "message_summary";
+const OPPORTUNITY_TEMPLATE_ID = "opportunity_summary";
+
+/** Most-recent messages and notes fed into a rollup. Fixed bounds, not retrieval. */
+const ROLLUP_MESSAGE_LIMIT = 10;
+const ROLLUP_NOTE_LIMIT = 5;
 
 /** Below this, the list's snippet already says everything a summary could. */
 const MIN_BODY_CHARS = 400;
@@ -53,6 +59,7 @@ const TRUNCATION_NOTE =
 /** Why a summary did not happen. Every value is a deliberate outcome, not a failure. */
 export type SummarizeSkipReason =
   | "not_found"
+  | "no_history"
   | "outbound"
   | "archived"
   | "too_short"
@@ -216,6 +223,193 @@ export async function summarizeMessage(
 
   // The claim. Without this predicate two concurrent callers would both write;
   // with it, the loser gets zero rows back and stops.
+  if (!force) update = update.is("ai_processed_at", null);
+
+  const { data: claimed, error: writeError } = await update.select("id");
+  if (writeError) throw writeError;
+
+  if (!claimed || (claimed as unknown[]).length === 0) {
+    return { status: "skipped", reason: "claim_lost" };
+  }
+
+  return { status: "written", summary, promptVersion: template.version };
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity rollups (Phase 3 · M7.3)
+// ---------------------------------------------------------------------------
+
+interface OpportunityRow {
+  id: string;
+  owner_id: string | null;
+  title: string;
+  stage: string;
+  archived_at: string | null;
+  ai_processed_at: string | null;
+  /** PostgREST types a many-to-one embed as an array; at runtime it is an object. */
+  company: { name: string } | { name: string }[] | null;
+}
+
+function companyName(company: OpportunityRow["company"]): string {
+  const record = Array.isArray(company) ? company[0] : company;
+  return record?.name ?? "(unknown company)";
+}
+
+const OPPORTUNITY_SELECT =
+  "id, owner_id, title, stage, archived_at, ai_processed_at, company:companies(name)";
+
+interface RollupMessage {
+  subject: string | null;
+  from_address: string | null;
+  direction: string;
+  received_at: string | null;
+  sent_at: string | null;
+}
+
+interface RollupNote {
+  body: string;
+  created_at: string;
+}
+
+/** Date only: the model needs sequence, not timestamps. */
+function shortDate(value: string | null): string {
+  return value ? value.slice(0, 10) : "undated";
+}
+
+function formatMessages(rows: RollupMessage[]): string {
+  if (rows.length === 0) return "(none)";
+  return rows
+    .map(
+      (row) =>
+        `- ${shortDate(row.received_at ?? row.sent_at)} ${row.direction}: ` +
+        `${row.subject ?? "(no subject)"} — ${row.from_address ?? "unknown sender"}`,
+    )
+    .join("\n");
+}
+
+function formatNotes(rows: RollupNote[]): string {
+  if (rows.length === 0) return "(none)";
+  return rows.map((row) => `- ${shortDate(row.created_at)}: ${row.body}`).join("\n");
+}
+
+/**
+ * Summarize one opportunity from its own recent history.
+ *
+ * The history is a pair of fixed, bounded queries over the opportunity's own
+ * children — not retrieval. There is no ranking and no semantic selection: the
+ * newest N messages and notes, oldest-context-first, capped by the same
+ * character ceiling the message path uses.
+ *
+ * Unlike a message, an opportunity keeps changing, so `ai_processed_at` marks
+ * "summarized at least once" rather than "finished". Refreshing is the
+ * operator's call and arrives as `force`; nothing refreshes a rollup on its own
+ * in this milestone.
+ */
+export async function summarizeOpportunity(
+  client: SupabaseClient,
+  gateway: AiGateway,
+  opportunityId: string,
+  options: SummarizeOptions,
+): Promise<SummarizeResult> {
+  const { ownerId, force = false, actor = "system" } = options;
+
+  const { data, error } = await client
+    .from("opportunities")
+    .select(OPPORTUNITY_SELECT)
+    .eq("id", opportunityId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const row = data as OpportunityRow | null;
+  if (!row) return { status: "skipped", reason: "not_found" };
+
+  // Any stage qualifies, including terminal ones: a summary of why a pursuit
+  // ended is one of the more useful things this produces.
+  if (row.archived_at) return { status: "skipped", reason: "archived" };
+
+  if (row.ai_processed_at && !force) {
+    return { status: "skipped", reason: "already_summarized" };
+  }
+
+  const { data: messageRows, error: messageError } = await client
+    .from("messages")
+    .select("subject, from_address, direction, received_at, sent_at")
+    .eq("opportunity_id", row.id)
+    .eq("owner_id", ownerId)
+    .is("archived_at", null)
+    .order("received_at", { ascending: false, nullsFirst: false })
+    .limit(ROLLUP_MESSAGE_LIMIT);
+  if (messageError) throw messageError;
+
+  const { data: noteRows, error: noteError } = await client
+    .from("opportunity_notes")
+    .select("body, created_at")
+    .eq("opportunity_id", row.id)
+    .eq("owner_id", ownerId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(ROLLUP_NOTE_LIMIT);
+  if (noteError) throw noteError;
+
+  const messages = (messageRows ?? []) as RollupMessage[];
+  const notes = (noteRows ?? []) as RollupNote[];
+
+  // Nothing to synthesize from. Spending on "no history is available" would be
+  // paying a provider to restate an empty screen.
+  if (messages.length === 0 && notes.length === 0) {
+    return { status: "skipped", reason: "no_history" };
+  }
+
+  const template = getPromptTemplate(OPPORTUNITY_TEMPLATE_ID);
+  const recentMessages = formatMessages(messages);
+  const noteText = formatNotes(notes);
+
+  // The cap applies to the assembled history, which is where the volume is.
+  const combined = `${recentMessages}\n${noteText}`;
+  const truncationNote = combined.length > MAX_SOURCE_CHARS ? TRUNCATION_NOTE : "";
+
+  const completion = await gateway.complete<SummaryOutput>({
+    templateId: template.id,
+    templateVersion: template.version,
+    variables: {
+      title: row.title,
+      // Humanized: the raw enum ("on_hold") would otherwise reach the prompt.
+      stage: humanize(row.stage),
+      company: companyName(row.company),
+      recentMessages: recentMessages.slice(0, MAX_SOURCE_CHARS),
+      notes: noteText.slice(0, Math.max(0, MAX_SOURCE_CHARS - recentMessages.length)),
+      truncationNote,
+    },
+    ownerId,
+    actor,
+    action: "summarize",
+    entityType: "opportunity",
+    entityId: row.id,
+  });
+
+  if (completion.stopReason === "refused") {
+    return { status: "skipped", reason: "refused" };
+  }
+
+  if (completion.stopReason === "truncated" || !completion.parsed) {
+    throw new AiPermanentError("AI summary exceeded the output ceiling.");
+  }
+
+  const summary = completion.parsed.summary.trim().slice(0, MAX_SUMMARY_CHARS);
+
+  let update = client
+    .from("opportunities")
+    .update({
+      ai_summary: summary,
+      ai_model: completion.model,
+      ai_prompt_version: template.version,
+      ai_confidence: clampConfidence(completion.parsed.confidence),
+      ai_processed_at: new Date().toISOString(),
+    })
+    .eq("id", row.id)
+    .eq("owner_id", ownerId);
+
   if (!force) update = update.is("ai_processed_at", null);
 
   const { data: claimed, error: writeError } = await update.select("id");

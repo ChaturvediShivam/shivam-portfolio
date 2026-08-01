@@ -29,6 +29,8 @@ export interface StubOperation {
   /** Row handed to `.update()` / `.insert()`. */
   values?: Record<string, unknown>;
   filters: StubFilter[];
+  /** Row cap requested via `.limit(n)`, when one was given. */
+  limit?: number;
   /** Which single-row accessor terminated the chain, if any. */
   single?: "single" | "maybeSingle";
 }
@@ -95,7 +97,8 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return this;
   }
 
-  limit(): this {
+  limit(count?: number): this {
+    this.operation.limit = count;
     return this;
   }
 

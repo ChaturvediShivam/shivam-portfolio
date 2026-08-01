@@ -91,6 +91,12 @@ export interface Opportunity {
   salary_currency: string | null;
   applied_at: string | null;
   next_action_at: string | null;
+  /** AI rollup + its provenance (Phase 3 · M7). Null until summarized. */
+  ai_summary: string | null;
+  ai_model: string | null;
+  ai_prompt_version: string | null;
+  ai_confidence: number | null;
+  ai_processed_at: string | null;
   metadata: Record<string, unknown>;
   owner_id: string | null;
   created_at: string;
