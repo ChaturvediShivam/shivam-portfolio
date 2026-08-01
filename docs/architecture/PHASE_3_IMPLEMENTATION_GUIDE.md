@@ -417,8 +417,10 @@ specifics.
   `lib/sync/gmail-sync.ts`, three Server Actions (messages, opportunities,
   settings), two `SummarizeButton`s + `BackfillSummariesButton`.
 - **DB:** **none** — writes only the Phase-1 `ai_summary`/`ai_*` columns. No migration.
-- **Flag:** `FEATURE_AI_SUMMARIES`, gating **seven** points including both
+- **Flag:** `FEATURE_AI_SUMMARIES`, gating **eight** points including both
   detail renders, so a flip hides existing summaries as well as stopping new ones.
+  Enumerated in [Runbook §11](../operations/RUNBOOK.md); verify with
+  `grep -rn FEATURE_AI_SUMMARIES lib app components`.
 - **Env prerequisites:** `AI_DAILY_TOKEN_BUDGET` (**enforced** — unattended paths
   refuse to enqueue without it) and `AI_MODEL_FAST` (**not enforced** — unset
   costs ~5×). See [Runbook §19.6–§19.8](../operations/RUNBOOK.md).
