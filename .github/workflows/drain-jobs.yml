@@ -1,0 +1,64 @@
+name: Drain job queue
+
+# Replaces the Vercel Cron entry that used to live in vercel.json. Hobby plans
+# allow only once-daily crons, which would have turned a 5-minute sync cadence
+# into a daily one; GitHub Actions keeps the documented cadence at no cost.
+#
+# The endpoint is unchanged and still authenticates with CRON_SECRET, so this is
+# a change of caller, not of behaviour.
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub runs scheduled workflows on a best-effort basis
+    # and delays them under load, so treat this as "at least every 5 minutes,
+    # sometimes later" rather than a guarantee. Handlers are idempotent and the
+    # queue is durable, so a late or skipped tick only defers work.
+    - cron: "*/5 * * * *"
+  # Lets an operator drain the queue immediately from the Actions tab.
+  workflow_dispatch:
+
+# No repository access is needed — the job only makes an outbound HTTPS call.
+permissions: {}
+
+concurrency:
+  # Ticks queue rather than overlap. Overlapping runs would be safe (the drainer
+  # leases with FOR UPDATE SKIP LOCKED) but they waste minutes on contention.
+  group: drain-jobs
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger job drainer
+        env:
+          JOBS_RUN_URL: https://www.shivamchaturvedi.com/api/jobs/run
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET is not set in repository secrets."
+            exit 1
+          fi
+
+          status=$(curl -sS --fail-with-body \
+            --max-time 120 --retry 2 --retry-delay 5 --retry-connrefused \
+            -o response.json -w '%{http_code}' \
+            -X POST "${JOBS_RUN_URL}" \
+            -H "Authorization: Bearer ${CRON_SECRET}") || {
+              echo "::error::Drainer request failed."
+              cat response.json 2>/dev/null || true
+              exit 1
+            }
+
+          echo "HTTP ${status}"
+          cat response.json
+
+          # The route answers 200 with {"skipped":true} while FEATURE_JOBS is
+          # off, which is a healthy no-op rather than a failure.
+          if [ "${status}" != "200" ]; then
+            echo "::error::Expected 200, got ${status}."
+            exit 1
+          fi
