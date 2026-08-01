@@ -45,7 +45,7 @@ export interface DslIssue {
 export type DslResult<T> = { ok: true; value: T } | { ok: false; issues: DslIssue[] };
 
 /** A field a condition may read, and the domain its value must belong to. */
-interface FieldSpec {
+export interface FieldSpec {
   type: "string" | "number" | "boolean" | "date";
   /** Closed value domain, when the field is an enum. */
   enum?: readonly string[];
