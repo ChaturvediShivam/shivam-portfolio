@@ -3,6 +3,7 @@ import { AiUnknownTemplateError } from "@/lib/ai/errors";
 import type { PromptTemplate } from "@/lib/ai/prompts/template";
 import { assistantTemplate } from "./templates/assistant";
 import { emailReplyTemplate } from "./templates/email-reply";
+import { inboxTriageTemplate } from "./templates/inbox-triage";
 import { messageSummaryTemplate } from "./templates/message-summary";
 import { opportunitySummaryTemplate } from "./templates/opportunity-summary";
 import { selfTestTemplate } from "./templates/self-test";
@@ -34,6 +35,7 @@ register(messageSummaryTemplate);
 register(opportunitySummaryTemplate);
 register(assistantTemplate);
 register(emailReplyTemplate);
+register(inboxTriageTemplate);
 
 /** Numeric semver comparison; non-numeric segments sort as 0. */
 function compareVersions(a: string, b: string): number {

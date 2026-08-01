@@ -28,6 +28,11 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     question: "What should I follow up on this week?",
     today: "2026-08-01",
   },
+  inbox_triage: {
+    today: "2026-08-02",
+    messages: "[ref 1]\nFrom: recruiter@example.com\nSubject: Interview\nReceived: 2026-08-01\nStatus: unread\nAre you free Thursday?",
+    truncationNote: "",
+  },
   email_reply: {
     operatorName: "Shivam",
     instruction: "Confirm Thursday at 14:00 works.",

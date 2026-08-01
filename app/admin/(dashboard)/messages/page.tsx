@@ -5,6 +5,7 @@ import { listMessages } from "@/lib/messages";
 import { featureEnabled } from "@/lib/featureFlags";
 import { getGmailAccount } from "@/lib/integrations";
 import { SyncNowButton } from "@/components/admin/messages/SyncNowButton";
+import { InboxAssistantPanel } from "@/components/admin/messages/InboxAssistantPanel";
 import {
   PageHeader,
   DataTable,
@@ -45,6 +46,7 @@ export default async function MessagesPage({ searchParams }: PageProps) {
   const supabase = await createServerSupabaseClient();
 
   const gmailSyncEnabled = featureEnabled("FEATURE_GMAIL_SYNC");
+  const inboxAssistantEnabled = featureEnabled("FEATURE_INBOX_ASSISTANT");
   const gmailAccount = gmailSyncEnabled ? await getGmailAccount(supabase) : null;
   const canSync = gmailSyncEnabled && gmailAccount?.status === "connected";
 
@@ -120,6 +122,11 @@ export default async function MessagesPage({ searchParams }: PageProps) {
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
       <PageHeader title="Messages" count={result.total} actions={canSync ? <SyncNowButton /> : undefined} />
+
+      {/* AI Inbox Assistant. Gated on its own flag so it can be withdrawn
+          without touching the rest of the inbox, and rendered above the table
+          because its whole purpose is to be read before the list is. */}
+      {inboxAssistantEnabled && <InboxAssistantPanel />}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <SearchInput param="q" placeholder="Search messages…" className="lg:w-72" />

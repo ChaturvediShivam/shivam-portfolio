@@ -23,6 +23,7 @@ import { AiGateway } from "@/lib/ai/gateway";
 import { getAiProvider } from "@/lib/ai/providers";
 import { AiError } from "@/lib/ai/errors";
 import { summarizeMessage, type SummarizeSkipReason } from "@/lib/ai/summarize";
+import { triageInbox, type InboxDigest, type TriageSkipReason } from "@/lib/ai/inbox";
 import type { MessageLinkInput } from "@/types/message";
 
 export async function markReadAction(id: string, read: boolean): Promise<ActionResult<{ id: string }>> {
@@ -159,4 +160,57 @@ export async function searchOpportunitiesAction(query: string): Promise<{ value:
   const { context } = await getAdminActionContext();
   if (!context) return [];
   return searchActiveOpportunities(context.supabase, query);
+}
+
+/**
+ * Why a digest was not produced, in words the operator can act on.
+ *
+ * `empty_inbox` is deliberately not an error: nothing to triage is a valid and
+ * common state, and reporting it as a failure would train the operator to
+ * ignore the panel.
+ */
+const TRIAGE_MESSAGES: Record<TriageSkipReason, string> = {
+  empty_inbox: "No recent inbound mail to review.",
+  refused: "The AI declined to review this inbox.",
+  empty_output: "The AI returned nothing usable. Try again.",
+};
+
+/**
+ * AI Inbox Assistant — triage recent inbound mail on demand.
+ *
+ * Computes nothing until asked and stores nothing afterwards: the digest is
+ * returned to the caller and held in page state. The durable trace is the
+ * `ai_audit_log` row the gateway writes, same as every other AI call.
+ *
+ * Runs inline rather than enqueuing, for the same reason the M7 manual summary
+ * does: the operator asked and is watching, so a few seconds beats a cron cycle
+ * with nothing on screen.
+ */
+export async function triageInboxAction(): Promise<
+  ActionResult<{ digest: InboxDigest | null; note: string | null }>
+> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_INBOX_ASSISTANT")) {
+      return actionError({ formError: "The inbox assistant is not enabled." });
+    }
+
+    try {
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const result = await triageInbox(supabase, gateway, { ownerId: userId, actor: "user" });
+
+      if (result.status === "skipped") {
+        // A skip is a real answer, not a failure — returned as success with a
+        // note so the panel can say what happened without an error style.
+        return actionSuccess({ digest: null, note: TRIAGE_MESSAGES[result.reason] });
+      }
+
+      return actionSuccess({ digest: result.digest, note: null });
+    } catch (error) {
+      // Our own taxonomy's messages are provider-agnostic and free of request
+      // content; anything else stays generic.
+      const message = error instanceof AiError ? error.message : "Could not review the inbox.";
+      console.error("[inbox assistant] triage failed:", error);
+      return actionError({ formError: message });
+    }
+  });
 }
