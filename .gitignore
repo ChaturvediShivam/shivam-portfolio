@@ -1,5 +1,9 @@
 .vercel
-.env*
+# Real environment files never enter version control.
+.env
+.env.*
+# The template does — it documents required variables and holds placeholders only.
+!.env.example
 node_modules
 .next
 out
