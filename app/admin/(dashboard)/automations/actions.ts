@@ -6,6 +6,7 @@ import { featureEnabled } from "@/lib/featureFlags";
 import { validateRule, type DslIssue } from "@/lib/automation/schema";
 import { archiveRule, createRule, getRule, setRuleEnabled, updateRule } from "@/lib/automation/rules";
 import { dryRun } from "@/lib/automation/engine";
+import { requestAutomationScan } from "@/lib/automation/trigger";
 import type { AutomationEventEnvelope } from "@/types/automation";
 
 /**
@@ -106,6 +107,13 @@ export async function setEnabledAction(
 
     const rule = await setRuleEnabled(supabase, id, userId, enabled);
     if (!rule) return actionError({ formError: "That rule no longer exists." });
+
+    // Arming a schedule rule is what starts the scan chain. Event rules need
+    // nothing — each mutation enqueues its own job — but a scheduled rule with
+    // no chain running would silently never fire.
+    if (rule.enabled && rule.trigger.type === "schedule") {
+      await requestAutomationScan(supabase);
+    }
 
     revalidate();
     return actionSuccess({ enabled: rule.enabled });

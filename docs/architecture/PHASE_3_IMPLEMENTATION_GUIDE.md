@@ -465,13 +465,22 @@ specifics.
 - **Operational prerequisites (not code):** `gmail.send` is a **restricted** scope requiring Google app verification for production, and anyone connected before M9 must reconnect to grant it.
 - **Tests:** `test/ai/approvals.test.ts` (transition predicates), `test/ai/drafting.test.ts` (recipients never from model output), `test/ai/send.test.ts` (irreversibility ordering), `test/integrations/gmail-send.test.ts` (header injection).
 
-### M10 — Workflow Automation · `XL`
+### M10 — Workflow Automation · `XL` · shipped
 - **Objective:** rule engine (trigger → condition → action).
-- **Rule DSL:** the `trigger`/`conditions`/`actions` JSON schema + validation rules are specified in [Phase 3 Architecture §14.1](./PHASE_3_ARCHITECTURE.md#141-automation-rule-schema-dsl).
-- **Folders/files:** `lib/automation/{engine,triggers,actions}.ts`, `lib/jobs/handlers/automation-run.ts`, `app/admin/(dashboard)/automations/*`, `components/admin/automations/*`; migration `automation_rules`, `automation_runs`. Minor additive `enqueue(event)` calls in emitting data layers.
+- **Rule DSL:** as specified in [Phase 3 Architecture §14.1](./PHASE_3_ARCHITECTURE.md#141-automation-rule-schema-dsl), implemented in `lib/automation/schema.ts`.
+- **Delivered:** migration `automation_rules` + `automation_runs`; `lib/automation/{schema,conditions,actions,engine,rules,emit,trigger}.ts`; handlers `automation-run` (events) and `automation-scan` (schedules); `/admin/automations` with a structured editor and run log; emission from `createOpportunity`, `changeStage`, `createTask`, `changeStatus` and Gmail sync.
 - **DB:** additive `automation_rules`, `automation_runs`. **Flag:** `FEATURE_AUTOMATION`.
-- **Security deltas:** actions run via existing `lib/*` (RLS/validation); external actions approval-gated; loop guard.
-- **Risk:** high (infinite loops, unintended actions) → run caps, idempotency, dry-run/test-run, `enabled=false` kill switch.
+- **Supported events:** `opportunity.created`, `opportunity.stage_changed`, `task.created`, `task.status_changed`, `message.received`. The list is closed on purpose — a rule naming an unemitted event is a rule that silently never runs.
+- **Loop safety — three independent bounds**, because each alone has a hole:
+  1. per-(rule, entity) run cap inside a cooldown window (5 executions / 10 min);
+  2. a unique index on (rule, event), **claimed before actions execute**, which turns the queue's at-least-once delivery into exactly-once execution;
+  3. approval gating, so the worst a loop produces is a queue of proposals nobody approves.
+  The cap counts only runs that executed something — otherwise a rule seeing many non-matching events would throttle itself out of ever firing.
+- **Security deltas:** actions run via existing `lib/*` (RLS/validation); condition fields are allow-listed per entity so a rule cannot read a column the UI would not show; `change_stage` and `draft_email` write `ai_approvals` and never execute.
+- **Emission is best-effort and never throws** — the caller is a data-layer write that already succeeded. Moving a stage must not fail because a rule about moving stages is broken.
+- **Kill switches:** `FEATURE_AUTOMATION` globally (emission stops, so no backlog accrues), per-rule `enabled=false` finer. Disabling and archiving are deliberately not flag-gated.
+- **Known limitation:** schedule triggers depend on a self-perpetuating `automation_scan` chain, started when a schedule rule is armed and re-queued in the handler's `finally`. If the chain is ever lost, re-toggling any schedule rule restarts it.
+- **Tests:** `test/automation/{schema,conditions,engine,actions,emit,trigger}.test.ts` — 97 cases, weighted toward rejection and loop-safety.
 
 ---
 

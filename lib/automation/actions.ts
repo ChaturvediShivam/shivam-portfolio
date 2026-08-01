@@ -116,10 +116,13 @@ async function runSendNotification(
     dedupeKey,
     ownerId: ctx.ownerId,
     payload: {
-      entity_type: ctx.envelope?.entityType ?? null,
-      entity_id: ctx.envelope?.entityId ?? null,
-launched_by_rule: ctx.ruleId,
-    } as never,
+      // The declared `NotificationPayload` keys. An earlier draft wrote
+      // snake_case behind a cast, which typechecked and would have shipped a
+      // payload the bell could not read.
+      ...(ctx.envelope ? { entityType: ctx.envelope.entityType, entityId: ctx.envelope.entityId } : {}),
+      actor: "automation",
+      variables: { ruleId: ctx.ruleId },
+    },
   });
 
   return {
