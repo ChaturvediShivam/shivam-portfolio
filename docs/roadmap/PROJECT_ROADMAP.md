@@ -170,7 +170,7 @@ to the `v1.0.0` baseline. Full design and plan:
 - Add in-app + email notifications for operationally important events.
 
 **Deliverables — milestones (M1–M10)**
-- **M1 Jobs & Secrets** — durable Postgres `jobs` queue drained by Vercel Cron;
+- **M1 Jobs & Secrets** — durable Postgres `jobs` queue drained on a schedule;
   token encryption (Vault / pgsodium).
 - **M2 Google OAuth** — connect/disconnect with **encrypted** tokens in
   `integration_accounts` (never plaintext).

@@ -447,7 +447,7 @@ ships in M9.
 ## 11. Jobs Tables 🟡 (Phase 3 · M1)
 
 ### `jobs` 🟡 (durable queue)
-- **Purpose:** durable async work queue drained by Vercel Cron. **Owner module:** Platform (jobs). See [ADR-005](../architecture/decisions/ADR-005-background-jobs.md).
+- **Purpose:** durable async work queue drained by a scheduled GitHub Actions workflow. **Owner module:** Platform (jobs). See [ADR-005](../architecture/decisions/ADR-005-background-jobs.md).
 - **PK:** `id`. **FKs:** `owner_id` (nullable; system jobs). **Relationships:** references entities via `payload`.
 - **Important columns:** `type`, `payload jsonb`, `status` (pending/running/done/failed), `attempts`, `max_attempts`, `run_after`, `locked_at`, `last_error`, `idempotency_key`.
 - **Indexes:** `(status, run_after)` (claim), `(type)`; **unique** `idempotency_key` (partial). **Constraints:** idempotency. **RLS:** standard (admin visibility); the drainer runs as a system endpoint (cron secret, not session).

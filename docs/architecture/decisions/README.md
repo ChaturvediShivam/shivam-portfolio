@@ -19,7 +19,7 @@ rewrite it).
 | [ADR-002](./ADR-002-supabase-backend.md) | Supabase (Postgres + Auth + RLS) as the backend platform | Accepted · implemented |
 | [ADR-003](./ADR-003-event-architecture.md) | Event architecture — persisted audit log + domain-event bus | Accepted · partial (P3 bus planned) |
 | [ADR-004](./ADR-004-oauth.md) | Google OAuth with PKCE + encrypted token storage | Accepted · planned (P3) |
-| [ADR-005](./ADR-005-background-jobs.md) | Background jobs — Postgres queue + Vercel Cron | Accepted · planned (P3) |
+| [ADR-005](./ADR-005-background-jobs.md) | Background jobs — Postgres queue + scheduled drainer | Accepted · planned (P3) |
 | [ADR-006](./ADR-006-ai-approval.md) | AI/automation human-in-the-loop approval gating | Accepted · planned (P3) |
 | [ADR-007](./ADR-007-provider-abstraction.md) | Provider abstraction (adapter contract) for integrations | Accepted · planned (P3) |
 | [ADR-008](./ADR-008-additive-schema-and-rls.md) | Additive-only schema evolution + single-admin RLS | Accepted · implemented |

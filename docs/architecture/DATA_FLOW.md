@@ -36,7 +36,7 @@ Data moves through a small number of well-defined layers:
 - **Database** 🟢 — Supabase Postgres + Auth + RLS; the system of record.
 - **Event bus** 🟢/🟡 — `opportunity_events` (persisted audit today) + a Phase 3
   domain-event bus over durable `jobs`.
-- **Background jobs** 🟡 — Postgres queue drained by Vercel Cron (sync, AI,
+- **Background jobs** 🟡 — Postgres queue drained on a schedule (sync, AI,
   notifications, automation).
 - **AI** 🟡 — a server-side gateway (RAG + tools + approvals).
 - **External providers** 🟢/🟡 — Resend + Cloudflare Turnstile (today); Google
@@ -55,7 +55,7 @@ flowchart TD
   S --> DB[(Supabase Postgres · RLS)]
   S --> EXT1["Resend / Turnstile 🟢"]
   DB --> EV["Events: opportunity_events 🟢 · domain-event bus 🟡"]
-  EV --> JOBS["Background jobs 🟡 (Vercel Cron + jobs queue)"]
+  EV --> JOBS["Background jobs 🟡 (scheduled drainer + jobs queue)"]
   JOBS --> AI["AI gateway 🟡"]
   JOBS --> NOTI["Notifications 🟡"]
   JOBS --> EXT2["Google Gmail/Calendar 🟡 · AI provider 🟡"]
@@ -279,7 +279,7 @@ Cross-link: [Phase 3 §15](./PHASE_3_ARCHITECTURE.md#15-background-job-strategy)
 
 ```mermaid
 flowchart TD
-  CRON["Vercel Cron 🟡"] --> RUN["POST /api/jobs/run (CRON_SECRET) 🟡"]
+  CRON["GitHub Actions schedule 🟡"] --> RUN["POST /api/jobs/run (CRON_SECRET) 🟡"]
   RUN --> CLAIM["Claim batch: FOR UPDATE SKIP LOCKED"]
   CLAIM --> DISP["Dispatch by type -> handler (idempotent)"]
   DISP --> OK{Success?}

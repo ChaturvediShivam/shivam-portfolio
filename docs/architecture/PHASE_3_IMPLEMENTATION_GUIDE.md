@@ -366,7 +366,7 @@ Self-contained cards. Each inherits the global checklists (§10–§17) and adds
 specifics.
 
 ### M1 — Jobs & Secrets Platform · `M`
-- **Objective:** durable Postgres job queue + Vercel Cron workers + token encryption that everything async depends on.
+- **Objective:** durable Postgres job queue + scheduled workers + token encryption that everything async depends on.
 - **Folders/files:** `lib/jobs/{queue,runner}.ts`, `lib/integrations/crypto.ts`, `app/api/jobs/run/route.ts`, `vercel.json`, Settings jobs-health panel; migration for `jobs`. *(server-only + one cron route handler + read-only panel).*
 - **DB:** additive `jobs` (+status/idempotency indexes, RLS). **APIs:** `POST /api/jobs/run` (cron secret). **Env:** `CRON_SECRET`, `TOKEN_ENCRYPTION_KEY`/Vault. **Flag:** `FEATURE_JOBS`.
 - **Security deltas:** cron secret constant-time compare; crypto keys server-only; `SKIP LOCKED` leasing.

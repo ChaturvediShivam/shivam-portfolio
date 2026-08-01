@@ -135,7 +135,7 @@ Cross-ref: [Schema Reference](./database/SCHEMA_REFERENCE.md) ·
   bypasses RLS. It has exactly **three** import sites: `/api/contact` (insert
   inquiry + log activity), `/api/auth/signup` (`createUser`), and — from Phase 3 —
   `lib/jobs/context.ts`, which builds the background-job execution context.
-  Background jobs run from Vercel Cron with **no user session**, so
+  Background jobs run from a scheduled GitHub Actions workflow with **no user session**, so
   `auth.role() = 'authenticated'` cannot scope them; handlers therefore scope
   every read and write to `owner_id` explicitly in application code
   (freeze decision H5). It is **never** used in an interactive admin/CRM request

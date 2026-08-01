@@ -1,4 +1,4 @@
-# ADR-005: Background jobs — Postgres-backed queue drained by Vercel Cron
+# ADR-005: Background jobs — Postgres-backed queue drained on a schedule
 
 - **Status:** Accepted (planned — Phase 3, M1)
 - **Date:** 2026-07-28
@@ -36,7 +36,7 @@ so it can be swapped later.
 - Requires careful chunking for long jobs.
 
 ## Consequences
-- New `jobs` table (additive); `vercel.json` cron; `CRON_SECRET`.
+- New `jobs` table (additive); scheduled drainer (`.github/workflows/drain-jobs.yml`); `CRON_SECRET` in Vercel **and** GitHub secrets.
 - All handlers must be idempotent; dead-letter surfaced in Settings.
 
 ## Future Impact

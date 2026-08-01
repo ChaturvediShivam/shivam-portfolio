@@ -188,9 +188,9 @@ Designed in [Phase 3 Architecture](./PHASE_3_ARCHITECTURE.md) /
 v1.0.0. Each ships behind a feature flag.
 
 ### 4.1 `POST /api/jobs/run` ⬜ (M1)
-- **Purpose:** cron-triggered drain of the durable `jobs` queue.
+- **Purpose:** schedule-triggered drain of the durable `jobs` queue.
 - **Auth:** **shared secret** (`CRON_SECRET`, constant-time compare) — **not** a user session. **Permissions:** system only.
-- **Input:** none (or `{ maxBatch? }`); invoked by Vercel Cron.
+- **Input:** none (or `?limit=`); invoked by the `Drain job queue` GitHub Actions workflow.
 - **Output:** `200 { processed, failed }`.
 - **Errors:** `401` bad/missing secret; `500` runner error.
 - **Status codes:** `200 · 401 · 500`. **Rate limits:** cron cadence + bounded batch (self-limited).

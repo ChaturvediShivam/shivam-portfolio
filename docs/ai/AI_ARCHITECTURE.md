@@ -413,14 +413,14 @@ sequenceDiagram
 ## Background jobs
 
 AI async work runs on the **shared durable `jobs` queue** — the single
-Postgres-backed queue drained by Vercel Cron
+Postgres-backed queue drained on a schedule
 ([ADR-005](../architecture/decisions/ADR-005-background-jobs.md)) — **not** a
 separate AI-only table.
 
 - **Queue:** the unified `jobs` table (`type`, `payload jsonb`, `status`,
   `attempts`, `max_attempts`, `run_after`, `locked_at`, `idempotency_key`,
   `owner_id`). AI work is enqueued as AI **job types** — `ai_summarize`, `ai_embed`.
-- **Workers:** Vercel Cron / the queue runner drains `jobs`; long agent runs are
+- **Workers:** the scheduled drainer / queue runner drains `jobs`; long agent runs are
   async so requests stay fast. Retries with backoff; idempotency keys prevent
   double-execution. Per-call token/cost is recorded in `ai_audit_log` / `ai_messages`.
 - **Uses:** message summarization on ingest, nightly follow-up scans, enrichment,

@@ -69,7 +69,7 @@ fully autonomous (un-approved) external actions.
 | **AI Summaries** | Per-message and per-opportunity summaries into `ai_summary` | — |
 | **Workflow Automation** | Rule engine: triggers (events/schedules) → conditions → actions (task, notify, draft, stage-change w/ approval) | Arbitrary user-authored code; complex branching workflows |
 | **Notifications** | In-app center + email (Resend) for due tasks, new mail, stage changes, approvals | Push/mobile; SMS |
-| **Background Jobs** | Postgres-backed queue + Vercel Cron workers; retries/backoff/idempotency | Sub-second real-time processing |
+| **Background Jobs** | Postgres-backed queue + scheduled workers; retries/backoff/idempotency | Sub-second real-time processing |
 
 The AI internals (agents, prompts, tool registry, embeddings, approval schema,
 token accounting) are already designed in
@@ -89,7 +89,7 @@ flowchart TB
       MW[Middleware · auth gate]
       APP[App Router · RSC + Server Actions]
       RH[Route Handlers · OAuth callback · webhooks · AI stream]
-      CRON[Vercel Cron · job workers]
+      CRON[GitHub Actions schedule · job workers]
     end
     subgraph External
       G[(Google APIs · Gmail + Calendar)]
@@ -318,7 +318,7 @@ Poll-based incremental sync via `historyId` (cron), idempotent by
 
 ```mermaid
 flowchart TD
-    Cron[Vercel Cron] --> Claim["Claim gmail_sync jobs (per account)"]
+    Cron[Scheduled drainer] --> Claim["Claim gmail_sync jobs (per account)"]
     Claim --> Cursor{sync_cursor present?}
     Cursor -- no --> Full["Initial: list recent messages (bounded)"]
     Cursor -- yes --> Hist["history.list since historyId"]
@@ -501,7 +501,7 @@ note above and [Events](./EVENTS.md)).
 
 ## 15. Background Job Strategy
 
-**Decision:** a **Postgres-backed job queue drained by Vercel Cron** — no new
+**Decision:** a **Postgres-backed job queue drained on a schedule** — no new
 infrastructure, reuses Supabase, transactional with domain writes.
 
 - **Enqueue:** insert into `jobs` (`type`, `payload`, `run_after`,
@@ -510,7 +510,7 @@ infrastructure, reuses Supabase, transactional with domain writes.
   **Execute:** dispatch by `type` to a handler. **Complete/Fail:** mark done or
   increment `attempts`, set `run_after = now + backoff`, record `last_error`;
   past `max_attempts` → dead-letter (`status='failed'`, surfaced in Settings).
-- **Scheduling:** `vercel.json` `crons` hit `/api/jobs/run` (secret-authed) every
+- **Scheduling:** a GitHub Actions schedule hits `/api/jobs/run` (secret-authed) every
   N minutes; the drainer processes a bounded batch within the function time
   limit, then returns (re-triggered next tick). Long work is chunked into
   follow-up jobs (keeps each run under Vercel's execution limit).
@@ -599,7 +599,7 @@ infrastructure, reuses Supabase, transactional with domain writes.
   applied before the code that depends on them — the Phase 1/2 discipline.
 - **New env vars:** Google OAuth client id/secret, OAuth redirect URI, token
   **encryption key**, AI provider key, **cron secret**, Resend key (exists).
-- **Cron config:** `vercel.json` `crons` entries per worker cadence.
+- **Cron config:** `.github/workflows/drain-jobs.yml` (`*/5 * * * *`). Vercel Cron is unavailable on the Hobby plan, which allows only daily schedules.
 - **Runtime choice:** AI streaming route may run on the Edge or Node runtime;
   Gmail/crypto workers run on Node (SDK/crypto support).
 
@@ -679,7 +679,7 @@ flowchart TD
 
 ### M1 — Jobs & Secrets Platform
 - **Objective:** durable background-job queue + encrypted-secret plumbing that everything else builds on.
-- **Deliverables:** `jobs` table; `lib/jobs/{queue,runner}`; `/api/jobs/run` (cron, secret-authed); `vercel.json` cron; `lib/integrations/crypto.ts` (Vault/pgsodium); job health surface in Settings.
+- **Deliverables:** `jobs` table; `lib/jobs/{queue,runner}`; `/api/jobs/run` (schedule-triggered, secret-authed); GitHub Actions workflow; `lib/integrations/crypto.ts` (Vault/pgsodium); job health surface in Settings.
 - **DB impact:** +`jobs` (additive). Confirm Vault/pgsodium availability.
 - **UI impact:** Settings → "System/Jobs" health panel (read-only).
 - **APIs:** `POST /api/jobs/run` (internal, secret).

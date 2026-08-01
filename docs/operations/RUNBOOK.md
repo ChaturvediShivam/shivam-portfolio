@@ -169,7 +169,7 @@ Supabase (its own keys). Rotate on suspected exposure, staff change, or schedule
 | `TOKEN_ENCRYPTION_KEY` ⬜ | Vercel/KMS | **Rotating requires re-encrypting stored OAuth tokens** — plan a migration/backfill; keep both keys during transition |
 | `GOOGLE_OAUTH_CLIENT_SECRET` ⬜ | Google Cloud Console | Rotating forces token refresh; may require reconnect |
 | `AI_PROVIDER_API_KEY` ⬜ | Provider console | Rotate; AI features fail until redeploy |
-| `CRON_SECRET` ⬜ | Vercel env | Update env **and** the cron config header |
+| `CRON_SECRET` ⬜ | Vercel env **and** GitHub repo secret | Rotate in both places — the GitHub Actions drainer sends it |
 
 > ⚠️ **Token encryption key** is special: rotating it without re-encrypting
 > `integration_accounts.*_encrypted` makes existing connections undecryptable →
@@ -200,7 +200,7 @@ provider) → Connect again. Disconnect is safe (soft-deletes the account,
 
 ## 6. Background Jobs ⬜ (Phase 3)
 
-Durable queue = the `jobs` table; workers = Vercel Cron hitting
+Durable queue = the `jobs` table; workers = a **GitHub Actions schedule** hitting
 `POST /api/jobs/run` (secret-authed). Job types: `gmail_sync`, `calendar_sync`,
 `ai_summarize`, `ai_embed`, `notification_dispatch`, `automation_run`.
 
@@ -216,7 +216,7 @@ Durable queue = the `jobs` table; workers = Vercel Cron hitting
   root cause.
 - **Drain manually (staging/dev):** invoke `POST /api/jobs/run` with the
   `CRON_SECRET` header.
-- **Pause processing:** disable the cron entry / flag → queue accumulates safely.
+- **Pause processing:** disable the `Drain job queue` workflow in the Actions tab, or flip `FEATURE_JOBS` off → queue accumulates safely.
 
 ---
 
@@ -226,9 +226,9 @@ Durable queue = the `jobs` table; workers = Vercel Cron hitting
 
 | Check | Action |
 |-------|--------|
-| Cron configured? | Confirm `vercel.json` `crons` + schedule in Vercel dashboard |
+| Scheduler configured? | GitHub → Actions → **Drain job queue**: recent runs green, schedule `*/5 * * * *` |
 | Endpoint auth | `POST /api/jobs/run` must accept the cron header (`CRON_SECRET`); a rotated secret without config update → `401` every tick |
-| Function errors/timeouts | `vercel logs` on the cron function; chunk work if hitting the time limit |
+| Function errors/timeouts | `vercel logs` on the drainer function; chunk work if hitting the time limit |
 | Cron disabled by flag | Re-enable `FEATURE_JOBS` |
 | Overlap/thundering herd | `SKIP LOCKED` leasing prevents double-processing; verify batch size |
 
@@ -687,7 +687,7 @@ Work top to bottom. Do not skip to the flag.
 - [ ] **`AI_DAILY_TOKEN_BUDGET` set** (e.g. `500000`) — enforced; unset disables ingest and backfill
 - [ ] **`AI_MODEL_FAST` set** (e.g. `claude-haiku-4-5`) — *not* enforced; unset costs ~5×
 - [ ] `AI_EFFORT_FAST=low`
-- [ ] `CRON_SECRET` set and the `vercel.json` cron entry live
+- [ ] `CRON_SECRET` set in **Vercel** and as a **GitHub repository secret**; `Drain job queue` workflow enabled
 
 **2 · Feature flags** — enable in this order, verifying each
 
