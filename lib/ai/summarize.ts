@@ -32,6 +32,15 @@ const OPPORTUNITY_TEMPLATE_ID = "opportunity_summary";
 const ROLLUP_MESSAGE_LIMIT = 10;
 const ROLLUP_NOTE_LIMIT = 5;
 
+/** Messages enqueued by one backfill invocation. */
+const BACKFILL_BATCH = 10;
+
+/**
+ * Rows examined to find that batch. Larger than the batch because eligibility
+ * is decided in code, not in SQL — some of what is scanned will not qualify.
+ */
+const BACKFILL_SCAN = 25;
+
 /** Below this, the list's snippet already says everything a summary could. */
 const MIN_BODY_CHARS = 400;
 
@@ -233,6 +242,65 @@ export async function summarizeMessage(
   }
 
   return { status: "written", summary, promptVersion: template.version };
+}
+
+// ---------------------------------------------------------------------------
+// Operator backfill (Phase 3 · M7.4)
+// ---------------------------------------------------------------------------
+
+export interface BackfillCandidates {
+  /** Rows examined in this pass. */
+  scanned: number;
+  /** Ids that pass every current eligibility rule. */
+  eligible: string[];
+  /** Scanned rows that did not qualify. */
+  skipped: number;
+}
+
+/**
+ * Find messages that never got a summary and still deserve one (M7.4).
+ *
+ * Recovery for the four ways work is lost: the flag was off, the budget guard
+ * refused the enqueue, a configuration error dead-lettered the job, or queued
+ * work was discarded during a rollback. All four leave the same trace —
+ * `ai_processed_at is null` — so one query recovers all of them.
+ *
+ * Eligibility is decided by `ineligibleBecause`, the same predicate the ingest
+ * and manual paths use. It is deliberately NOT re-expressed as SQL: a second
+ * copy would drift, and a backfill that summarized what the live path refuses
+ * would quietly undo a cost decision. The SQL filters below are a strict subset
+ * of that predicate, applied only to keep the scan small.
+ *
+ * Already-summarized messages are excluded by the `ai_processed_at is null`
+ * filter, so a backfill can never overwrite an existing summary. The conditional
+ * claim in `summarizeMessage` is the second line of that guarantee.
+ */
+export async function selectBackfillCandidates(
+  client: SupabaseClient,
+  ownerId: string,
+): Promise<BackfillCandidates> {
+  const { data, error } = await client
+    .from("messages")
+    .select(MESSAGE_SELECT)
+    .eq("owner_id", ownerId)
+    .is("ai_processed_at", null)
+    .is("archived_at", null)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: true })
+    .limit(BACKFILL_SCAN);
+  if (error) throw error;
+
+  const rows = (data ?? []) as MessageRow[];
+  const eligible = rows
+    // `ai_processed_at` is re-checked in code rather than left to the filter
+    // above: `ineligibleBecause` deliberately ignores it (so `force` can bypass
+    // it on the manual path), which would leave "never overwrite an existing
+    // summary" resting on a single WHERE clause.
+    .filter((row) => row.ai_processed_at === null && ineligibleBecause(row) === null)
+    .slice(0, BACKFILL_BATCH)
+    .map((row) => row.id);
+
+  return { scanned: rows.length, eligible, skipped: rows.length - eligible.length };
 }
 
 // ---------------------------------------------------------------------------

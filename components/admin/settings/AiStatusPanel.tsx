@@ -5,6 +5,8 @@ import { isAiProviderConfigured } from "@/lib/ai/providers";
 import { Badge } from "@/components/admin/ui";
 import { SettingRow } from "./SettingsControls";
 import { AiSelfTestButton } from "./AiSelfTestButton";
+import { BackfillSummariesButton } from "./BackfillSummariesButton";
+import { featureEnabled } from "@/lib/featureFlags";
 
 /**
  * Read-only AI status (Phase 3 · M6).
@@ -80,6 +82,8 @@ export async function AiStatusPanel() {
         />
       </dl>
       <AiSelfTestButton />
+      {/* Backfill is part of the summaries feature, so it disappears with it. */}
+      {featureEnabled("FEATURE_AI_SUMMARIES") && <BackfillSummariesButton />}
     </>
   );
 }

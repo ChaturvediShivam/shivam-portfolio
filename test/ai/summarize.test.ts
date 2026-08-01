@@ -9,7 +9,11 @@ import {
   AiTransientError,
   AiUnconfiguredError,
 } from "@/lib/ai/errors";
-import { summarizeMessage, summarizeOpportunity } from "@/lib/ai/summarize";
+import {
+  selectBackfillCandidates,
+  summarizeMessage,
+  summarizeOpportunity,
+} from "@/lib/ai/summarize";
 import { requestMessageSummary } from "@/lib/sync/gmail-sync";
 import { runJobs } from "@/lib/jobs/runner";
 import { isAbsorbable } from "@/lib/jobs/handlers/ai-summarize";
@@ -342,6 +346,118 @@ describe("provider capability degradation", () => {
 
     expect(result).toMatchObject({ status: "written", summary: "s" });
     expect(provider.requests[0].responseSchema).toBeUndefined();
+  });
+});
+
+describe("operator backfill candidates (M7.4)", () => {
+  function backfillStub(rows: unknown[]) {
+    return createSupabaseStub({ select: { messages: rows } });
+  }
+
+  it("asks only for messages that never got a summary", async () => {
+    const stub = backfillStub([messageRow()]);
+    await selectBackfillCandidates(stub.client, OWNER);
+
+    const read = stub.opsFor("messages")[0];
+    // The filter is what makes overwriting an existing summary impossible.
+    expect(stub.hasFilter(read, "is", "ai_processed_at", null)).toBe(true);
+    expect(stub.hasFilter(read, "eq", "owner_id", OWNER)).toBe(true);
+    expect(stub.hasFilter(read, "is", "archived_at", null)).toBe(true);
+    expect(stub.hasFilter(read, "eq", "direction", "inbound")).toBe(true);
+  });
+
+  it("excludes an already-summarized message even if the query returns one", async () => {
+    // Defence in depth: the SQL filter should prevent this, and the eligibility
+    // predicate would still catch it if the filter were ever weakened.
+    const stub = backfillStub([messageRow({ ai_processed_at: "2026-07-30T00:00:00Z" })]);
+    const result = await selectBackfillCandidates(stub.client, OWNER);
+
+    expect(result.eligible).toEqual([]);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("never proposes a message the live paths would refuse", async () => {
+    const stub = backfillStub([
+      messageRow({ id: "keep-1" }),
+      messageRow({ id: "short", body_text: "Thanks!" }),
+      messageRow({ id: "promo", metadata: { labelIds: ["CATEGORY_PROMOTIONS"] } }),
+      messageRow({ id: "outbound", direction: "outbound" }),
+      messageRow({ id: "keep-2" }),
+    ]);
+
+    const result = await selectBackfillCandidates(stub.client, OWNER);
+
+    expect(result).toEqual({ scanned: 5, eligible: ["keep-1", "keep-2"], skipped: 3 });
+  });
+
+  it("caps a pass at the agreed batch even when more qualify", async () => {
+    const many = Array.from({ length: 25 }, (_, i) => messageRow({ id: `m-${i}` }));
+    const stub = backfillStub(many);
+
+    const result = await selectBackfillCandidates(stub.client, OWNER);
+
+    expect(result.scanned).toBe(25);
+    expect(result.eligible).toHaveLength(10);
+    expect(stub.opsFor("messages")[0].limit).toBe(25);
+  });
+
+  it("proposes nothing when the backlog is empty", async () => {
+    const stub = backfillStub([]);
+    expect(await selectBackfillCandidates(stub.client, OWNER)).toEqual({
+      scanned: 0,
+      eligible: [],
+      skipped: 0,
+    });
+  });
+
+  // Recovery scenarios: all four causes leave ai_processed_at null, so a message
+  // skipped for any of them is proposed again on the next pass.
+  it("re-proposes a message after the condition that skipped it is fixed", async () => {
+    const stub = backfillStub([messageRow({ id: "was-skipped" })]);
+
+    // Flag off / budget unset / config error / discarded job all look identical
+    // here — the row simply never got a summary.
+    const first = await selectBackfillCandidates(stub.client, OWNER);
+    expect(first.eligible).toEqual(["was-skipped"]);
+
+    const second = await selectBackfillCandidates(stub.client, OWNER);
+    expect(second.eligible).toEqual(["was-skipped"]);
+  });
+
+  it("stops proposing a message once it has been summarized", async () => {
+    const done = backfillStub([messageRow({ id: "done", ai_processed_at: "2026-08-01T00:00:00Z" })]);
+    expect((await selectBackfillCandidates(done.client, OWNER)).eligible).toEqual([]);
+  });
+});
+
+describe("backfill duplicate protection (M7.4)", () => {
+  it("cannot overwrite an existing summary even if a request slips through", async () => {
+    // A stale request for a message summarized in the meantime: the pre-check
+    // stops the spend, and the conditional claim would stop the write.
+    const stub = setup(messageRow({ ai_processed_at: "2026-08-01T00:00:00Z" }));
+    const provider = new StubProvider([completion()]);
+
+    const result = await summarizeMessage(stub.client, gatewayFor(stub, provider), "msg-1", {
+      ownerId: OWNER,
+    });
+
+    expect(result).toEqual({ status: "skipped", reason: "already_summarized" });
+    expect(provider.requests).toHaveLength(0);
+    expect(stub.operations.some((operation) => operation.type === "update")).toBe(false);
+  });
+
+  it("produces one summary when two backfill requests race the same message", async () => {
+    // The second request loses the claim: zero rows back, no second write.
+    const stub = setup(messageRow(), { claimed: [] });
+
+    const result = await summarizeMessage(
+      stub.client,
+      gatewayFor(stub, new StubProvider([completion()])),
+      "msg-1",
+      { ownerId: OWNER },
+    );
+
+    expect(result).toEqual({ status: "skipped", reason: "claim_lost" });
   });
 });
 
