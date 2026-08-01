@@ -19,6 +19,10 @@ import {
 import { getGmailAccount } from "@/lib/integrations";
 import { featureEnabled } from "@/lib/featureFlags";
 import { enqueueGmailSyncNow } from "@/lib/sync/gmail-sync";
+import { AiGateway } from "@/lib/ai/gateway";
+import { getAiProvider } from "@/lib/ai/providers";
+import { AiError } from "@/lib/ai/errors";
+import { summarizeMessage, type SummarizeSkipReason } from "@/lib/ai/summarize";
 import type { MessageLinkInput } from "@/types/message";
 
 export async function markReadAction(id: string, read: boolean): Promise<ActionResult<{ id: string }>> {
@@ -66,6 +70,63 @@ export async function syncNowAction(): Promise<ActionResult<{ enqueued: boolean 
     await enqueueGmailSyncNow(supabase, account.id);
     revalidatePath("/admin/messages");
     return actionSuccess({ enqueued: true });
+  });
+}
+
+/** Why nothing was written, in words the operator can act on. */
+const SKIP_MESSAGES: Record<SummarizeSkipReason, string> = {
+  not_found: "Message not found.",
+  no_owner: "This message has no owner and cannot be summarized.",
+  outbound: "Only received messages are summarized.",
+  archived: "Restore this message before summarizing it.",
+  too_short: "This message is short enough to read in full.",
+  bulk_mail: "Bulk and promotional mail is not summarized.",
+  already_summarized: "This message already has a summary.",
+  claim_lost: "A summary was just written by another request.",
+  refused: "The AI declined to summarize this message.",
+};
+
+/**
+ * Summarize one message on demand (Phase 3 · M7).
+ *
+ * Runs the whole call inline rather than enqueuing: the operator asked for this
+ * and a single completion is well inside the request budget, so waiting a few
+ * seconds beats waiting a cron cycle with nothing on screen. Background
+ * summarization is a separate path (M7.2) and is not reachable from here.
+ *
+ * `force` is set because the button exists precisely to refresh a summary the
+ * operator is not satisfied with; the flag re-check above is what stops a stale
+ * tab from spending after a rollback.
+ */
+export async function summarizeMessageAction(id: string): Promise<ActionResult<{ summary: string }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_AI_SUMMARIES")) {
+      return actionError({ formError: "AI summaries are not enabled." });
+    }
+
+    try {
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const result = await summarizeMessage(supabase, gateway, id, {
+        ownerId: userId,
+        force: true,
+        actor: "user",
+      });
+
+      if (result.status === "skipped") {
+        return actionError({ formError: SKIP_MESSAGES[result.reason] });
+      }
+
+      revalidatePath("/admin/messages");
+      revalidatePath(`/admin/messages/${id}`);
+      return actionSuccess({ summary: result.summary });
+    } catch (error) {
+      // Our own taxonomy's messages are provider-agnostic and free of request
+      // content; anything else stays generic.
+      const message =
+        error instanceof AiError ? error.message : "Could not summarize this message.";
+      console.error("[ai summarize] message failed:", error);
+      return actionError({ formError: message });
+    }
   });
 }
 

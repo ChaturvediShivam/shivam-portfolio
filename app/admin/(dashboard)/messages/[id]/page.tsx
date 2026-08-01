@@ -7,6 +7,8 @@ import { PageHeader, Badge } from "@/components/admin/ui";
 import { MessageActions } from "@/components/admin/messages/MessageActions";
 import { MessageBody } from "@/components/admin/messages/MessageBody";
 import { MessageLinkPanel } from "@/components/admin/messages/MessageLinkPanel";
+import { SummarizeButton } from "@/components/admin/messages/SummarizeButton";
+import { featureEnabled } from "@/lib/featureFlags";
 import { directionBadgeVariant, directionLabel, type Message } from "@/types/message";
 import { providerLabel } from "@/types/contact";
 
@@ -51,6 +53,9 @@ export default async function MessageDetailPage({ params }: PageProps) {
 
   const safeHtml = message.body_html ? sanitizeMessageHtml(message.body_html) : null;
   const isArchived = message.archived_at != null;
+  // Gates the whole block, not just generation: flipping the flag off is the
+  // first response to a bad summary, so it has to stop displaying them too.
+  const summariesEnabled = featureEnabled("FEATURE_AI_SUMMARIES");
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
@@ -95,10 +100,17 @@ export default async function MessageDetailPage({ params }: PageProps) {
               </Field>
             </dl>
 
-            {message.ai_summary && (
+            {summariesEnabled && (
               <div className="mt-4 rounded-md border border-white/[0.06] bg-white/[0.03] p-3">
-                <p className="text-xs font-medium text-slate-400">AI summary</p>
-                <p className="mt-1 text-sm text-slate-300">{message.ai_summary}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-medium text-slate-400">AI summary</p>
+                  <SummarizeButton messageId={message.id} hasSummary={Boolean(message.ai_summary)} />
+                </div>
+                {message.ai_summary ? (
+                  <p className="mt-1 text-sm text-slate-300">{message.ai_summary}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">No summary yet.</p>
+                )}
               </div>
             )}
 

@@ -1,0 +1,222 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { AiPermanentError } from "@/lib/ai/errors";
+import type { AiGateway } from "@/lib/ai/gateway";
+import { getPromptTemplate } from "@/lib/ai/prompts/registry";
+
+/**
+ * Summary generation (Phase 3 · M7).
+ *
+ * The whole decision layer for AI summaries: eligibility, source bounding,
+ * prompt resolution, the gateway call, outcome mapping and the write. Callers —
+ * the Server Action today, the job handler in M7.2 — are thin; nothing but this
+ * module decides whether a summary happens or what it costs.
+ *
+ * Dual execution context (H5): interactive callers pass the session client (RLS
+ * applies), job callers will pass the service-role client (RLS bypassed). Every
+ * query therefore carries `owner_id` explicitly rather than trusting the client
+ * to scope it.
+ *
+ * Deliberate deviation: this module reads and writes `messages` directly instead
+ * of going through `lib/messages.ts`. That layer accepts no owner filter and is
+ * frozen from Phase 2, so routing through it would either weaken owner scoping
+ * or require editing a shipped module. The projection below is narrower than the
+ * UI's, which is the other reason not to share it.
+ */
+
+const MESSAGE_TEMPLATE_ID = "message_summary";
+
+/** Below this, the list's snippet already says everything a summary could. */
+const MIN_BODY_CHARS = 400;
+
+/** Per-call input ceiling: bounds cost and the injection surface alike. */
+const MAX_SOURCE_CHARS = 12_000;
+
+/**
+ * Output ceiling applied before the write. `maxOutputTokens` already bounds the
+ * reply; this is the second guard required at the persistence boundary, and it
+ * only fires on pathological output.
+ */
+const MAX_SUMMARY_CHARS = 2_000;
+
+/**
+ * Provider-supplied bulk-mail label. Marketing mail is long enough to defeat the
+ * length filter, valueless to summarize, and the largest injection surface in an
+ * inbox. Matched against whatever the sync stored in `metadata.labelIds`; this
+ * module never asks which provider put it there.
+ */
+const EXCLUDED_LABEL = "CATEGORY_PROMOTIONS";
+
+const TRUNCATION_NOTE =
+  "(The message above was shortened for length. Summarize only what is shown.)";
+
+/** Why a summary did not happen. Every value is a deliberate outcome, not a failure. */
+export type SummarizeSkipReason =
+  | "not_found"
+  | "no_owner"
+  | "outbound"
+  | "archived"
+  | "too_short"
+  | "bulk_mail"
+  | "already_summarized"
+  | "claim_lost"
+  | "refused";
+
+export type SummarizeResult =
+  | { status: "written"; summary: string; promptVersion: string }
+  | { status: "skipped"; reason: SummarizeSkipReason };
+
+export interface SummarizeOptions {
+  /** The owner every read and write is scoped to. */
+  ownerId: string;
+  /** Re-summarize an already-processed entity. Operator-initiated only. */
+  force?: boolean;
+  /** Attribution for the audit row. */
+  actor?: "user" | "agent" | "system";
+}
+
+interface MessageRow {
+  id: string;
+  owner_id: string | null;
+  direction: string;
+  archived_at: string | null;
+  subject: string | null;
+  from_address: string | null;
+  body_text: string | null;
+  snippet: string | null;
+  metadata: unknown;
+  ai_processed_at: string | null;
+}
+
+const MESSAGE_SELECT =
+  "id, owner_id, direction, archived_at, subject, from_address, body_text, snippet, metadata, ai_processed_at";
+
+interface SummaryOutput {
+  summary: string;
+  confidence: number;
+}
+
+/** True when the sync recorded a bulk-mail label on this message. */
+function isBulkMail(metadata: unknown): boolean {
+  const labels = (metadata as { labelIds?: unknown } | null)?.labelIds;
+  return Array.isArray(labels) && labels.includes(EXCLUDED_LABEL);
+}
+
+/** The first reason this message may not be summarized, or null when it may. */
+function ineligibleBecause(row: MessageRow): SummarizeSkipReason | null {
+  if (!row.owner_id) return "no_owner";
+  if (row.direction !== "inbound") return "outbound";
+  if (row.archived_at) return "archived";
+  if (isBulkMail(row.metadata)) return "bulk_mail";
+  if ((row.body_text ?? "").trim().length < MIN_BODY_CHARS) return "too_short";
+  return null;
+}
+
+/** Bound the source text, and say so in the prompt when it was cut. */
+function boundSource(row: MessageRow): { body: string; truncationNote: string } {
+  const full = (row.body_text ?? row.snippet ?? "").trim();
+  if (full.length <= MAX_SOURCE_CHARS) return { body: full, truncationNote: "" };
+  return { body: full.slice(0, MAX_SOURCE_CHARS), truncationNote: TRUNCATION_NOTE };
+}
+
+/** `ai_confidence` is numeric(5,4); anything outside [0,1] would fail the insert. */
+function clampConfidence(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * Summarize one message.
+ *
+ * Idempotency is the write, not the read: the pre-check avoids spending on an
+ * already-summarized message, but the conditional claim is what guarantees a
+ * single summary when a manual call and a queued job race.
+ */
+export async function summarizeMessage(
+  client: SupabaseClient,
+  gateway: AiGateway,
+  messageId: string,
+  options: SummarizeOptions,
+): Promise<SummarizeResult> {
+  const { ownerId, force = false, actor = "system" } = options;
+
+  const { data, error } = await client
+    .from("messages")
+    .select(MESSAGE_SELECT)
+    .eq("id", messageId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+
+  // A row owned by someone else is reported absent rather than denied — the
+  // same posture the M6 tools take, and it leaks nothing about what exists.
+  const row = data as MessageRow | null;
+  if (!row) return { status: "skipped", reason: "not_found" };
+
+  const ineligible = ineligibleBecause(row);
+  if (ineligible) return { status: "skipped", reason: ineligible };
+
+  if (row.ai_processed_at && !force) {
+    return { status: "skipped", reason: "already_summarized" };
+  }
+
+  const template = getPromptTemplate(MESSAGE_TEMPLATE_ID);
+  const { body, truncationNote } = boundSource(row);
+
+  const completion = await gateway.complete<SummaryOutput>({
+    templateId: template.id,
+    // Pinned to the version just resolved, so the row records the template that
+    // actually produced it rather than whatever is newest at write time.
+    templateVersion: template.version,
+    variables: {
+      subject: row.subject ?? "(no subject)",
+      from: row.from_address ?? "(unknown sender)",
+      body,
+      truncationNote,
+    },
+    ownerId,
+    actor,
+    action: "summarize",
+    entityType: "message",
+    entityId: row.id,
+  });
+
+  // A refusal is a real outcome, not an error: it is deterministic for the same
+  // content, so `ai_processed_at` stays null and the job path will not retry it.
+  if (completion.stopReason === "refused") {
+    return { status: "skipped", reason: "refused" };
+  }
+
+  // Truncation is permanent for a fixed prompt and model — raising the
+  // template's ceiling is the operator fix, so it must not burn retries.
+  if (completion.stopReason === "truncated" || !completion.parsed) {
+    throw new AiPermanentError("AI summary exceeded the output ceiling.");
+  }
+
+  const summary = completion.parsed.summary.trim().slice(0, MAX_SUMMARY_CHARS);
+
+  let update = client
+    .from("messages")
+    .update({
+      ai_summary: summary,
+      ai_model: completion.model,
+      ai_prompt_version: template.version,
+      ai_confidence: clampConfidence(completion.parsed.confidence),
+      ai_processed_at: new Date().toISOString(),
+    })
+    .eq("id", row.id)
+    .eq("owner_id", ownerId);
+
+  // The claim. Without this predicate two concurrent callers would both write;
+  // with it, the loser gets zero rows back and stops.
+  if (!force) update = update.is("ai_processed_at", null);
+
+  const { data: claimed, error: writeError } = await update.select("id");
+  if (writeError) throw writeError;
+
+  if (!claimed || (claimed as unknown[]).length === 0) {
+    return { status: "skipped", reason: "claim_lost" };
+  }
+
+  return { status: "written", summary, promptVersion: template.version };
+}
