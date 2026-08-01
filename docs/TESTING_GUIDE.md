@@ -360,7 +360,15 @@ Deploy, plus its acceptance criteria.
 | **M4 Calendar** | event sync; create interview | `calendar_events` dedupe | scope least-privilege | `/admin/calendar` gated | events sync + `interview_scheduled` |
 | **M5 Notifications** | trigger→bell→email | prior modules untouched | preference gating | bell renders | in-app + email + read state |
 | **M6 AI Foundation** | gateway (mock provider) | inert if not called | provider key server-only; tool RLS | no public route | structured output + accounting |
-| **M7 AI Summaries** | summarize once | no re-summarize (`ai_processed_at`) | budget enforced | summary on detail | quality eval + budget |
+| **M7 AI Summaries** ✅ | eligibility, summarize-once, forced refresh, rollup bounds, backfill | conditional claim proven; prior milestones byte-unchanged | budget refusal enforced on unattended paths; config failures surfaced | summary + backlog counts | **manual review of >=20 summaries** (no eval harness — descoped, see below) |
+
+> **M7 eval descope.** `quality eval` above is satisfied by a **documented manual
+> review of at least 20 real summaries**, recorded in the milestone notes. No
+> automated eval harness exists in this repository and none was built for M7;
+> Phase 5 owns that work. M7 supplies its first corpus and confidence
+> distribution. Automated coverage for M7 is 55 unit tests in
+> `test/ai/summarize.test.ts`.
+
 | **M8 AI Assistant** | stream; tool call; RAG | embeddings inert if off | RLS-scoped retrieval; guardrails | `/api/ai/chat` gated | answers over own data |
 | **M9 Email Drafting** | draft→approve→send | drafts unsent by default | **no send without approval**; idempotent send | approval queue | approval-gated send + audit |
 | **M10 Automation** | rule fires; action executes | disable stops it; loop guard | actions via `lib/*` (RLS); approval-gated | automations gated | trigger→condition→action→run recorded |

@@ -237,7 +237,7 @@ v1.0.0. Each ships behind a feature flag.
 | Integrations (M2) | `disconnectAccountAction` | — |
 | Notifications (M5) | `markNotificationReadAction`, `markAllReadAction` | `notification.read` |
 | Calendar (M4) | `createInterviewAction` | `calendar.event_created`, `opportunity.interview_scheduled` |
-| AI Summaries (M7) | `summarizeAction` | `ai.summary_generated` |
+| AI Summaries (M7) ✅ | `summarizeMessageAction`, `summarizeOpportunityAction`, `backfillSummariesAction` | `ai.summary_generated` |
 | Email Drafting (M9) | `draftReplyAction`, `approveDraftAction`, `rejectDraftAction` | `ai.draft_created/approval_*`, `message.sent` |
 | Automation (M10) | `createRuleAction`, `updateRuleAction`, `toggleRuleAction`, `testRuleAction` | `automation.*` |
 

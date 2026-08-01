@@ -324,8 +324,25 @@ As-built in [AI Architecture § M6](./ai/AI_ARCHITECTURE.md#m6-as-built) ·
   (`AI_PROVIDER`, `AI_PROVIDER_API_KEY`) is therefore also a data-processing
   decision.
 - **How to stop it.** `FEATURE_AI_SUMMARIES=false` — runtime, no redeploy. New
-  work stops being created and queued work stops being done. Revoking the
-  provider key stops transmission independently of the flag.
+  work stops being created and queued work stops being done. It also **stops
+  displaying summaries already written**, which is what makes the flag a real
+  response to a bad or hostile summary. Revoking the provider key stops
+  transmission independently of the flag.
+- **The operator backfill re-transmits older mail.** *Settings → AI → Summarize
+  backlog* sends previously-skipped messages — including mail that predates the
+  feature being enabled — to the provider, in batches of ten per click. It
+  applies the same eligibility filters, so promotional, outbound, archived and
+  short mail is still never transmitted, and it can never re-send a message that
+  already has a summary.
+- **Summaries are untrusted-origin content.** `messages.ai_summary` and
+  `opportunities.ai_summary` are derived from attacker-authorable email. They are
+  rendered as plain text and are never used as an identifier, a filter, or an
+  instruction. **Any future consumer — in particular M8 retrieval feeding a
+  tool-enabled agent — must treat them as data, not instructions.**
+- **Retention.** Summaries are columns on their parent row and inherit its
+  lifecycle: archiving a message hides its summary, deleting the row removes it.
+  There is no separate expiry, and none is needed — the body the summary derives
+  from is governed by the same rule.
 
 **Deferred — known gaps, not oversights:**
 

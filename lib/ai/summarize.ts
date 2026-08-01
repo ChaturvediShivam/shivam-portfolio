@@ -365,7 +365,7 @@ function formatNotes(rows: RollupNote[]): string {
  *
  * The history is a pair of fixed, bounded queries over the opportunity's own
  * children — not retrieval. There is no ranking and no semantic selection: the
- * newest N messages and notes, oldest-context-first, capped by the same
+ * newest N messages and notes, most-recent-first, capped by the same
  * character ceiling the message path uses.
  *
  * Unlike a message, an opportunity keeps changing, so `ai_processed_at` marks

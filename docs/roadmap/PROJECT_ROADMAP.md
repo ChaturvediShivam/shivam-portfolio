@@ -41,7 +41,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 |------|-------|
 | Live product | Portfolio + inquiry admin, in production |
 | Career CRM schema | Applied to production Supabase, verified |
-| Active phase | **Phase 2 complete** (tagged `v1.0.0` · `c2b5dc3`) — Phase 3 not started |
+| Active phase | **Phase 3 in progress** — M1–M7 implemented on feature branches, **not yet deployed** (all flags off). Production still runs `v1.0.0` (`c2b5dc3`) |
 | Production URL | https://www.shivamchaturvedi.com |
 | Latest phase report | [`PHASE_1_COMPLETION.md`](./PHASE_1_COMPLETION.md) |
 
@@ -52,7 +52,7 @@ product, reusing its authentication, middleware, and Supabase conventions.
 | 0 | Portfolio Website | ✅ Complete |
 | 1 | Career CRM Foundation | ✅ Complete |
 | 2 | CRM Application | ✅ Complete (`v1.0.0`) |
-| 3 | Integrations, AI & Automation | ⬜ Not started |
+| 3 | Integrations, AI & Automation | 🟡 In progress — M1–M7 built, M8–M10 pending |
 | 4 | Reporting | ⬜ Not started |
 | 5 | Production Hardening | ⬜ Not started |
 

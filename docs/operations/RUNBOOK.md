@@ -121,7 +121,8 @@ drains itself out within one cycle rather than running forever.
 | `FEATURE_GMAIL_SYNC` | page, `syncNowAction`, `gmail_sync` handler | one cycle (≤5 min) | Handler also stops the chain when the account is gone/archived/disconnected |
 | `FEATURE_CALENDAR` | page, `syncCalendarNowAction`, `createInterviewAction`, `calendar_sync` handler | one cycle (≤5 min) | `createInterviewAction` is gated because it writes to the external Google Calendar |
 | `FEATURE_NOTIFICATIONS` | page, layout bell, Settings, `scanNotificationsAction`, `notification_scan` + `notification_dispatch` handlers | one cycle (≤5 min) | Dispatch gate ensures no email leaves for jobs queued before the flip |
-| `FEATURE_AI` | gateway entry, Settings panel, self-test action | immediately | No AI job type exists yet, so there is no background chain |
+| `FEATURE_AI` | gateway entry, Settings panel, self-test action | immediately | Gates the gateway itself, so it also stops every summary. With `FEATURE_AI_SUMMARIES` still on, queued `ai_summarize` jobs **dead-letter** rather than completing quietly — see §19.7 |
+| `FEATURE_AI_SUMMARIES` | ingest enqueue, `ai_summarize` handler, `summarizeMessageAction`, `summarizeOpportunityAction`, `backfillSummariesAction`, and **both detail renders** | immediately | No self-scheduling chain. Gates display as well as generation, so flipping it off also hides summaries already written. Jobs queued before the flip are consumed and discarded; recover with the backlog backfill (§19.6) |
 
 **Why Server Actions are gated too:** they are POST endpoints addressable by
 action id and stay callable when the button that invokes them is not rendered. A
@@ -463,12 +464,15 @@ vercel env add <NAME> production        # paste new value; then redeploy
 
 ---
 
-## 19. AI Operations ⬜ (Phase 3 · M6 — implemented, not deployed)
+## 19. AI Operations ⬜ (Phase 3 · M6–M7 — implemented, not deployed)
 
-The AI layer is a **server-only library** behind `FEATURE_AI`. There is no public
-route and nothing user-facing; the only operator surfaces are **Settings → AI**
-and the `ai_*` tables. As-built detail:
+The AI layer is a **server-only library** behind `FEATURE_AI`. M6 shipped the
+gateway with no user-facing surface; **M7 added summaries**, which are the first
+AI output an operator sees and the first AI spend that happens without a human
+in the loop. Operator surfaces: **Settings → AI**, the summary block on message
+and opportunity detail pages, and the `ai_*` tables. As-built detail:
 [AI Architecture § M6](../ai/AI_ARCHITECTURE.md#m6-as-built) ·
+[§ M7](../ai/AI_ARCHITECTURE.md#m7-as-built) ·
 [Schema Reference §7a](../database/SCHEMA_REFERENCE.md).
 
 ### 19.1 Environment variables
@@ -562,19 +566,189 @@ In escalating order:
 Tables are additive and inert when unwritten; **never drop them during an
 incident**. Rolling back code does not require rolling back the migration.
 
+> **With summaries live, prefer `FEATURE_AI_SUMMARIES=false` as the first step.**
+> It stops generation *and* display, and — unlike `FEATURE_AI=false` — it lets
+> queued jobs complete quietly instead of dead-lettering (§19.7). Reach for
+> `FEATURE_AI=false` when the problem is the gateway rather than the summaries.
+
+---
+
+## 19.6 AI Summaries (Phase 3 · M7)
+
+### What runs, and when
+
+| Path | Trigger | Runs | Flag-gated at |
+|---|---|---|---|
+| **Message summary, automatic** | Gmail sync ingests a new eligible message | `ai_summarize` job, drained by cron | enqueue + handler |
+| **Message summary, manual** | *Summarize* on message detail | inline, in the request | Server Action + render |
+| **Opportunity rollup** | *Summarize* on opportunity detail | inline, in the request | Server Action + render |
+| **Backlog backfill** | *Summarize backlog* in Settings → AI | enqueues one bounded batch | Server Action |
+
+Nothing self-schedules. There is no summary cron, no scan on start, and no
+automatic retry beyond the job runner's ordinary backoff.
+
+### Prerequisites (both are load-bearing)
+
+| Variable | Enforced? | Consequence if unset |
+|---|:--:|---|
+| `AI_DAILY_TOKEN_BUDGET` | **Yes, in code** | Automatic ingest and backfill **refuse to enqueue**. The feature appears not to work. Settings → AI shows *"(no daily limit set)"* |
+| `AI_MODEL_FAST` | **No** | Summaries silently run on the provider's strongest model — roughly **5× the cost** of the intended one |
+
+`AI_MODEL_FAST` is the one prerequisite with no code guard. Verify it by eye
+before enabling; there is no error to catch it.
+
+### Eligibility — what is and is not summarized
+
+Only **inbound**, non-archived messages with at least **400 characters** of body,
+excluding anything the sync labelled `CATEGORY_PROMOTIONS`, and only where
+`owner_id` is set. Outbound, archived, short and promotional mail is never
+summarized, by any path. Opportunity rollups accept **any stage including
+terminal ones**, and refuse only archived opportunities.
+
+### Recovery — the backlog backfill
+
+Four situations lose a summary, and all four leave the same trace
+(`ai_processed_at is null`):
+
+1. `FEATURE_AI_SUMMARIES` was off when the message arrived;
+2. `AI_DAILY_TOKEN_BUDGET` was unset, so the enqueue was refused;
+3. a configuration error dead-lettered the job (§19.7);
+4. queued jobs were discarded by a flag flip mid-sync.
+
+**Settings → AI → Summarize backlog** recovers all of them. One click scans the
+25 oldest unsummarized messages, enqueues up to **10** eligible ones, and reports
+`scanned · eligible · skipped · requested`. Run it repeatedly, checking spend
+between clicks.
+
+It can never overwrite an existing summary: the query excludes rows with
+`ai_processed_at`, the selector re-checks it, and the write is a conditional
+claim.
+
+**Known limitation.** The scan is oldest-first and ineligible rows never gain
+`ai_processed_at`, so a window of 25 permanently-ineligible messages will be
+re-scanned on every click and the backfill will not advance past it. The counts
+make this visible (`scanned 25 · eligible 0`). Summarize those individually from
+the message page if they matter.
+
+**Rollups are not backfilled** — they are click-by-click by design, and nothing
+refreshes one when the opportunity moves. The detail block always shows its
+generation date so a stale rollup is identifiable.
+
+### 19.7 Failure triage specific to summaries
+
+| Symptom | Cause | Action |
+|---|---|---|
+| No summaries appear; no rows in `ai_audit_log` | `AI_DAILY_TOKEN_BUDGET` unset — enqueue refused | Set it. Grep logs for `refusing to enqueue automatic summary` |
+| `ai_summarize` jobs dead-lettering with "not configured" | `AI_PROVIDER_API_KEY` unset, or `AI_PROVIDER` set to an unknown value | Fix the variable, then reset the dead-lettered jobs (§6) or just run the backfill |
+| `ai_summarize` jobs dead-lettering with "AI is not enabled" | `FEATURE_AI` off while `FEATURE_AI_SUMMARIES` is on | Turn `FEATURE_AI` on, or turn summaries off too |
+| Jobs complete but no summary is written | The message is ineligible, or the model refused. Refusals appear in `ai_audit_log` as `outcome='refused'` | Expected. Check eligibility above |
+| Cost higher than expected | `AI_MODEL_FAST` unset | Set it; no code guard exists |
+| A summary is wrong or hostile | Attacker-authored content steering the model | `FEATURE_AI_SUMMARIES=false` hides all summaries immediately, then clean up (below) |
+
+**Deleting bad summaries** — scoped by the prompt version that produced them, so
+a fix can be applied selectively. Clearing `ai_processed_at` also re-arms those
+messages for the backfill:
+
+```sql
+update messages
+   set ai_summary = null, ai_model = null, ai_prompt_version = null,
+       ai_confidence = null, ai_processed_at = null
+ where ai_prompt_version = '<bad version>';
+-- repeat for opportunities if rollups are affected
+```
+
+### 19.8 Production Enable Checklist — AI Summaries
+
+Work top to bottom. Do not skip to the flag.
+
+**1 · Environment variables** (Vercel, Production **and** Preview)
+
+- [ ] `AI_PROVIDER_API_KEY` set; `AI_PROVIDER` unset or `anthropic`
+- [ ] **`AI_DAILY_TOKEN_BUDGET` set** (e.g. `500000`) — enforced; unset disables ingest and backfill
+- [ ] **`AI_MODEL_FAST` set** (e.g. `claude-haiku-4-5`) — *not* enforced; unset costs ~5×
+- [ ] `AI_EFFORT_FAST=low`
+- [ ] `CRON_SECRET` set and the `vercel.json` cron entry live
+
+**2 · Feature flags** — enable in this order, verifying each
+
+- [ ] `FEATURE_JOBS=true` — the drainer must be running before summaries are queued
+- [ ] `FEATURE_AI=true` — run Settings → AI → **Run self-test**; expect a pass
+- [ ] `FEATURE_GMAIL_SYNC=true` — there must be mail to summarize
+- [ ] `FEATURE_AI_SUMMARIES=true` — **last**
+
+**3 · Rollout order**
+
+- [ ] Deploy with `FEATURE_AI_SUMMARIES` **off**; confirm no summary block renders anywhere
+- [ ] Enable in **Preview** first and summarize one message and one opportunity by hand
+- [ ] Review ≥20 real summaries for usefulness before Production *(Preview shares the production database — those writes are real; clean up with the statement in §19.7 if the review fails)*
+- [ ] Enable in Production; watch one full sync cycle before touching the backfill
+
+**4 · Rollback**
+
+- [ ] Confirm `FEATURE_AI_SUMMARIES=false` hides existing summaries, not just new ones
+- [ ] Keep the cleanup statement (§19.7) to hand; it is a normal step, not an incident
+- [ ] `v1.0.0` (`c2b5dc3`) remains the standing baseline
+
+**5 · Operator recovery**
+
+- [ ] Run **Summarize backlog** once and confirm the counts move
+- [ ] Confirm a second run advances rather than repeating
+
+**6 · Monitoring** — first 24 hours
+
+- [ ] Settings → AI: tokens used vs budget, request count, estimated cost, 24h failures
+- [ ] Settings → Jobs: no growing `failed` count
+- [ ] Spend tracking against the model in §19.3
+
+**7 · Audit verification**
+
+- [ ] One `ai_audit_log` row per call, with `entity_type` of `message` or `opportunity` and the entity's id
+- [ ] `action = 'summarize'`; `actor` is `user` for manual runs and `agent` for queued ones
+- [ ] `job_id` is **null** — the job runner does not pass a job id to handlers; trace by entity and timestamp instead
+
+**8 · Budget verification**
+
+```sql
+select tokens_used, tokens_reserved, cost_micros, request_count
+  from ai_usage_counters
+ where owner_id = '<uuid>' and usage_date = current_date;
+```
+
+- [ ] `tokens_used` rises as summaries are produced
+- [ ] Settings → AI shows a limit rather than *"(no daily limit set)"*
+- [ ] `tokens_reserved` may exceed `tokens_used` after a crash — expected over-count, do not hand-edit
+
+**9 · Prompt version verification**
+
+```sql
+select ai_prompt_version, count(*) from messages
+ where ai_summary is not null group by 1;
+```
+
+- [ ] Every summarized row carries a version (`1.0.0` at release)
+- [ ] The version matches the template in `lib/ai/prompts/templates/`
+- [ ] Any prompt change bumps the version, so old rows stay reproducible
+
 ---
 
 ## Document Control
 
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Repository maintainer / on-call (Shivam Chaturvedi)
-- **Last Updated:** 2026-07-31
+- **Last Updated:** 2026-08-01
 - **Scope:** ✅ sections apply to the live v1.0.0 system; ⬜ sections (cron, queue,
   jobs, OAuth, AI) apply as their Phase 3 milestones ship.
 - **v1.1 (2026-07-31):** added §19 AI Operations for **Phase 3 · M6** — env vars,
   enable procedure, health queries, failure triage, and the kill switch.
   Implemented on `feat/phase3-m6-ai-foundation`; **not deployed** (`FEATURE_AI`
   off, migration not applied).
+- **v1.2 (2026-08-01):** added §19.6–§19.8 for **Phase 3 · M7 (AI Summaries)** —
+  the four execution paths, the two prerequisites and which of them is enforced,
+  eligibility rules, the backlog backfill and its stall limitation,
+  summary-specific failure triage, the prompt-version-scoped cleanup statement,
+  and the **Production Enable Checklist**. Corrected the `FEATURE_AI` kill-switch
+  row (an AI job type now exists) and added the `FEATURE_AI_SUMMARIES` row.
+  Implemented on `feat/phase3-m7-ai-summaries`; **not deployed** (flag off).
 
 ### Related Documents
 - [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md)

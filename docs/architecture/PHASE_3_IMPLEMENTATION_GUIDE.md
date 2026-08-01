@@ -298,6 +298,12 @@ performed by the operator with valid admin credentials.
 1. [ ] Branch from `main`; implement the milestone additively.
 2. [ ] Apply the additive migration to Supabase (SQL editor / CLI) **before** deploying code that reads it; verify objects + RLS.
 3. [ ] Set required env vars in Vercel (Preview + Production); flag **off** in Production.
+   - [ ] **Verify cost-control variables that have no code guard.** A milestone
+     that spends without a human in the loop must not rely on a checklist alone
+     for the variables it *does* enforce, and must be read by eye for the ones it
+     does not (M7: `AI_MODEL_FAST`). See [Runbook §19.8](../operations/RUNBOOK.md).
+   - [ ] **Preview shares the production database.** Any acceptance run in
+     Preview writes real rows; know the cleanup statement before you start.
 4. [ ] Local gates: `npm run lint` · `npx tsc --noEmit` · `npm run build` — all green.
 5. [ ] Commit (conventional message) → push → open PR → merge to `main`.
 6. [ ] Wait for Vercel deployment → **Ready**; capture deployment id + commit SHA.
@@ -400,10 +406,31 @@ specifics.
 - **Security deltas:** provider key server-only; tool registry runs under RLS; prompt redaction.
 - **Risk:** medium (provider/model choice, cost) → model routing, budgets, caching. Confirm model IDs against current provider docs at build time.
 
-### M7 — AI Summaries · `M`
+### M7 — AI Summaries · `M` — ✅ **as built**
 - **Objective:** summarize messages & opportunities.
-- **Folders/files:** `lib/ai/summarize.ts`, `lib/jobs/handlers/ai-summarize.ts`, detail-page "Summarize" action. **DB:** **none** (`ai_summary`/`ai_*`). **Flag:** `FEATURE_AI_SUMMARIES`.
-- **Risk:** medium (cost/quality) → summarize-once (`ai_processed_at`), eval harness.
+- **Shipped in five slices:** M7.0 flag + prompt templates · M7.1 manual message
+  summaries (synchronous) · M7.2 automatic summaries on Gmail ingest (job) ·
+  M7.3 opportunity rollups (on demand) · M7.4 operator backfill · M7.5 docs.
+- **Files:** `lib/ai/summarize.ts` (the only decision layer),
+  `lib/ai/prompts/templates/{message,opportunity}-summary.ts`,
+  `lib/jobs/handlers/ai-summarize.ts`, `requestMessageSummary` in
+  `lib/sync/gmail-sync.ts`, three Server Actions (messages, opportunities,
+  settings), two `SummarizeButton`s + `BackfillSummariesButton`.
+- **DB:** **none** — writes only the Phase-1 `ai_summary`/`ai_*` columns. No migration.
+- **Flag:** `FEATURE_AI_SUMMARIES`, gating **seven** points including both
+  detail renders, so a flip hides existing summaries as well as stopping new ones.
+- **Env prerequisites:** `AI_DAILY_TOKEN_BUDGET` (**enforced** — unattended paths
+  refuse to enqueue without it) and `AI_MODEL_FAST` (**not enforced** — unset
+  costs ~5×). See [Runbook §19.6–§19.8](../operations/RUNBOOK.md).
+- **Risk as realised:** cost governance, not correctness. Two review gates (C3)
+  were failed and remediated before release: uncapped default spend, and
+  configuration failures completing silently as successful jobs.
+- **Known limitations:** rollups never auto-refresh (the block shows its
+  generation date); backfill covers messages only and cannot advance past a scan
+  window of permanently-ineligible mail; `ai_audit_log.job_id` is null because
+  the runner passes no job id to handlers; no eval harness (Phase 5).
+- **Rollback:** flag off, then the prompt-version-scoped cleanup statement in
+  Runbook §19.7. No migration to reverse.
 
 ### M8 — AI Assistant (RAG) · `XL`
 - **Objective:** streaming copilot with retrieval + tools.

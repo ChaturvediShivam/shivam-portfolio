@@ -10,10 +10,11 @@ central claim: the Phase 1 schema was built so the AI layer bolts on
 [Schema Reference §7](../database/SCHEMA_REFERENCE.md) ·
 [Security §9](../SECURITY.md)
 
-> **Status.** **M6 (AI Foundation) is implemented** — see
-> [§ M6 as-built](#m6-as-built) for what actually shipped, which is the
-> authoritative description of the gateway, tools, prompts and accounting.
-> M7–M10 below remain **design only**: no implementation, no migrations.
+> **Status.** **M6 (AI Foundation) and M7 (AI Summaries) are implemented** — see
+> [§ M6 as-built](#m6-as-built) and [§ M7 as-built](#m7-as-built) for what
+> actually shipped, which is the authoritative description of the gateway,
+> tools, prompts, accounting and summaries. M8–M10 below remain **design only**:
+> no implementation, no migrations.
 
 > **Vendor neutrality is a binding invariant, not an aspiration.** No provider
 > SDK type, enum, stop reason, or request/response field may escape
@@ -174,6 +175,88 @@ exists).
   Phase-2 data layer takes no owner filter and is frozen. Equivalent under the
   single-operator model; a multi-owner deployment must push the predicate into
   the query so paging stays exact.
+
+---
+
+## M7 as-built
+
+What shipped on `feat/phase3-m7-ai-summaries`, behind `FEATURE_AI_SUMMARIES`,
+with **no migration** — M7 writes only to the `ai_summary` + `ai_*` columns
+Phase 1 already provided on `messages` and `opportunities`.
+
+### The four paths
+
+| Path | Trigger | Execution | Entity |
+|---|---|---|---|
+| Automatic | Gmail ingest of a new eligible message | `ai_summarize` job → cron drainer | message |
+| Manual | *Summarize* on detail | inline, in the request | message · opportunity |
+| Backfill | *Summarize backlog* in Settings | enqueues one bounded batch | message |
+
+`lib/ai/summarize.ts` is the only module that decides whether a summary happens.
+The job handler and all three Server Actions are thin callers, so eligibility,
+bounding, provenance and the write have exactly one implementation.
+
+### Eligibility, and why it is code rather than SQL
+
+Inbound · not archived · body ≥ 400 characters · not `CATEGORY_PROMOTIONS` ·
+`owner_id` present. The 400-character floor exists because the message list
+already renders `snippet`: below it, a summary restates what the operator can
+read faster. The label exclusion removes marketing mail, which defeats the
+length filter and is the largest injection surface in an inbox.
+
+The predicate is a function, not a WHERE clause, and the backfill calls the same
+function. A second SQL copy would drift, and a backfill that summarized what the
+live path refuses would quietly undo a cost decision.
+
+### Idempotency: the write, not the read
+
+`ai_processed_at` short-circuits before any spend, but the guarantee is the
+conditional claim:
+
+```
+update … set ai_summary = … where id = $1 and owner_id = $2 and ai_processed_at is null
+```
+
+Zero rows back means another path won; that is an outcome, not an error. The
+manual paths pass `force`, which drops the predicate — the only way to overwrite
+a summary, and it is always operator-initiated.
+
+### Outcomes
+
+`refused` leaves `ai_processed_at` null and writes nothing: a refusal is
+deterministic for the same content, so retrying it would only spend again.
+`truncated` throws `AiPermanentError` for the same reason. Both are recorded in
+`ai_audit_log` with their outcome.
+
+The job handler absorbs non-retryable **runtime** failures so they do not burn
+five paid retries, but deliberately surfaces **configuration** failures
+(`disabled`, `unconfigured`) — those are raised before the gateway can write an
+audit row, so absorbing them would leave no summaries and no trace anywhere.
+
+### Cost controls
+
+Per-call input is capped at 12 000 characters. Rollups read a fixed 10 messages
+and 5 notes — a bounded join, not retrieval. Automatic enqueue and backfill both
+**refuse to run when `AI_DAILY_TOKEN_BUDGET` is unset**, because an unset budget
+means unlimited and those are the paths that spend without a human. `AI_MODEL_FAST`
+has no such guard and defaults to the most expensive model; see
+[Runbook §19.6](../operations/RUNBOOK.md).
+
+### `ai_summary` is untrusted-origin content
+
+A summary is derived from attacker-authorable email. It is rendered as plain
+text and is never used as an identifier, a filter, or an instruction. **Any
+future consumer — in particular M8 retrieval feeding a tool-enabled agent —
+must treat these fields as data, not instructions.** Containment today is
+structural: no tools are offered on the summarize path, and output is
+schema-validated before it is stored.
+
+### Deliberately not built in M7
+
+Automatic refresh of opportunity rollups (no change detection exists) ·
+backfill for rollups · thread-level summaries (no thread entity in the schema) ·
+an eval harness (Phase 5) · `ai_audit_log.job_id`, which the job handler cannot
+populate because the runner passes only the payload.
 
 ---
 
