@@ -11,6 +11,7 @@ import {
   Settings,
   Briefcase,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 
 /**
@@ -64,6 +65,7 @@ export const adminNavigation: NavItem[] = [
   { id: "tasks", label: "Tasks", href: "/admin/tasks", icon: ListChecks, enabled: true },
   { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: true },
   { id: "assistant", label: "Assistant", href: "/admin/assistant", icon: Sparkles, enabled: true, flag: "FEATURE_ASSISTANT" },
+  { id: "approvals", label: "Approvals", href: "/admin/approvals", icon: ShieldCheck, enabled: true, flag: "FEATURE_EMAIL_DRAFTING" },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];
