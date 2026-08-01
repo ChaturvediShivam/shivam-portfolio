@@ -12,6 +12,7 @@ import {
   Briefcase,
   Sparkles,
   ShieldCheck,
+  Workflow,
 } from "lucide-react";
 
 /**
@@ -66,6 +67,7 @@ export const adminNavigation: NavItem[] = [
   { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: true },
   { id: "assistant", label: "Assistant", href: "/admin/assistant", icon: Sparkles, enabled: true, flag: "FEATURE_ASSISTANT" },
   { id: "approvals", label: "Approvals", href: "/admin/approvals", icon: ShieldCheck, enabled: true, flag: "FEATURE_EMAIL_DRAFTING" },
+  { id: "automations", label: "Automations", href: "/admin/automations", icon: Workflow, enabled: true, flag: "FEATURE_AUTOMATION" },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];

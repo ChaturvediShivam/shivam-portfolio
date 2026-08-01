@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueJob } from "@/lib/jobs/queue";
+import { emitAutomationEvent } from "@/lib/automation/emit";
 import { featureEnabled } from "@/lib/featureFlags";
 import { dailyTokenBudget } from "@/lib/ai/budget";
 import { getGoogleOAuthConfig } from "@/lib/integrations/google/oauth";
@@ -226,6 +227,29 @@ async function ingestMessage(
   // Only reached for a genuinely new row — the unique-violation path returned
   // false above — so a message is never enqueued for summary twice.
   if (account.owner_id) await requestMessageSummary(client, account.owner_id, messageId);
+
+  // M10. Inbound only: a rule triggering on mail the operator themselves sent
+  // is almost never intended, and `message.direction` is available as a
+  // condition for the rare case where it is.
+  if (parsed.direction === "inbound") {
+    await emitAutomationEvent(client, {
+      type: "message.received",
+      ownerId: account.owner_id,
+      entityType: "message",
+      entityId: messageId,
+      entity: {
+        message: {
+          id: messageId,
+          subject: parsed.subject,
+          direction: parsed.direction,
+          from_address: parsed.fromAddress,
+          snippet: parsed.snippet,
+          opportunity_id: links.opportunityId,
+          has_opportunity: Boolean(links.opportunityId),
+        },
+      },
+    });
+  }
 
   return true;
 }
