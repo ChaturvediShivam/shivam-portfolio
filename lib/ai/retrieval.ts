@@ -231,12 +231,27 @@ async function searchTasks(
  * frozen for this milestone. Both follow the same conventions as `lib/*.ts`:
  * archived rows excluded, owner asserted, bounded result.
  */
+/**
+ * Build a LIKE pattern safe to embed in a PostgREST filter expression.
+ *
+ * Two separate hazards. `%` and `_` are LIKE wildcards, so an unescaped one
+ * silently widens the match. Commas, parentheses, dots and quotes are
+ * structural in PostgREST's `or=(a.ilike.x,b.ilike.y)` grammar — an ordinary
+ * query like `Acme (Berlin)` would produce a malformed filter, PostgREST would
+ * reject it, and `safely()` would degrade that entire source to empty. Both
+ * classes are stripped rather than escaped: this is a keyword search, and the
+ * punctuation carries no meaning worth preserving.
+ */
+function likePattern(query: string): string {
+  return `%${query.replace(/[%_\\,()."'{}:]/g, " ").replace(/\s+/g, " ").trim()}%`;
+}
+
 async function searchCalendarEvents(
   client: SupabaseClient,
   ownerId: string,
   query: string,
 ): Promise<RetrievedItem[]> {
-  const pattern = `%${query.replace(/[%_\\,]/g, "")}%`;
+  const pattern = likePattern(query);
   const { data, error } = await client
     .from("calendar_events")
     .select("id, title, description, location, starts_at, owner_id")
@@ -262,7 +277,7 @@ async function searchNotes(
   ownerId: string,
   query: string,
 ): Promise<RetrievedItem[]> {
-  const pattern = `%${query.replace(/[%_\\,]/g, "")}%`;
+  const pattern = likePattern(query);
   const { data, error } = await client
     .from("opportunity_notes")
     .select("id, body, opportunity_id, created_at, owner_id, opportunity:opportunities(title)")

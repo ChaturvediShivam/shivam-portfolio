@@ -268,6 +268,18 @@ function Turn({ message }: { message: ChatMessage }) {
           </span>
         )}
 
+        {/*
+          A finished turn with no text is possible: the model can exhaust its
+          tool-round budget still wanting another search, which ends the turn on
+          a tool call rather than an answer. Say so instead of leaving a blank
+          bubble that reads as a broken page.
+        */}
+        {!message.pending && !message.content && !message.error && (
+          <p className="text-xs text-slate-500">
+            No answer was returned — try asking a narrower question.
+          </p>
+        )}
+
         {message.error && <p className="text-xs text-red-400">{message.error}</p>}
       </div>
     </div>

@@ -62,26 +62,54 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // A disconnect must stop the work, not just the display. Breaking out of the
+  // loop runs the generator's `return()`, which unwinds `AiGateway.stream()`'s
+  // `finally` and reconciles the budget for what was actually spent. Without
+  // this the Stop button would hide the answer while the provider call — and
+  // the billing — carried on to completion.
+  const { signal } = request;
+  let closed = false;
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      /** Enqueue unless the consumer is gone. Returns false once it is. */
+      const send = (event: AssistantEvent | { type: "error"; message: string }): boolean => {
+        if (closed || signal.aborted) return false;
+        try {
+          controller.enqueue(frame(event));
+          return true;
+        } catch {
+          closed = true;
+          return false;
+        }
+      };
+
       try {
         for await (const event of ask({ client: supabase }, { question, conversationId, ownerId: user.id })) {
-          controller.enqueue(frame(event));
+          if (!send(event)) break;
         }
       } catch (err) {
         // The status line is long gone by the time most failures happen, so an
         // error is delivered in-band as a final frame. Only our own taxonomy's
         // messages are forwarded — anything else could echo request content.
         console.error("[ai/chat] assistant failed:", err);
-        controller.enqueue(
-          frame({
-            type: "error",
-            message: err instanceof AiError ? err.message : "The assistant could not answer.",
-          }),
-        );
+        send({
+          type: "error",
+          message: err instanceof AiError ? err.message : "The assistant could not answer.",
+        });
       } finally {
-        controller.close();
+        if (!closed) {
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the runtime after a disconnect.
+          }
+        }
       }
+    },
+
+    cancel() {
+      closed = true;
     },
   });
 
@@ -90,7 +118,6 @@ export async function POST(request: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
-      Connection: "keep-alive",
       // Streaming is pointless if a proxy buffers the whole body first.
       "X-Accel-Buffering": "no",
     },

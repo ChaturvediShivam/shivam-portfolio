@@ -151,6 +151,43 @@ describe("retrieve", () => {
     expect(results.find((item) => item.entityType === "calendar_event")?.title).toBe("Onsite");
   });
 
+  it("strips filter-structural punctuation so an ordinary query still matches", async () => {
+    const filters: string[] = [];
+    const client = {
+      from() {
+        const builder: Record<string, unknown> = {};
+        const self = () => builder;
+        Object.assign(builder, {
+          select: self,
+          is: self,
+          eq: self,
+          or(expression: string) {
+            filters.push(expression);
+            return builder;
+          },
+          ilike: self,
+          order: self,
+          limit: () => Promise.resolve({ data: [], error: null }),
+        });
+        return builder;
+      },
+    } as unknown as SupabaseClient;
+
+    // Parentheses and commas are structural in PostgREST's `or=(...)` grammar;
+    // leaving them in produces a filter the server rejects, which would silently
+    // drop calendar events from every such answer.
+    await retrieve(client, OWNER, 'Acme (Berlin), "onsite"', { types: ["calendar_event"] });
+
+    expect(filters).toHaveLength(1);
+
+    // The commas between the three clauses are the grammar; what must be clean
+    // is every interpolated value.
+    const values = [...filters[0].matchAll(/ilike\.(%[^,]*%)/g)].map((match) => match[1]);
+    expect(values).toHaveLength(3);
+    for (const value of values) expect(value).not.toMatch(/[(),"']/);
+    expect(values[0]).toBe("%Acme Berlin onsite%");
+  });
+
   it("bounds the snippet so a long body cannot dominate the prompt", async () => {
     vi.mocked(listCompanies).mockResolvedValue(
       page([
