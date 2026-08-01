@@ -44,12 +44,16 @@ export interface CreateApprovalInput {
   aiPromptVersion?: string | null;
   aiConfidence?: number | null;
   conversationId?: string | null;
-  /** Uniquely identifies the external effect; uniquely indexed. */
+  /**
+   * Identifies the logical action. Uniquely indexed across the states that can
+   * still produce a send, so only one *open* proposal per action may exist —
+   * distinct from the one-send-per-approval guarantee, which is `claimForSend`.
+   */
   idempotencyKey: string;
   ownerId: string;
 }
 
-/** Raised when a proposal for the same external effect already exists. */
+/** Raised when an open proposal for the same action already exists. */
 export class DuplicateApprovalError extends Error {
   readonly existingKey: string;
   constructor(key: string) {

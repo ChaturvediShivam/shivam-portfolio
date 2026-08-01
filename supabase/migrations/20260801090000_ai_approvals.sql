@@ -17,12 +17,24 @@
 -- migration while a CHECK change is not.
 --
 -- IDEMPOTENT SEND is the point of this table, not a feature of it. An email is
--- irreversible, so two guarantees are layered:
---   1. `idempotency_key` is uniquely indexed — the same proposal can never
---      produce two sends even if two requests race past the application check.
---   2. The executor claims work with a conditional status transition
---      (approved -> sending), so only one caller can ever proceed. This is the
---      same claim pattern M7 uses in summarizeMessage and M1 uses in claim_jobs.
+-- irreversible, so two DIFFERENT guarantees are layered — they are often
+-- conflated, and conflating them here would break one of them:
+--
+--   1. One send per approval. The executor claims work with a conditional
+--      status transition (approved -> sending), so only one caller can ever
+--      proceed. This is ADR-006's "keyed on approval_id", and it is the same
+--      claim pattern M7 uses in summarizeMessage and M1 uses in claim_jobs.
+--
+--   2. One OPEN proposal per logical action. `idempotency_key` is uniquely
+--      indexed, but only across states that can still produce a send. Two open
+--      proposals to reply to the same email would be two approvable rows racing
+--      to send two replies.
+--
+-- The partial predicate is what keeps (2) from becoming a permanent ban: once a
+-- proposal is rejected or sent it stops blocking, so the operator can draft a
+-- follow-up, or a fresh reply after rejecting a bad one. `failed` deliberately
+-- still blocks — that row is re-approvable, so allowing a second alongside it
+-- would reintroduce exactly the race (2) exists to prevent.
 -- ============================================================================
 
 create or replace function set_updated_at()
@@ -106,11 +118,13 @@ create index if not exists ai_approvals_entity_idx
 create index if not exists ai_approvals_owner_idx
   on ai_approvals (owner_id, created_at desc);
 
--- The hard idempotency guarantee. Partial so rows without a key (a proposal
--- that has no external effect yet) do not collide with each other on null.
-create unique index if not exists ai_approvals_idempotency_key_uidx
+-- One open proposal per logical action. Scoped to the states that can still
+-- produce a send, so a rejected or already-sent proposal stops blocking and the
+-- operator can draft again. See the header note on why `failed` still blocks.
+create unique index if not exists ai_approvals_open_idempotency_uidx
   on ai_approvals (idempotency_key)
-  where idempotency_key is not null;
+  where idempotency_key is not null
+    and status in ('pending', 'approved', 'sending', 'failed');
 
 alter table ai_approvals enable row level security;
 drop policy if exists "Authenticated admin full access" on ai_approvals;
