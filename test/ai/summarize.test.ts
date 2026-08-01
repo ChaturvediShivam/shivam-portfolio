@@ -390,23 +390,31 @@ describe("the ai_summarize job handler (M7.2)", () => {
     expect(status).toBe("pending");
   });
 
-  it("absorbs a non-retryable AI failure rather than burning five retries", async () => {
+  // C3 · S2: a missing key, an unknown AI_PROVIDER and a disabled gateway all
+  // fail before an audit row can be written, so absorbing them would leave no
+  // summaries and no trace anywhere.
+  it("surfaces an unconfigured provider instead of completing the job", async () => {
     process.env.FEATURE_AI_SUMMARIES = "true";
-    delete process.env.AI_PROVIDER_API_KEY; // -> AiUnconfiguredError, retryable: false
+    delete process.env.AI_PROVIDER_API_KEY; // -> AiUnconfiguredError
 
     const { status, lastError } = await drain(VALID);
 
-    expect(status).toBe("done");
-    expect(lastError).toBeNull();
+    expect(status).toBe("pending"); // rescheduled, then dead-letters visibly
+    expect(String(lastError)).toMatch(/not configured/i);
   });
 });
 
 describe("the runner retry contract", () => {
-  it("absorbs every non-retryable member of the taxonomy", () => {
+  it("absorbs runtime failures that would fail identically on every retry", () => {
     expect(isAbsorbable(new AiPermanentError("bad request"))).toBe(true);
     expect(isAbsorbable(new AiBudgetExceededError())).toBe(true);
-    expect(isAbsorbable(new AiDisabledError())).toBe(true);
-    expect(isAbsorbable(new AiUnconfiguredError())).toBe(true);
+  });
+
+  // C3 · S2. These cost nothing to surface: no provider call has been made.
+  it("surfaces configuration failures rather than hiding them as completed jobs", () => {
+    expect(isAbsorbable(new AiDisabledError())).toBe(false);
+    expect(isAbsorbable(new AiUnconfiguredError())).toBe(false);
+    expect(isAbsorbable(new AiUnconfiguredError('Unknown AI provider "openai".'))).toBe(false);
   });
 
   it("returns a transient failure to the runner so backoff still applies", () => {
@@ -422,16 +430,41 @@ describe("the runner retry contract", () => {
 describe("enqueueing a summary from ingest (M7.2)", () => {
   afterEach(() => {
     delete process.env.FEATURE_AI_SUMMARIES;
+    delete process.env.AI_DAILY_TOKEN_BUDGET;
   });
 
   it("enqueues nothing when the flag is off", async () => {
+    process.env.AI_DAILY_TOKEN_BUDGET = "500000";
     const stub = createSupabaseStub({});
     await requestMessageSummary(stub.client, OWNER, "msg-1");
     expect(stub.operations).toHaveLength(0);
   });
 
+  // C3 · S1: an unset budget means unlimited, so unattended spend would be
+  // uncapped. Refuse rather than enqueue.
+  it("refuses to enqueue when no daily budget is configured", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    delete process.env.AI_DAILY_TOKEN_BUDGET;
+    const stub = createSupabaseStub({});
+
+    await requestMessageSummary(stub.client, OWNER, "msg-1");
+
+    expect(stub.operations).toHaveLength(0);
+  });
+
+  it("refuses to enqueue when the budget is set to something unusable", async () => {
+    process.env.FEATURE_AI_SUMMARIES = "true";
+    process.env.AI_DAILY_TOKEN_BUDGET = "0";
+    const stub = createSupabaseStub({});
+
+    await requestMessageSummary(stub.client, OWNER, "msg-1");
+
+    expect(stub.operations).toHaveLength(0);
+  });
+
   it("carries the owner in the payload, because the handler never sees the job row", async () => {
     process.env.FEATURE_AI_SUMMARIES = "true";
+    process.env.AI_DAILY_TOKEN_BUDGET = "500000";
     const stub = createSupabaseStub({});
 
     await requestMessageSummary(stub.client, OWNER, "msg-1");
@@ -447,6 +480,7 @@ describe("enqueueing a summary from ingest (M7.2)", () => {
 
   it("swallows an enqueue failure so ingest can never be stalled by it", async () => {
     process.env.FEATURE_AI_SUMMARIES = "true";
+    process.env.AI_DAILY_TOKEN_BUDGET = "500000";
     const exploding = {
       from() {
         throw new Error("queue unavailable");

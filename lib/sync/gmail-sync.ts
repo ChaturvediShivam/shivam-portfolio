@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { featureEnabled } from "@/lib/featureFlags";
+import { dailyTokenBudget } from "@/lib/ai/budget";
 import { getGoogleOAuthConfig } from "@/lib/integrations/google/oauth";
 import { getFreshAccessToken } from "@/lib/integrations/google/tokens";
 import {
@@ -246,6 +247,17 @@ export async function requestMessageSummary(
   messageId: string,
 ): Promise<void> {
   if (!featureEnabled("FEATURE_AI_SUMMARIES")) return;
+
+  // Automatic summarization spends without a human in the loop, and an unset
+  // budget means unlimited (lib/ai/budget.ts). Refusing to enqueue turns a
+  // silent uncapped cost into a loud no-op that the operator fixes with one
+  // environment variable. The manual path is unaffected: a person is deciding.
+  if (dailyTokenBudget() === null) {
+    console.error(
+      `[gmail-sync] AI_DAILY_TOKEN_BUDGET is not set; refusing to enqueue automatic summary for message ${messageId}.`,
+    );
+    return;
+  }
 
   try {
     await enqueueJob(client, {

@@ -303,6 +303,30 @@ As-built in [AI Architecture § M6](./ai/AI_ARCHITECTURE.md#m6-as-built) ·
   portability this bounds the blast radius of a compromised or misbehaving SDK to
   one directory.
 
+**Added in M7.2 — automatic third-party transmission** (behind
+`FEATURE_AI_SUMMARIES`):
+
+- **What changes.** Until M7.2, message content reached the AI provider only when
+  an operator clicked *Summarize*. With the flag on, **every eligible inbound
+  message is transmitted to the configured external LLM provider automatically**,
+  as part of Gmail sync, with no human decision per message. Enabling the flag is
+  the decision; it is not revisited per email.
+- **What is transmitted.** Subject, sender address and message body, bounded to
+  12 000 characters. Names, email addresses and body text are deliberately **not**
+  redacted (§6) — they are the CRM's subject matter, and stripping them would
+  break the feature while protecting nothing already owner-scoped and
+  RLS-protected. Secrets and secret-shaped strings are still redacted.
+- **What bounds it.** Only inbound, non-archived mail with at least 400 characters
+  of body, excluding messages the sync labelled as bulk/promotional. Outbound
+  mail, archived mail, short mail and marketing mail are never transmitted.
+- **Provider data handling** is governed by the configured provider's terms; this
+  repository asserts nothing about retention on their side. Choosing the provider
+  (`AI_PROVIDER`, `AI_PROVIDER_API_KEY`) is therefore also a data-processing
+  decision.
+- **How to stop it.** `FEATURE_AI_SUMMARIES=false` — runtime, no redeploy. New
+  work stops being created and queued work stops being done. Revoking the
+  provider key stops transmission independently of the flag.
+
 **Deferred — known gaps, not oversights:**
 
 - **Prompt injection** 🟡 → **Phase 5.** All synced CRM/email content is

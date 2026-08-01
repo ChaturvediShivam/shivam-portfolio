@@ -27,17 +27,33 @@ import { summarizeMessage } from "@/lib/ai/summarize";
  */
 
 /**
+ * Deployment failures: the environment is wrong, not the work.
+ *
+ * Both are raised before the gateway can write an audit row — `disabled` at the
+ * gateway's own entry, `unconfigured` while resolving the provider (a missing
+ * key or an unknown `AI_PROVIDER` alike). Absorbing them would complete the job
+ * silently, leaving no summaries, no audit trail, and a Settings panel still
+ * reporting zero failures. They must surface instead, and they cost nothing to
+ * surface: no provider call has been made.
+ */
+const CONFIGURATION_CODES: ReadonlySet<string> = new Set(["disabled", "unconfigured"]);
+
+/**
  * Whether a failure should be swallowed rather than returned to the runner.
  *
  * The runner retries anything that throws, five times with backoff. That is
- * right for a rate limit and wrong for everything else in the AI taxonomy: an
+ * right for a rate limit and wrong for the rest of the runtime taxonomy: an
  * invalid output or an exhausted budget fails identically on every attempt, and
  * an invalid output has already been paid for once. Absorbing those completes
  * the job; the failure is still recorded in `ai_audit_log` with its taxonomy
  * code and surfaces in Settings → AI, which is where AI failures belong.
+ *
+ * Configuration failures are excluded — see above.
  */
 export function isAbsorbable(error: unknown): boolean {
-  return error instanceof AiError && !error.retryable;
+  if (!(error instanceof AiError)) return false;
+  if (CONFIGURATION_CODES.has(error.code)) return false;
+  return !error.retryable;
 }
 
 registerJobHandler("ai_summarize", async (payload, ctx) => {
