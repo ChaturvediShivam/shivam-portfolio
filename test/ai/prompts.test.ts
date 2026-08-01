@@ -24,6 +24,10 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     notes: "- Prefers remote",
     truncationNote: "",
   },
+  assistant: {
+    question: "What should I follow up on this week?",
+    today: "2026-08-01",
+  },
 };
 
 describe("prompt interpolation", () => {

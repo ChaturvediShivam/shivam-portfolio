@@ -1,6 +1,7 @@
 import "server-only";
 import { AiUnknownTemplateError } from "@/lib/ai/errors";
 import type { PromptTemplate } from "@/lib/ai/prompts/template";
+import { assistantTemplate } from "./templates/assistant";
 import { messageSummaryTemplate } from "./templates/message-summary";
 import { opportunitySummaryTemplate } from "./templates/opportunity-summary";
 import { selfTestTemplate } from "./templates/self-test";
@@ -30,6 +31,7 @@ function register(template: PromptTemplate): void {
 register(selfTestTemplate);
 register(messageSummaryTemplate);
 register(opportunitySummaryTemplate);
+register(assistantTemplate);
 
 /** Numeric semver comparison; non-numeric segments sort as 0. */
 function compareVersions(a: string, b: string): number {
