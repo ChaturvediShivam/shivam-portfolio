@@ -8,8 +8,9 @@ import type {
   AiToolCall,
   AiUsage,
 } from "@/types/ai";
+import type { PromptTemplate } from "@/lib/ai/prompts/template";
 import { featureEnabled } from "@/lib/featureFlags";
-import { AiDisabledError, aiErrorCode } from "@/lib/ai/errors";
+import { AiDisabledError, AiTransientError, aiErrorCode } from "@/lib/ai/errors";
 import { recordAiCall } from "@/lib/ai/audit";
 import { commitBudget, reserveBudget, type BudgetGrant } from "@/lib/ai/budget";
 import { getPromptTemplate } from "@/lib/ai/prompts/registry";
@@ -36,6 +37,19 @@ import "@/lib/ai/tools/catalog";
 /** Bounded tool rounds. M6 is not an agent loop — that is M8. */
 const DEFAULT_MAX_TOOL_ROUNDS = 1;
 const MAX_TOOL_ROUNDS_CEILING = 3;
+
+/**
+ * The copilot's agent loop is longer than a one-shot call's, because answering
+ * "what's happening with Acme?" legitimately takes a search followed by a
+ * drill-down. Still bounded: an unbounded loop is a bill, not a feature.
+ */
+const MAX_STREAM_TOOL_ROUNDS_CEILING = 6;
+
+/** What a streaming consumer sees. Text arrives incrementally; tools announce themselves. */
+export type AiGatewayEvent =
+  | { type: "text"; text: string }
+  | { type: "tool"; name: string }
+  | { type: "done"; completion: AiCompletion };
 
 export interface AiGatewayDeps {
   provider: AiProvider;
@@ -99,7 +113,19 @@ export class AiGateway {
     this.client = deps.client;
   }
 
-  async complete<T = unknown>(input: AiCompleteInput): Promise<AiCompletion<T>> {
+  /**
+   * Resolve the template and build the provider request under policy.
+   *
+   * Shared by `complete()` and `stream()` so both paths are gated, redacted and
+   * tool-scoped identically — a second copy of this would be a second place for
+   * a policy to be forgotten.
+   */
+  private prepare(input: AiCompleteInput): {
+    template: PromptTemplate;
+    request: AiRequest;
+    wantsStructured: boolean;
+    needsPromptFallback: boolean;
+  } {
     // Fail-closed before anything else happens: flag off means fully inert.
     if (!featureEnabled("FEATURE_AI")) throw new AiDisabledError();
 
@@ -130,6 +156,11 @@ export class AiGateway {
       ...(offerTools ? { tools: toolSpecs("read") } : {}),
     };
 
+    return { template, request, wantsStructured, needsPromptFallback };
+  }
+
+  async complete<T = unknown>(input: AiCompleteInput): Promise<AiCompletion<T>> {
+    const { template, request, wantsStructured } = this.prepare(input);
     const model = this.provider.resolveModel(template.taskClass);
     const usage = emptyUsage();
     let costMicros = 0;
@@ -216,6 +247,130 @@ export class AiGateway {
       // the reservation instead of stranding it for the rest of the day.
       await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
     }
+  }
+
+  /**
+   * Streaming agent loop (Phase 3 · M8).
+   *
+   * The same policy pipeline as `complete()` — flag gate, redaction, budget
+   * reservation, tool authorization, audit, budget reconciliation — with the
+   * answer delivered incrementally and tool rounds run in between.
+   *
+   * Structured output is deliberately not offered here: a schema-constrained
+   * reply has nothing useful to show until it is complete and validated, so
+   * those callers use `complete()`. The copilot's template is prose.
+   *
+   * Cancellation matters on this path in a way it does not on the other: when a
+   * client disconnects, the consumer stops pulling, and the generator resumes at
+   * its `finally` without ever reaching the success or error audit. Both halves
+   * of the accounting therefore live in `finally` — every reservation produces
+   * exactly one audit row and one reconciliation, including the abandoned ones.
+   * Spend that no one recorded is the one outcome this must not have.
+   */
+  async *stream(input: AiCompleteInput): AsyncIterable<AiGatewayEvent> {
+    const { template, request } = this.prepare(input);
+    const model = this.provider.resolveModel(template.taskClass);
+
+    const usage = emptyUsage();
+    let costMicros = 0;
+    let latencyMs = 0;
+    let settled: { outcome: AiCallOutcome; errorCode: string | null; model: string } | null = null;
+
+    const estimate = await this.estimate(request);
+
+    let grant: BudgetGrant;
+    try {
+      grant = await reserveBudget(this.client, input.ownerId, estimate);
+    } catch (error) {
+      await this.audit(input, template.version, model, usage, 0, 0, "error", aiErrorCode(error));
+      throw error;
+    }
+
+    try {
+      const maxRounds = Math.min(
+        Math.max(0, input.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS),
+        MAX_STREAM_TOOL_ROUNDS_CEILING,
+      );
+
+      let completion: AiCompletion | undefined;
+
+      for (let round = 0; ; round += 1) {
+        completion = yield* this.streamOnce(request);
+        addUsage(usage, completion.usage);
+        costMicros += this.provider.estimateCostMicros(completion.model, completion.usage);
+        latencyMs += completion.latencyMs;
+
+        if (completion.toolCalls.length === 0 || round >= maxRounds) break;
+
+        for (const call of completion.toolCalls) yield { type: "tool", name: call.name };
+
+        const results = await this.runTools(completion.toolCalls, {
+          client: this.client,
+          ownerId: input.ownerId,
+          actor: input.actor ?? "user",
+        });
+
+        request.messages = [
+          ...request.messages,
+          { role: "assistant", content: completion.text },
+          ...results,
+        ];
+      }
+
+      settled = { outcome: outcomeOf(completion), errorCode: null, model: completion.model };
+
+      yield { type: "done", completion: { ...completion, usage } };
+    } catch (error) {
+      settled = { outcome: "error", errorCode: aiErrorCode(error), model };
+      throw error;
+    } finally {
+      // `settled` is still null when the consumer abandoned the generator
+      // mid-answer. That is not an error the caller can see, but it did cost
+      // tokens, so it is audited under a distinct code rather than going
+      // unrecorded. `outcome` is a text column, so this needs no migration.
+      const final = settled ?? { outcome: "error" as AiCallOutcome, errorCode: "cancelled", model };
+
+      await this.audit(
+        input,
+        template.version,
+        final.model,
+        usage,
+        costMicros,
+        latencyMs,
+        final.outcome,
+        final.errorCode,
+      );
+
+      await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
+    }
+  }
+
+  /**
+   * One streamed turn: re-emit text deltas, return the finished completion.
+   *
+   * Falls back to `complete()` when the provider cannot stream, emitting the
+   * whole answer as a single delta. The copilot then still works end to end —
+   * it just arrives at once — which is what keeps streaming a provider
+   * capability rather than a provider requirement.
+   */
+  private async *streamOnce(request: AiRequest): AsyncGenerator<AiGatewayEvent, AiCompletion> {
+    if (!this.provider.capabilities.streaming || !this.provider.stream) {
+      const completion = await this.provider.complete(request);
+      if (completion.text) yield { type: "text", text: completion.text };
+      return completion;
+    }
+
+    for await (const event of this.provider.stream(request)) {
+      if (event.type === "text_delta") {
+        yield { type: "text", text: event.text };
+      } else {
+        return event.completion;
+      }
+    }
+
+    // A stream that ends without its terminal event is a broken contract, not an
+    // empty answer — surfacing it as success would silently truncate the reply.
+    throw new AiTransientError("AI provider stream ended without completing.");
   }
 
   /** Exact count when the provider offers one, conservative estimate otherwise. */

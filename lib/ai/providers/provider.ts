@@ -3,6 +3,7 @@ import type {
   AiCapabilities,
   AiCompletion,
   AiRequest,
+  AiStreamEvent,
   AiTaskClass,
   AiUsage,
 } from "@/types/ai";
@@ -38,6 +39,20 @@ export interface AiProvider {
 
   /** Run one completion. Must throw only errors from `lib/ai/errors`. */
   complete(request: AiRequest): Promise<AiCompletion>;
+
+  /**
+   * Run one completion incrementally (Phase 3 · M8).
+   *
+   * Optional for the same reason `countTokens` is: not every provider exposes a
+   * streaming endpoint, and a local runtime may only ever return a finished
+   * message. The gateway checks `capabilities.streaming` and falls back to
+   * `complete()` when absent, so a non-streaming provider still drives the
+   * copilot — it simply arrives all at once.
+   *
+   * Must yield zero or more `text_delta` events followed by exactly one
+   * `completed`, and must throw only errors from `lib/ai/errors`.
+   */
+  stream?(request: AiRequest): AsyncIterable<AiStreamEvent>;
 
   /**
    * Exact token count for a request. Optional: several providers (local

@@ -436,8 +436,19 @@ specifics.
 
 ### M8 — AI Assistant (RAG) · `XL`
 - **Objective:** streaming copilot with retrieval + tools.
-- **Folders/files:** `app/api/ai/chat/route.ts`, `lib/ai/retrieval.ts`, `lib/jobs/handlers/ai-embed.ts`, `app/admin/(dashboard)/assistant/*`, `components/admin/assistant/*`; migration `ai_embeddings` + enable **pgvector**.
-- **DB:** additive `ai_embeddings` (+extension). **APIs:** `POST /api/ai/chat` (SSE). **Flag:** `FEATURE_ASSISTANT`.
+- **Split in delivery**, per the §21 note on separating retrieval:
+
+**M8a — streaming copilot · shipped**
+- **Delivered:** `AiProvider.stream()` + `AiCapabilities.streaming` (optional, with a `complete()` fallback so streaming stays a capability, not a requirement); `AiGateway.stream()` reusing the same policy pipeline as `complete()`; `lib/ai/retrieval.ts` (keyword recall over the existing `search_vector`/GIN indexes across all seven record types); `search_crm` tool; `assistant` prompt template; `lib/ai/assistant.ts` (conversation + history + persistence); `POST /api/ai/chat` (SSE); `/admin/assistant` + `components/admin/assistant/*`; flag-gated nav.
+- **DB:** none — no migration.
+- **Flag:** `FEATURE_ASSISTANT` (requires `FEATURE_AI`).
+- **Tests:** `test/ai/streaming.test.ts` (frame assembly + agent loop), `test/ai/retrieval.test.ts` (owner scoping, interleaving, degradation).
+
+**M8b — semantic retrieval · blocked**
+- **Scope:** migration `ai_embeddings` + enable **pgvector**; `AiProvider.embed()`; `lib/jobs/handlers/ai-embed.ts`; blend vector neighbours into `retrieve()`.
+- **Blocked on:** an embedding provider. The configured provider exposes no embeddings endpoint, so there is nothing to implement `embed()` against until a second one is added — which needs a vendor decision and a key.
+- **Also unconfirmed:** pgvector availability on the Supabase plan (open question §21.3). The FTS fallback named in the risk table is what M8a ships.
+- **Seam:** `retrieve()` is the single entry point and returns ranked `RetrievedItem[]`; adding embeddings means a second candidate source inside it and blending in `rank()`. No caller changes.
 - **Security deltas:** retrieval RLS-scoped; tools consequence-classed; no key client-side.
 - **Risk:** high (pgvector availability, streaming, tool correctness) → confirm pgvector; contract-test tools; guardrail evals.
 

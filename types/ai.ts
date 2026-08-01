@@ -113,9 +113,10 @@ export interface AiCompletion<T = unknown> {
  * What a provider can actually do.
  *
  * True neutrality means not assuming every provider supports everything: native
- * structured output, tool calling, a token-counting endpoint, prefix caching and
- * reasoning control each exist on some providers and not others. The gateway
- * reads these and degrades deliberately rather than assuming.
+ * structured output, tool calling, a token-counting endpoint, prefix caching,
+ * reasoning control and incremental streaming each exist on some providers and
+ * not others. The gateway reads these and degrades deliberately rather than
+ * assuming.
  */
 export interface AiCapabilities {
   structuredOutput: boolean;
@@ -123,7 +124,24 @@ export interface AiCapabilities {
   tokenCounting: boolean;
   prefixCaching: boolean;
   reasoningControl: boolean;
+  streaming: boolean;
 }
+
+/**
+ * One event from an incremental generation (Phase 3 · M8).
+ *
+ * Deliberately minimal: visible text as it arrives, then exactly one terminal
+ * event carrying the same `AiCompletion` a non-streaming call would have
+ * returned. Tool calls travel in that final completion rather than as their own
+ * event, so the gateway's tool loop is identical on both paths — streaming
+ * changes how the answer is delivered, never what it means.
+ *
+ * Providers that stream nothing but the finished message still satisfy this by
+ * yielding a single `completed`.
+ */
+export type AiStreamEvent =
+  | { type: "text_delta"; text: string }
+  | { type: "completed"; completion: AiCompletion };
 
 /** Consequence class for a tool. Drives the execution policy. */
 export type AiToolConsequence = "read" | "write" | "external";

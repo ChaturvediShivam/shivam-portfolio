@@ -5,12 +5,13 @@ import type {
   AiCompletion,
   AiMessage,
   AiRequest,
+  AiStreamEvent,
   AiTaskClass,
   AiUsage,
 } from "@/types/ai";
 import { AiPermanentError, AiTransientError, AiUnconfiguredError } from "@/lib/ai/errors";
 import type { AiProvider } from "@/lib/ai/providers/provider";
-import { toCompletion, type RawMessage } from "./mapper";
+import { StreamAssembler, toCompletion, type RawMessage, type RawStreamEvent } from "./mapper";
 
 /**
  * Anthropic adapter (Phase 3 · M6).
@@ -127,6 +128,7 @@ export class AnthropicProvider implements AiProvider {
     tokenCounting: true,
     prefixCaching: true,
     reasoningControl: true,
+    streaming: true,
   };
 
   private readonly client: Anthropic;
@@ -163,6 +165,47 @@ export class AnthropicProvider implements AiProvider {
     } catch (error) {
       throw classify(error);
     }
+  }
+
+  /**
+   * Incremental completion (Phase 3 · M8).
+   *
+   * Errors are classified on both the opening call and mid-stream: a connection
+   * dropped halfway through is exactly as transient as one that never opened,
+   * and the copilot's retry decision must not depend on when it failed.
+   */
+  async *stream(request: AiRequest): AsyncIterable<AiStreamEvent> {
+    const model = this.resolveModel(request.taskClass);
+    const startedAt = Date.now();
+    const assembler = new StreamAssembler();
+
+    let raw: AsyncIterable<RawStreamEvent>;
+    try {
+      raw = (await this.client.messages.create({
+        ...this.buildParams(request, model),
+        stream: true,
+      })) as unknown as AsyncIterable<RawStreamEvent>;
+    } catch (error) {
+      throw classify(error);
+    }
+
+    try {
+      for await (const event of raw) {
+        const text = assembler.push(event);
+        if (text) yield { type: "text_delta", text };
+      }
+    } catch (error) {
+      throw classify(error);
+    }
+
+    yield {
+      type: "completed",
+      completion: assembler.finish({
+        provider: PROVIDER_NAME,
+        model,
+        latencyMs: Date.now() - startedAt,
+      }),
+    };
   }
 
   async countTokens(request: AiRequest): Promise<number> {

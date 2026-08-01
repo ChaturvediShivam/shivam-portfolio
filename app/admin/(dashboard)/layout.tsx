@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/admin/Sidebar";
-import { featureEnabled } from "@/lib/featureFlags";
+import { adminNavigation } from "@/lib/admin/navigation";
+import { featureEnabled, type FeatureFlag } from "@/lib/featureFlags";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getUnreadCount, listRecentNotifications } from "@/lib/notifications";
 import { NotificationBell } from "@/components/admin/notifications/NotificationBell";
@@ -31,9 +32,15 @@ export default async function DashboardLayout({
     }
   }
 
+  // Flag-gated nav items are resolved here because `featureEnabled` is
+  // server-only; the sidebar is a Client Component and receives ids, not flags.
+  const hiddenIds = adminNavigation
+    .filter((item) => item.flag && !featureEnabled(item.flag as FeatureFlag))
+    .map((item) => item.id);
+
   return (
     <div className="min-h-screen flex text-slate-200">
-      <Sidebar />
+      <Sidebar hiddenIds={hiddenIds} />
 
       <main className="flex-1 min-w-0">
         {bell && (

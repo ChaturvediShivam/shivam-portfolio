@@ -23,6 +23,7 @@ const FULL_CAPABILITIES: AiCapabilities = {
   tokenCounting: true,
   prefixCaching: true,
   reasoningControl: true,
+  streaming: false,
 };
 
 const USAGE: AiUsage = { inputTokens: 100, outputTokens: 20, cachedInputTokens: 5 };

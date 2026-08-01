@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   Briefcase,
+  Sparkles,
 } from "lucide-react";
 
 /**
@@ -33,6 +34,17 @@ export interface NavItem {
    * "Coming Soon" placeholder — it never navigates.
    */
   enabled: boolean;
+  /**
+   * Name of the server feature flag that reveals this item. Absent means always
+   * visible.
+   *
+   * Held as a plain string rather than a `FeatureFlag`: this module is imported
+   * by the client `Sidebar`, and `lib/featureFlags.ts` is `server-only`, so
+   * importing the type here would drag the flag reader into the browser bundle.
+   * The flag is read in the admin layout (a Server Component) and the result is
+   * passed down as ids — see `hiddenIds` on `Sidebar`.
+   */
+  flag?: string;
 }
 
 /**
@@ -51,6 +63,7 @@ export const adminNavigation: NavItem[] = [
   { id: "messages", label: "Messages", href: "/admin/messages", icon: MessageSquare, enabled: true },
   { id: "tasks", label: "Tasks", href: "/admin/tasks", icon: ListChecks, enabled: true },
   { id: "calendar", label: "Calendar", href: "/admin/calendar", icon: Calendar, enabled: true },
+  { id: "assistant", label: "Assistant", href: "/admin/assistant", icon: Sparkles, enabled: true, flag: "FEATURE_ASSISTANT" },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];

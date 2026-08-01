@@ -5,8 +5,20 @@ import { usePathname } from "next/navigation";
 import { adminNavigation } from "@/lib/admin/navigation";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 
-export function Sidebar() {
+export interface SidebarProps {
+  /**
+   * Ids of flag-gated items whose flag is off. Computed in the admin layout
+   * (a Server Component) because feature flags are server-only — the sidebar is
+   * told what to hide rather than reading the flags itself.
+   */
+  hiddenIds?: string[];
+}
+
+export function Sidebar({ hiddenIds }: SidebarProps = {}) {
   const pathname = usePathname();
+
+  const hidden = new Set(hiddenIds ?? []);
+  const items = adminNavigation.filter((item) => !hidden.has(item.id));
 
   // Section-aware highlight: match on exact path or a nested path
   // (e.g. /admin/companies/123 highlights "Companies"), choosing the item with
@@ -14,7 +26,7 @@ export function Sidebar() {
   // section.
   let activeId: string | undefined;
   let activeLen = -1;
-  for (const item of adminNavigation) {
+  for (const item of items) {
     if (!item.enabled) continue;
     const matches = pathname === item.href || pathname.startsWith(`${item.href}/`);
     if (matches && item.href.length > activeLen) {
@@ -34,7 +46,7 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-0.5">
-          {adminNavigation.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
 
             if (!item.enabled) {

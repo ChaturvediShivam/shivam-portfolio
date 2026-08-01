@@ -11,6 +11,8 @@ import "server-only";
 
 import { registerAiTool } from "../registry";
 import { getOpportunityTool, searchOpportunitiesTool } from "./opportunities";
+import { searchCrmTool } from "./retrieval";
 
 registerAiTool(getOpportunityTool); // M6
 registerAiTool(searchOpportunitiesTool); // M6
+registerAiTool(searchCrmTool); // M8
