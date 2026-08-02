@@ -4,6 +4,8 @@ import * as React from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ResumeUploader } from "./ResumeUploader";
 import { ParsedPreview } from "./ParsedPreview";
+import { AnalysisResults } from "./AnalysisResults";
+import { analyzeResume, type AnalysisResult } from "@/lib/resume-analysis/ResumeAnalysisService";
 import { parseResume, ResumeParseError } from "@/lib/resume/parse";
 import type { ParsedResume } from "@/types/resume";
 import { JDUploader } from "./JDUploader";
@@ -113,6 +115,9 @@ export function ResumeAiWorkspace() {
     };
   }, [resume]);
 
+  const [analysis, setAnalysis] = React.useState<AnalysisResult | null>(null);
+  const [analysing, setAnalysing] = React.useState(false);
+
   const jdReady = isJobDescriptionReady(jobDescription);
   const ready = resume !== null && jdReady;
 
@@ -126,6 +131,48 @@ export function ResumeAiWorkspace() {
     }
     return "Add a job description to continue.";
   }, [resume, jdReady, jobDescription]);
+
+  /**
+   * Any change to either input invalidates the analysis.
+   *
+   * Leaving a stale result on screen while the operator swaps their resume
+   * would show a score computed from a document that is no longer loaded —
+   * the most misleading state this page could be in.
+   */
+  React.useEffect(() => {
+    setAnalysis(null);
+  }, [parse, jobDescription]);
+
+  /**
+   * Run the deterministic analysis.
+   *
+   * Synchronous and local — no network, no model. It is wrapped in a state
+   * flip anyway so the button has a real busy state on a very large document,
+   * and so the AI step can make this genuinely async without touching the UI.
+   */
+  function runAnalysis() {
+    if (parse.status !== "done" || !jobDescription) return;
+
+    setAnalysing(true);
+    try {
+      const jdText =
+        jobDescription.source === "paste"
+          ? jobDescription.text
+          : // An uploaded job description is not parsed until a later step, so
+            // there is no text to analyse yet. The button is unreachable in this
+            // state; the guard is here so it stays true if that changes.
+            "";
+
+      if (!jdText.trim()) {
+        setAnalysis(null);
+        return;
+      }
+
+      setAnalysis(analyzeResume({ resume: parse.parsed, jobDescription: jdText }));
+    } finally {
+      setAnalysing(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -155,11 +202,20 @@ export function ResumeAiWorkspace() {
           disabled, loading — so the step that adds analysis supplies `onAnalyze`
           and `loading` and changes nothing else here.
         */}
-        <AnalyzeButton ready={ready} blockedReason={blockedReason} />
+        <AnalyzeButton
+          ready={ready && parse.status === "done"}
+          loading={analysing}
+          blockedReason={parse.status === "done" ? blockedReason : "Waiting for the resume to finish parsing."}
+          onAnalyze={runAnalysis}
+        />
         <p className="mt-3 text-xs text-slate-600">
-          Analysis is not available yet. The resume is parsed locally — nothing is sent anywhere.
+          Scoring runs in your browser. Nothing is sent anywhere and no AI is involved.
         </p>
       </Section>
+
+      {analysis && (
+        <AnalysisResults analysis={analysis.analysis} jobDescription={analysis.jobDescription} />
+      )}
 
       {parse.status === "parsing" && (
         <p className="flex items-center gap-2 px-1 text-sm text-slate-500" role="status" aria-live="polite">
