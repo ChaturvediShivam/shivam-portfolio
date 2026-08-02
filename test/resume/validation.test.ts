@@ -44,6 +44,14 @@ describe("formatFileSize", () => {
     expect(formatFileSize(1024 * 1024 * 2.5)).toBe("2.5 MB");
     expect(formatFileSize(MAX_FILE_BYTES)).toBe("10 MB");
   });
+
+  it("distinguishes an oversized file from the limit itself", () => {
+    // Regression: both used to render as "10 MB", making the rejection read
+    // "That file is 10 MB. The limit is 10 MB."
+    const oversized = 10_856_561;
+    expect(formatFileSize(oversized)).toBe("10.4 MB");
+    expect(formatFileSize(oversized)).not.toBe(formatFileSize(MAX_FILE_BYTES));
+  });
 });
 
 describe("validateDocument — accepted", () => {
