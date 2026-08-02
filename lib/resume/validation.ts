@@ -81,15 +81,23 @@ function typeForExtension(extension: string): AcceptedDocumentType | null {
 /**
  * Human-readable size.
  *
- * Binary units with a decimal only below 10 MB, because "9.4 MB" is meaningful
- * next to a 10 MB limit and "9.43 MB" is noise.
+ * Megabytes keep one decimal, dropped when the value is whole. An earlier
+ * version rounded anything at or above 10 MB to an integer, which made the
+ * rejection message for an 10.4 MB file read:
+ *
+ *     "That file is 10 MB. The limit is 10 MB."
+ *
+ * — the file and the limit rendered identically, so the sentence contradicted
+ * itself exactly when the operator most needed it to be clear. Caught by
+ * uploading a real oversized file to the preview deployment.
  */
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
   if (kb < 1024) return `${Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+
+  const mb = Math.round((kb / 1024) * 10) / 10;
+  return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
 }
 
 export type ValidationOutcome =

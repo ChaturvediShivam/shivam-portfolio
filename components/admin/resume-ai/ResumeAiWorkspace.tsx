@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { ResumeUploader } from "./ResumeUploader";
+import { ParsedPreview } from "./ParsedPreview";
+import { parseResume, ResumeParseError } from "@/lib/resume/parse";
+import type { ParsedResume } from "@/types/resume";
 import { JDUploader } from "./JDUploader";
 import { AnalyzeButton } from "./AnalyzeButton";
 import { isJobDescriptionReady, MIN_JD_CHARS, type JobDescriptionInput } from "@/types/job-description";
@@ -57,9 +61,57 @@ function Section({
   );
 }
 
+/** Parse lifecycle. Mirrors the upload state machine's shape deliberately. */
+type ParseState =
+  | { status: "idle" }
+  | { status: "parsing" }
+  | { status: "done"; parsed: ParsedResume }
+  | { status: "failed"; message: string };
+
 export function ResumeAiWorkspace() {
   const [resume, setResume] = React.useState<UploadedDocument | null>(null);
   const [jobDescription, setJobDescription] = React.useState<JobDescriptionInput | null>(null);
+  const [parse, setParse] = React.useState<ParseState>({ status: "idle" });
+
+  /**
+   * Parse as soon as a resume is held.
+   *
+   * Extraction is deterministic, local and free — there is no reason to make
+   * the operator ask for it, and seeing the parse immediately is what makes a
+   * bad extraction obvious before they go any further.
+   *
+   * The document id guards against a stale result: replacing the file while the
+   * previous parse is still running would otherwise let the older result win.
+   */
+  React.useEffect(() => {
+    if (!resume) {
+      setParse({ status: "idle" });
+      return;
+    }
+
+    let current = true;
+    setParse({ status: "parsing" });
+
+    parseResume(resume)
+      .then((parsed) => {
+        if (current) setParse({ status: "done", parsed });
+      })
+      .catch((error: unknown) => {
+        if (!current) return;
+        const message =
+          error instanceof ResumeParseError
+            ? error.message
+            : "That file could not be read. Try exporting it again.";
+        if (!(error instanceof ResumeParseError)) {
+          console.error("[resume-ai] parse failed:", error);
+        }
+        setParse({ status: "failed", message });
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [resume]);
 
   const jdReady = isJobDescriptionReady(jobDescription);
   const ready = resume !== null && jdReady;
@@ -105,9 +157,29 @@ export function ResumeAiWorkspace() {
         */}
         <AnalyzeButton ready={ready} blockedReason={blockedReason} />
         <p className="mt-3 text-xs text-slate-600">
-          Analysis is not available yet — this step is the upload flow only.
+          Analysis is not available yet. The resume is parsed locally — nothing is sent anywhere.
         </p>
       </Section>
+
+      {parse.status === "parsing" && (
+        <p className="flex items-center gap-2 px-1 text-sm text-slate-500" role="status" aria-live="polite">
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Reading the resume…
+        </p>
+      )}
+
+      {parse.status === "failed" && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {parse.message}
+        </p>
+      )}
+
+      {parse.status === "done" && <ParsedPreview parsed={parse.parsed} />}
     </div>
   );
 }
