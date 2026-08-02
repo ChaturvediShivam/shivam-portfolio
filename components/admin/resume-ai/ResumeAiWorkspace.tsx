@@ -5,6 +5,11 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { ResumeUploader } from "./ResumeUploader";
 import { ParsedPreview } from "./ParsedPreview";
 import { AnalysisResults } from "./AnalysisResults";
+import { AiInsights } from "./AiInsights";
+import { analyzeWithAiAction, draftCoverLetterAction } from "@/app/admin/(dashboard)/resume-ai/actions";
+import { isActionError } from "@/lib/action-result";
+import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
+import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
 import { analyzeResume, type AnalysisResult } from "@/lib/resume-analysis/ResumeAnalysisService";
 import { parseResume, ResumeParseError } from "@/lib/resume/parse";
 import type { ParsedResume } from "@/types/resume";
@@ -70,7 +75,32 @@ type ParseState =
   | { status: "done"; parsed: ParsedResume }
   | { status: "failed"; message: string };
 
-export function ResumeAiWorkspace() {
+/**
+ * AI enrichment lifecycle.
+ *
+ * `cancelled` is a state rather than a return to idle: the operator stopped a
+ * call that had already been billed, and silently showing the pre-AI page again
+ * would leave them unsure whether anything happened.
+ */
+type AiState =
+  | { status: "idle" }
+  | { status: "running" }
+  | { status: "done"; insights: AiResumeInsights | null; note: string | null }
+  | { status: "failed"; message: string }
+  | { status: "cancelled" };
+
+/**
+ * How long to wait before giving up on the review.
+ *
+ * Four gateway calls, one of them large, so this is generous. The server cannot
+ * be interrupted by it — the request continues and is still audited and billed —
+ * so this bounds the operator's wait, not the spend.
+ */
+const AI_TIMEOUT_MS = 120_000;
+
+class AiTimeout extends Error {}
+
+export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }) {
   const [resume, setResume] = React.useState<UploadedDocument | null>(null);
   const [jobDescription, setJobDescription] = React.useState<JobDescriptionInput | null>(null);
   const [parse, setParse] = React.useState<ParseState>({ status: "idle" });
@@ -118,6 +148,21 @@ export function ResumeAiWorkspace() {
   const [analysis, setAnalysis] = React.useState<AnalysisResult | null>(null);
   const [analysing, setAnalysing] = React.useState(false);
 
+  const [ai, setAi] = React.useState<AiState>({ status: "idle" });
+  const [coverLetter, setCoverLetter] = React.useState<CoverLetterDraft | null>(null);
+  const [coverLetterPending, setCoverLetterPending] = React.useState(false);
+  const [coverLetterError, setCoverLetterError] = React.useState<string | null>(null);
+
+  /**
+   * Which AI request the UI is currently willing to accept.
+   *
+   * A server action cannot be aborted mid-flight, so cancelling means refusing
+   * the answer rather than stopping the work. Bumping this discards whatever is
+   * in flight — on cancel, and on any input change — which is what stops a slow
+   * review landing on top of a resume the operator has since replaced.
+   */
+  const aiRunRef = React.useRef(0);
+
   const jdReady = isJobDescriptionReady(jobDescription);
   const ready = resume !== null && jdReady;
 
@@ -141,6 +186,14 @@ export function ResumeAiWorkspace() {
    */
   React.useEffect(() => {
     setAnalysis(null);
+    aiRunRef.current += 1;
+    // Keep the existing object when already idle. A fresh `{ status: "idle" }`
+    // would be a new identity every time, so this effect would schedule a
+    // render on every keystroke in the job description — and each of those
+    // renders feeds the uploader that re-emits the value this effect watches.
+    setAi((current) => (current.status === "idle" ? current : { status: "idle" }));
+    setCoverLetter(null);
+    setCoverLetterError(null);
   }, [parse, jobDescription]);
 
   /**
@@ -169,8 +222,84 @@ export function ResumeAiWorkspace() {
       }
 
       setAnalysis(analyzeResume({ resume: parse.parsed, jobDescription: jdText }));
+
+      // Strictly after the deterministic result exists. The AI explains that
+      // result; starting it in parallel would mean explaining a score that had
+      // not been computed yet.
+      if (aiEnabled) void runAiReview(parse.parsed, jdText);
     } finally {
       setAnalysing(false);
+    }
+  }
+
+  /**
+   * Ask the server for the AI review.
+   *
+   * The deterministic panel is already on screen and stays there whatever
+   * happens here: a failure, a timeout or a cancellation costs the enrichment
+   * and nothing else.
+   */
+  async function runAiReview(parsed: ParsedResume, jdText: string) {
+    const run = (aiRunRef.current += 1);
+    setAi({ status: "running" });
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      const result = await Promise.race([
+        analyzeWithAiAction({ resume: parsed, jobDescription: jdText }),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new AiTimeout()), AI_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (aiRunRef.current !== run) return;
+
+      if (isActionError(result)) {
+        setAi({ status: "failed", message: result.formError ?? "The AI review failed." });
+        return;
+      }
+
+      setAi({ status: "done", insights: result.data.insights, note: result.data.note });
+    } catch (error) {
+      if (aiRunRef.current !== run) return;
+      const message =
+        error instanceof AiTimeout
+          ? "The AI review took too long. The match score above is unaffected."
+          : "The AI review failed. The match score above is unaffected.";
+      if (!(error instanceof AiTimeout)) console.error("[resume-ai] review failed:", error);
+      setAi({ status: "failed", message });
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  function cancelAiReview() {
+    aiRunRef.current += 1;
+    setAi({ status: "cancelled" });
+  }
+
+  async function draftCoverLetter() {
+    if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
+
+    setCoverLetterPending(true);
+    setCoverLetterError(null);
+    try {
+      const result = await draftCoverLetterAction({
+        resume: parse.parsed,
+        jobDescription: jobDescription.text,
+      });
+
+      if (isActionError(result)) {
+        setCoverLetterError(result.formError ?? "Could not draft a cover letter.");
+        return;
+      }
+      setCoverLetter(result.data.draft);
+    } catch (error) {
+      console.error("[resume-ai] cover letter failed:", error);
+      setCoverLetterError("Could not draft a cover letter.");
+    } finally {
+      setCoverLetterPending(false);
     }
   }
 
@@ -209,12 +338,63 @@ export function ResumeAiWorkspace() {
           onAnalyze={runAnalysis}
         />
         <p className="mt-3 text-xs text-slate-600">
-          Scoring runs in your browser. Nothing is sent anywhere and no AI is involved.
+          {aiEnabled
+            ? "Scoring runs in your browser. The AI review that follows sends your resume and the posting to the configured AI provider."
+            : "Scoring runs in your browser. Nothing is sent anywhere and no AI is involved."}
         </p>
       </Section>
 
       {analysis && (
         <AnalysisResults analysis={analysis.analysis} jobDescription={analysis.jobDescription} />
+      )}
+
+      {ai.status === "running" && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-slate-400" role="status" aria-live="polite">
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Reviewing your resume against the posting…
+          </p>
+          <button
+            type="button"
+            onClick={cancelAiReview}
+            className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-slate-400 transition-colors hover:bg-white/[0.04] hover:text-slate-200"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {ai.status === "cancelled" && (
+        <p className="px-1 text-sm text-slate-500" role="status" aria-live="polite">
+          AI review cancelled. The match score above is unaffected.
+        </p>
+      )}
+
+      {ai.status === "failed" && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {ai.message}
+        </p>
+      )}
+
+      {ai.status === "done" && ai.note && (
+        <p className="px-1 text-sm text-slate-500" role="status" aria-live="polite">
+          {ai.note}
+        </p>
+      )}
+
+      {ai.status === "done" && ai.insights && (
+        <AiInsights
+          insights={ai.insights}
+          coverLetter={coverLetter}
+          coverLetterPending={coverLetterPending}
+          coverLetterError={coverLetterError}
+          onDraftCoverLetter={() => void draftCoverLetter()}
+        />
       )}
 
       {parse.status === "parsing" && (

@@ -7,6 +7,13 @@ import { inboxTriageTemplate } from "./templates/inbox-triage";
 import { messageSummaryTemplate } from "./templates/message-summary";
 import { opportunitySummaryTemplate } from "./templates/opportunity-summary";
 import { selfTestTemplate } from "./templates/self-test";
+// Resume AI · Phase 3 · Step 2. Registered here rather than in a second
+// registry so there is exactly one place that resolves a template id.
+import { coverLetterTemplate } from "@/lib/ai-analysis/prompts/cover-letter";
+import { interviewQuestionsTemplate } from "@/lib/ai-analysis/prompts/interview";
+import { linkedinTemplate } from "@/lib/ai-analysis/prompts/linkedin";
+import { resumeReviewTemplate } from "@/lib/ai-analysis/prompts/resume-review";
+import { summaryRewriteTemplate } from "@/lib/ai-analysis/prompts/rewrite";
 
 /**
  * Prompt template registry (Phase 3 · M6).
@@ -36,6 +43,11 @@ register(opportunitySummaryTemplate);
 register(assistantTemplate);
 register(emailReplyTemplate);
 register(inboxTriageTemplate);
+register(resumeReviewTemplate);
+register(interviewQuestionsTemplate);
+register(linkedinTemplate);
+register(summaryRewriteTemplate);
+register(coverLetterTemplate);
 
 /** Numeric semver comparison; non-numeric segments sort as 0. */
 function compareVersions(a: string, b: string): number {

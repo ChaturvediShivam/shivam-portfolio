@@ -43,6 +43,48 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     body: "Are you free on Thursday at 14:00?",
     truncationNote: "",
   },
+  resume_review: {
+    overallScore: 72,
+    confidence: "80%",
+    categoryScores: "skills 80/100",
+    detectedSkills: "Go, PostgreSQL",
+    missingSkills: "Kubernetes",
+    missingKeywords: "terraform",
+    experienceSummary: "5+ years asked for, 8 evidenced (meets)",
+    educationSummary: "bachelor asked for, bachelor evidenced (meets)",
+    responsibilitySummary: "2 of 3 covered",
+    jobTitle: "Senior Backend Engineer",
+    jobDescription: "Own the reliability of our payment services",
+    resume: "Backend engineer with eight years building payment systems.",
+    truncationNote: "",
+  },
+  resume_interview_questions: {
+    jobTitle: "Senior Backend Engineer",
+    detectedSkills: "Go, PostgreSQL",
+    missingSkills: "Kubernetes",
+    responsibilities: "Own the reliability of our payment services",
+    resume: "Backend engineer with eight years building payment systems.",
+  },
+  resume_linkedin: {
+    jobTitle: "Senior Backend Engineer",
+    detectedSkills: "Go, PostgreSQL",
+    resume: "Backend engineer with eight years building payment systems.",
+  },
+  resume_summary_rewrite: {
+    jobTitle: "Senior Backend Engineer",
+    jobKeywords: "payments, reliability",
+    detectedSkills: "Go, PostgreSQL",
+    currentSummary: "Backend engineer with eight years building payment systems.",
+    resume: "Backend engineer with eight years building payment systems.",
+  },
+  resume_cover_letter: {
+    jobTitle: "Senior Backend Engineer",
+    company: "Example Ltd",
+    candidateName: "Alice Mercer",
+    matchedSkills: "Go, PostgreSQL",
+    jobDescription: "Own the reliability of our payment services",
+    resume: "Backend engineer with eight years building payment systems.",
+  },
 };
 
 describe("prompt interpolation", () => {
