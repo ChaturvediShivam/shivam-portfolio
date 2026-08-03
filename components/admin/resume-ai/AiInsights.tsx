@@ -16,7 +16,7 @@ import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
  *
  * Presentational. Every number on this page that means anything about ATS
  * matching was computed by the deterministic engine and is rendered above by
- * `AnalysisResults`; nothing here recomputes or restates it.
+ * `AiReview`; nothing here recomputes or restates it.
  *
  * The one figure shown here is the hiring probability, and it is deliberately
  * placed apart from the match score with its reasoning attached. Two
@@ -96,93 +96,13 @@ export function AiInsights({
     >
       <div>
         <h3 id="ai-insights-heading" className="text-sm font-semibold text-white">
-          AI review
+          Rewrites &amp; drafts
         </h3>
         <p className="mt-0.5 text-xs text-slate-500">
-          Written by {insights.aiProvider} ({insights.aiModel}) from the analysis above. It explains
-          the score; it does not compute it.
+          Written by {insights.aiProvider} ({insights.aiModel}) from the analysis above. The score,
+          strengths, gaps and action plan are in the review above this.
         </p>
       </div>
-
-      <div className="flex flex-wrap items-start gap-5 rounded-md border border-white/[0.06] bg-white/[0.02] p-4">
-        <div
-          className="flex items-baseline gap-1"
-          role="img"
-          aria-label={`Estimated interview probability ${insights.overallHiringProbability} percent`}
-        >
-          <span className="text-3xl font-semibold tabular-nums text-slate-200">
-            {insights.overallHiringProbability}
-          </span>
-          <span className="text-sm text-slate-600">%</span>
-        </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-xs uppercase tracking-wide text-slate-600">
-            Estimated chance of an interview
-          </p>
-          <p className="whitespace-pre-line text-sm text-slate-300">{insights.overallSummary}</p>
-          <p className="text-xs text-slate-500">{insights.reasoning}</p>
-        </div>
-      </div>
-
-      {insights.strengths.length > 0 && (
-        <Panel title={`Strengths (${insights.strengths.length})`}>
-          <ul className="space-y-2.5">
-            {insights.strengths.map((item) => (
-              <li key={item.headline} className="text-xs">
-                <span className="flex items-start gap-1.5 text-slate-200">
-                  <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-400" aria-hidden />
-                  {item.headline}
-                </span>
-                <span className="mt-0.5 block pl-5 text-slate-400">{item.detail}</span>
-                <span className="block pl-5">
-                  <Evidence>{item.evidence}</Evidence>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {insights.weaknesses.length > 0 && (
-        <Panel title={`Weaknesses (${insights.weaknesses.length})`}>
-          <ul className="space-y-2.5">
-            {insights.weaknesses.map((item) => (
-              <li key={item.headline} className="text-xs">
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={cn("font-medium", SEVERITY_TONE[item.severity])}>
-                    {item.headline}
-                  </span>
-                  <Badge variant="neutral">{item.severity}</Badge>
-                </span>
-                <span className="mt-0.5 block text-slate-400">{item.detail}</span>
-                <Evidence>{item.evidence}</Evidence>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {insights.criticalGaps.length > 0 && (
-        <Panel
-          title={`Critical gaps (${insights.criticalGaps.length})`}
-          description="Required skills the parser did not find in your resume."
-        >
-          <ul className="space-y-2.5">
-            {insights.criticalGaps.map((gap) => (
-              <li key={gap.skill} className="text-xs">
-                <span className="flex items-start gap-1.5 text-slate-200">
-                  <X className="mt-0.5 size-3.5 shrink-0 text-red-400" aria-hidden />
-                  {gap.displayName}
-                </span>
-                <span className="mt-0.5 block pl-5 text-slate-400">{gap.impact}</span>
-                <span className="block pl-5">
-                  <Evidence>{gap.requestedIn}</Evidence>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
 
       {insights.transferableSkills.length > 0 && (
         <Panel
@@ -197,40 +117,6 @@ export function AiInsights({
                 </span>
                 <span className="mt-0.5 block text-slate-400">{item.rationale}</span>
                 <Evidence>{item.evidence}</Evidence>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {insights.missingKeywords.length > 0 && (
-        <Panel
-          title="Keywords worth adding"
-          description="Terms the posting uses that your resume does not."
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {insights.missingKeywords.map((term) => (
-              <span
-                key={term}
-                className="rounded border border-white/[0.08] px-1.5 py-0.5 text-xs text-slate-300"
-              >
-                {term}
-              </span>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {insights.recommendations.length > 0 && (
-        <Panel title={`Recommendations (${insights.recommendations.length})`}>
-          <ul className="space-y-2.5">
-            {insights.recommendations.map((rec) => (
-              <li key={rec.action} className="text-xs">
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant={PRIORITY_VARIANT[rec.priority]}>{rec.priority}</Badge>
-                  <span className="text-slate-200">{rec.action}</span>
-                </span>
-                <span className="mt-0.5 block text-slate-500">{rec.why}</span>
               </li>
             ))}
           </ul>

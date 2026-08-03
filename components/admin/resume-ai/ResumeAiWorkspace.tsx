@@ -4,7 +4,7 @@ import * as React from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ResumeUploader } from "./ResumeUploader";
 import { ParsedPreview } from "./ParsedPreview";
-import { AnalysisResults } from "./AnalysisResults";
+import { AiReview } from "./AiReview";
 import { AiInsights } from "./AiInsights";
 import { analyzeWithAiAction, draftCoverLetterAction } from "@/app/admin/(dashboard)/resume-ai/actions";
 import { isActionError } from "@/lib/action-result";
@@ -345,7 +345,11 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       </Section>
 
       {analysis && (
-        <AnalysisResults analysis={analysis.analysis} jobDescription={analysis.jobDescription} />
+        <AiReview
+          analysis={analysis.analysis}
+          jobDescription={analysis.jobDescription}
+          insights={ai.status === "done" ? ai.insights : null}
+        />
       )}
 
       {ai.status === "running" && (
