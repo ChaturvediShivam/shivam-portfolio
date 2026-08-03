@@ -91,6 +91,11 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     missingSkills: "Kubernetes",
   },
   resume_cover_letter: {
+    tone: "professional",
+    toneRule: "Neutral business register.",
+    length: "standard",
+    lengthRule: "Three or four paragraphs.",
+    recipient: "Dear Hiring Manager,",
     jobTitle: "Senior Backend Engineer",
     company: "Example Ltd",
     candidateName: "Alice Mercer",
@@ -219,4 +224,36 @@ describe("summary templates", () => {
       MissingPromptVariableError,
     );
   });
+});
+
+/**
+ * Regression guard — a template must not ship live placeholders to a provider.
+ *
+ * `interpolate` throws on a MISSING variable, so the failure this catches is the
+ * opposite one: a `{{placeholder}}` written into a string that was never passed
+ * through `interpolate` at all. Only `assistant` interpolates its system block,
+ * so every other template's system string is a plain join — and a placeholder
+ * added there is silently sent to the model as the literal text "{{toneRule}}".
+ *
+ * That shipped once, in resume_section_rewrite and resume_cover_letter: the
+ * intensity, target, tone and length rules never reached the model, and nothing
+ * failed loudly because the reply was still valid JSON.
+ */
+describe("prompt rendering leaves no unsubstituted placeholders", () => {
+  for (const template of listPromptTemplates()) {
+    it(`renders "${template.id}" v${template.version} with every placeholder substituted`, () => {
+      const variables = SAMPLE_VARIABLES[template.id];
+      expect(variables, `no sample variables for template "${template.id}"`).toBeDefined();
+
+      const rendered = template.render(variables as Record<string, unknown>);
+      const leftover = [
+        ...`${rendered.system}\n${rendered.user}`.matchAll(/\{\{(\w+)\}\}/g),
+      ].map((match) => match[1]);
+
+      expect(
+        leftover,
+        `unsubstituted placeholders reached the provider: ${leftover.join(", ")}`,
+      ).toEqual([]);
+    });
+  }
 });

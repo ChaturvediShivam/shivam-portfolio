@@ -7,6 +7,8 @@ import { ParsedPreview } from "./ParsedPreview";
 import { AiReview } from "./AiReview";
 import { AiInsights } from "./AiInsights";
 import { ResumeRewrite } from "./ResumeRewrite";
+import { CoverLetterStudio } from "./CoverLetterStudio";
+import type { CoverLetterOptions } from "@/lib/ai-analysis/CoverLetterTypes";
 import type { RewriteOptions, RewriteResult } from "@/lib/ai-analysis/RewriteTypes";
 import {
   analyzeWithAiAction,
@@ -325,7 +327,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
     }
   }
 
-  async function draftCoverLetter() {
+  async function draftCoverLetter(options: CoverLetterOptions) {
     if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
 
     setCoverLetterPending(true);
@@ -334,6 +336,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       const result = await draftCoverLetterAction({
         resume: parse.parsed,
         jobDescription: jobDescription.text,
+        options,
       });
 
       if (isActionError(result)) {
@@ -447,14 +450,18 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
         />
       )}
 
-      {ai.status === "done" && ai.insights && (
-        <AiInsights
-          insights={ai.insights}
-          coverLetter={coverLetter}
-          coverLetterPending={coverLetterPending}
-          coverLetterError={coverLetterError}
-          onDraftCoverLetter={() => void draftCoverLetter()}
+      {analysis && (
+        <CoverLetterStudio
+          enabled={aiEnabled}
+          pending={coverLetterPending}
+          error={coverLetterError}
+          draft={coverLetter}
+          onGenerate={(options) => void draftCoverLetter(options)}
         />
+      )}
+
+      {ai.status === "done" && ai.insights && (
+        <AiInsights insights={ai.insights} />
       )}
 
       {parse.status === "parsing" && (

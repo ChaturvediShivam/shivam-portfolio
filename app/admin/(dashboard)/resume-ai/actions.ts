@@ -8,6 +8,14 @@ import { AiError } from "@/lib/ai/errors";
 import { analyzeResume } from "@/lib/resume-analysis/ResumeAnalysisService";
 import { generateInsights, buildInsightRequest } from "@/lib/ai-analysis/ResumeInsightsService";
 import { draftCoverLetter, type CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
+import {
+  COVER_LETTER_LENGTHS,
+  COVER_LETTER_TONES,
+  DEFAULT_COVER_LETTER_OPTIONS,
+  MAX_COMPANY_CHARS,
+  MAX_HIRING_MANAGER_CHARS,
+  type CoverLetterOptions,
+} from "@/lib/ai-analysis/CoverLetterTypes";
 import { rewriteSections } from "@/lib/ai-analysis/SectionRewriteService";
 import {
   REWRITE_INTENSITIES,
@@ -179,7 +187,7 @@ export async function rewriteResumeAction(
  * sent anywhere — the draft is returned to the page for them to copy.
  */
 export async function draftCoverLetterAction(
-  input: AiAnalysisInput,
+  input: AiAnalysisInput & { options?: CoverLetterOptions },
 ): Promise<ActionResult<{ draft: CoverLetterDraft | null }>> {
   return withAdminAction(async ({ supabase, userId }) => {
     if (!featureEnabled("FEATURE_RESUME_AI")) {
@@ -188,6 +196,23 @@ export async function draftCoverLetterAction(
 
     const invalid = validate(input);
     if (invalid) return actionError({ formError: invalid });
+
+    // Closed vocabularies re-checked server-side; free text bounded. Both cross
+    // a trust boundary, and an unknown tone would fall through to a default
+    // silently rather than being refused.
+    const supplied = input.options ?? DEFAULT_COVER_LETTER_OPTIONS;
+    if (
+      !COVER_LETTER_TONES.includes(supplied.tone) ||
+      !COVER_LETTER_LENGTHS.includes(supplied.length)
+    ) {
+      return actionError({ formError: "That cover letter configuration is not valid." });
+    }
+    if (
+      (supplied.company?.length ?? 0) > MAX_COMPANY_CHARS ||
+      (supplied.hiringManager?.length ?? 0) > MAX_HIRING_MANAGER_CHARS
+    ) {
+      return actionError({ formError: "Company or recipient name is too long." });
+    }
 
     try {
       const { analysis, jobDescription } = analyzeResume({
@@ -204,6 +229,7 @@ export async function draftCoverLetterAction(
           analysis,
           ownerId: userId,
         }),
+        supplied,
       );
 
       if (!draft) {

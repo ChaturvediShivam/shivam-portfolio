@@ -9,7 +9,6 @@ import type {
   AiResumeInsights,
   InsightSeverity,
 } from "@/lib/ai-analysis/AIAnalysisTypes";
-import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
 
 /**
  * AI review (Resume AI · Phase 3 · Step 2).
@@ -30,10 +29,6 @@ import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
 
 export interface AiInsightsProps {
   insights: AiResumeInsights;
-  coverLetter: CoverLetterDraft | null;
-  coverLetterPending: boolean;
-  coverLetterError: string | null;
-  onDraftCoverLetter: () => void;
 }
 
 const SEVERITY_TONE: Record<InsightSeverity, string> = {
@@ -82,13 +77,7 @@ function Evidence({ children }: { children: string }) {
   );
 }
 
-export function AiInsights({
-  insights,
-  coverLetter,
-  coverLetterPending,
-  coverLetterError,
-  onDraftCoverLetter,
-}: AiInsightsProps) {
+export function AiInsights({ insights }: AiInsightsProps) {
   return (
     <section
       aria-labelledby="ai-insights-heading"
@@ -214,44 +203,6 @@ export function AiInsights({
           </ul>
         </Panel>
       )}
-
-      <Panel title="Cover letter" description="Drafted only when you ask. Nothing is sent anywhere.">
-        {coverLetter ? (
-          <>
-            <p className="whitespace-pre-line text-xs text-slate-200">{coverLetter.body}</p>
-            {coverLetter.notes.length > 0 && (
-              <ul className="mt-2 space-y-1">
-                {coverLetter.notes.map((note) => (
-                  <li key={note} className="text-xs text-slate-500">
-                    — {note}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onDraftCoverLetter}
-            disabled={coverLetterPending}
-            className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-200 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {coverLetterPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-            {coverLetterPending ? "Drafting…" : "Draft a cover letter"}
-          </button>
-        )}
-
-        {coverLetterError && (
-          <p
-            role="status"
-            aria-live="polite"
-            className="mt-2 flex items-start gap-1.5 text-xs text-red-400"
-          >
-            <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            {coverLetterError}
-          </p>
-        )}
-      </Panel>
 
       {insights.dropped.length > 0 && (
         <details className="rounded-md border border-white/[0.06] px-3 py-2">
