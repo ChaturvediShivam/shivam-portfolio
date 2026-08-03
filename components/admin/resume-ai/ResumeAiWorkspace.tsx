@@ -6,7 +6,13 @@ import { ResumeUploader } from "./ResumeUploader";
 import { ParsedPreview } from "./ParsedPreview";
 import { AiReview } from "./AiReview";
 import { AiInsights } from "./AiInsights";
-import { analyzeWithAiAction, draftCoverLetterAction } from "@/app/admin/(dashboard)/resume-ai/actions";
+import { ResumeRewrite } from "./ResumeRewrite";
+import type { RewriteOptions, RewriteResult } from "@/lib/ai-analysis/RewriteTypes";
+import {
+  analyzeWithAiAction,
+  draftCoverLetterAction,
+  rewriteResumeAction,
+} from "@/app/admin/(dashboard)/resume-ai/actions";
 import { isActionError } from "@/lib/action-result";
 import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
@@ -153,6 +159,10 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   const [coverLetterPending, setCoverLetterPending] = React.useState(false);
   const [coverLetterError, setCoverLetterError] = React.useState<string | null>(null);
 
+  const [rewrite, setRewrite] = React.useState<RewriteResult | null>(null);
+  const [rewritePending, setRewritePending] = React.useState(false);
+  const [rewriteError, setRewriteError] = React.useState<string | null>(null);
+
   /**
    * Which AI request the UI is currently willing to accept.
    *
@@ -194,6 +204,11 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
     setAi((current) => (current.status === "idle" ? current : { status: "idle" }));
     setCoverLetter(null);
     setCoverLetterError(null);
+    // A rewrite is of a specific resume against a specific posting. Leaving it
+    // on screen after either changes would show edits to a document no longer
+    // loaded — the same staleness the analysis reset above guards against.
+    setRewrite(null);
+    setRewriteError(null);
   }, [parse, jobDescription]);
 
   /**
@@ -277,6 +292,37 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   function cancelAiReview() {
     aiRunRef.current += 1;
     setAi({ status: "cancelled" });
+  }
+
+  /**
+   * Rewrite sections.
+   *
+   * Independent of the review: it has its own pending and error state, so a
+   * failed rewrite never disturbs an analysis already on screen.
+   */
+  async function generateRewrite(options: RewriteOptions) {
+    if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
+
+    setRewritePending(true);
+    setRewriteError(null);
+    try {
+      const result = await rewriteResumeAction({
+        resume: parse.parsed,
+        jobDescription: jobDescription.text,
+        options,
+      });
+
+      if (isActionError(result)) {
+        setRewriteError(result.formError ?? "Could not rewrite this resume.");
+        return;
+      }
+      setRewrite(result.data.rewrite);
+    } catch (error) {
+      console.error("[resume-ai] rewrite failed:", error);
+      setRewriteError("Could not rewrite this resume.");
+    } finally {
+      setRewritePending(false);
+    }
   }
 
   async function draftCoverLetter() {
@@ -389,6 +435,16 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
         <p className="px-1 text-sm text-slate-500" role="status" aria-live="polite">
           {ai.note}
         </p>
+      )}
+
+      {analysis && (
+        <ResumeRewrite
+          enabled={aiEnabled}
+          pending={rewritePending}
+          error={rewriteError}
+          result={rewrite}
+          onGenerate={(options) => void generateRewrite(options)}
+        />
       )}
 
       {ai.status === "done" && ai.insights && (

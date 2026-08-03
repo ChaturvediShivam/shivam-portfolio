@@ -8,6 +8,14 @@ import { AiError } from "@/lib/ai/errors";
 import { analyzeResume } from "@/lib/resume-analysis/ResumeAnalysisService";
 import { generateInsights, buildInsightRequest } from "@/lib/ai-analysis/ResumeInsightsService";
 import { draftCoverLetter, type CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
+import { rewriteSections } from "@/lib/ai-analysis/SectionRewriteService";
+import {
+  REWRITE_INTENSITIES,
+  REWRITE_SECTIONS,
+  REWRITE_TARGETS,
+  type RewriteOptions,
+  type RewriteResult,
+} from "@/lib/ai-analysis/RewriteTypes";
 import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { ParsedResume } from "@/types/resume";
 
@@ -103,6 +111,61 @@ export async function analyzeWithAiAction(
       // content; anything else stays generic.
       const message = error instanceof AiError ? error.message : "Could not review this resume.";
       console.error("[resume ai] review failed:", error);
+      return actionError({ formError: message });
+    }
+  });
+}
+
+/**
+ * Rewrite one or more resume sections (Feature 2).
+ *
+ * Same shape as the review action deliberately: same gate, same validation,
+ * same server-side recompute of the deterministic analysis. It differs only in
+ * which service it hands the gateway to, which is what keeps a second AI
+ * feature from becoming a second AI architecture.
+ */
+export async function rewriteResumeAction(
+  input: AiAnalysisInput & { options: RewriteOptions },
+): Promise<ActionResult<{ rewrite: RewriteResult }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_RESUME_AI")) {
+      return actionError({ formError: "The AI review is not enabled." });
+    }
+
+    const invalid = validate(input);
+    if (invalid) return actionError({ formError: invalid });
+
+    // Closed vocabularies, re-checked server-side. The client sends these and a
+    // crafted request could send anything; an unknown value would fall through
+    // to a default rule silently rather than being refused.
+    const { intensity, target, scope } = input.options ?? {};
+    if (
+      !REWRITE_INTENSITIES.includes(intensity) ||
+      !REWRITE_TARGETS.includes(target) ||
+      !REWRITE_SECTIONS.includes(scope)
+    ) {
+      return actionError({ formError: "That rewrite configuration is not valid." });
+    }
+
+    try {
+      const { analysis, jobDescription } = analyzeResume({
+        resume: input.resume,
+        jobDescription: input.jobDescription,
+      });
+
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const rewrite = await rewriteSections(gateway, {
+        resume: input.resume,
+        jobDescription,
+        analysis,
+        ownerId: userId,
+        options: { intensity, target, scope },
+      });
+
+      return actionSuccess({ rewrite });
+    } catch (error) {
+      const message = error instanceof AiError ? error.message : "Could not rewrite this resume.";
+      console.error("[resume ai] rewrite failed:", error);
       return actionError({ formError: message });
     }
   });

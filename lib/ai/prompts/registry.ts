@@ -14,6 +14,9 @@ import { interviewQuestionsTemplate } from "@/lib/ai-analysis/prompts/interview"
 import { linkedinTemplate } from "@/lib/ai-analysis/prompts/linkedin";
 import { resumeReviewTemplate } from "@/lib/ai-analysis/prompts/resume-review";
 import { summaryRewriteTemplate } from "@/lib/ai-analysis/prompts/rewrite";
+// Resume AI · Feature 2. Section-scoped and parameterised by intensity/target,
+// which is why it is its own template rather than optional variables on the one above.
+import { sectionRewriteTemplate } from "@/lib/ai-analysis/prompts/section-rewrite";
 
 /**
  * Prompt template registry (Phase 3 · M6).
@@ -48,6 +51,7 @@ register(interviewQuestionsTemplate);
 register(linkedinTemplate);
 register(summaryRewriteTemplate);
 register(coverLetterTemplate);
+register(sectionRewriteTemplate);
 
 /** Numeric semver comparison; non-numeric segments sort as 0. */
 function compareVersions(a: string, b: string): number {
