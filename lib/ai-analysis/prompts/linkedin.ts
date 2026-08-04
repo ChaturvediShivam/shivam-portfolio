@@ -15,7 +15,7 @@ export const linkedinTemplate: PromptTemplate = {
   id: "resume_linkedin",
   version: "1.0.0",
   taskClass: "reasoning",
-  maxOutputTokens: 2048,
+  maxOutputTokens: 4096,
   responseSchema: {
     type: "object",
     properties: {

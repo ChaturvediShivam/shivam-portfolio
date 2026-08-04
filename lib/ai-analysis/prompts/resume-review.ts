@@ -12,6 +12,22 @@ import { interpolate, type PromptTemplate } from "@/lib/ai/prompts/template";
  * prevents a score reaching the result, and the instruction is what stops the
  * model wasting output arguing with the number it was given.
  *
+ * `maxOutputTokens` is deliberate headroom, not a measured requirement.
+ *
+ * Thinking shares the output ceiling on current models, and this is the largest
+ * structured reply in the application asked for at the highest effort. A ceiling
+ * sized to the visible answer alone would come back `truncated`, which the
+ * gateway declines to parse and the operator sees as "the AI returned nothing
+ * usable" — a failure that would land on exactly the long resumes this is most
+ * useful for.
+ *
+ * That failure has NOT been observed: across 47 live calls the peak reply here
+ * was 2,952 tokens, and nothing has ever returned `truncated`. The ceiling buys
+ * margin against a longer resume than any tested so far, and it is not free —
+ * the budget reserves `countTokens + maxOutputTokens` up front, so this figure
+ * sets how many analyses a daily ceiling allows. Lower it if the budget binds
+ * before a truncation ever appears.
+ *
  * The grounding rules are the substance of this prompt. A resume review is
  * exactly the task a model will happily invent for — plausible skills, assumed
  * seniority, flattering conclusions — and every one of those inventions is
@@ -22,7 +38,7 @@ export const resumeReviewTemplate: PromptTemplate = {
   id: "resume_review",
   version: "1.0.0",
   taskClass: "reasoning",
-  maxOutputTokens: 6144,
+  maxOutputTokens: 16384,
   responseSchema: {
     type: "object",
     properties: {

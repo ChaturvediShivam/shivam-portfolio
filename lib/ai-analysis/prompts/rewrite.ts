@@ -17,7 +17,7 @@ export const summaryRewriteTemplate: PromptTemplate = {
   id: "resume_summary_rewrite",
   version: "1.0.0",
   taskClass: "reasoning",
-  maxOutputTokens: 1536,
+  maxOutputTokens: 3072,
   responseSchema: {
     type: "object",
     properties: {
