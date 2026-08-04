@@ -164,11 +164,20 @@ export function validateDocument(file: File): ValidationOutcome {
   }
 
   if (file.size > MAX_FILE_BYTES) {
+    const actual = formatFileSize(file.size);
+    const limit = formatFileSize(MAX_FILE_BYTES);
     return {
       ok: false,
       rejection: {
         reason: "too_large",
-        message: `That file is ${formatFileSize(file.size)}. The limit is ${formatFileSize(MAX_FILE_BYTES)}.`,
+        // Just over the limit, both sides round to the same string and the
+        // sentence contradicts itself — "That file is 10 MB. The limit is
+        // 10 MB." e50f723 fixed this for 10.4 MB; it survived at the boundary,
+        // where no amount of decimal places reads well. Say it plainly instead.
+        message:
+          actual === limit
+            ? `That file is just over the ${limit} limit.`
+            : `That file is ${actual}. The limit is ${limit}.`,
         fileName: name,
       },
     };

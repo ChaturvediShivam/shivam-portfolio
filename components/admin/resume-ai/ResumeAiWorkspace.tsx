@@ -25,7 +25,7 @@ import { isActionError } from "@/lib/action-result";
 import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { CoverLetterDraft } from "@/lib/ai-analysis/CoverLetterPrompt";
 import { analyzeResume, type AnalysisResult } from "@/lib/resume-analysis/ResumeAnalysisService";
-import { parseResume, ResumeParseError } from "@/lib/resume/parse";
+import { MIN_RESUME_CHARS, parseResume, ResumeParseError } from "@/lib/resume/parse";
 import type { ParsedResume } from "@/types/resume";
 import { JDUploader } from "./JDUploader";
 import { AnalyzeButton } from "./AnalyzeButton";
@@ -195,19 +195,45 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
    */
   const aiRunRef = React.useRef(0);
 
+  /**
+   * Which inputs the on-screen results belong to.
+   *
+   * Bumped only when the resume or posting changes. Every async handler
+   * captures it before its request and refuses to commit a result once it has
+   * moved — otherwise a rewrite started against one posting lands on the page
+   * after the operator has swapped to another, and they act on output computed
+   * from inputs no longer in front of them.
+   *
+   * Separate from `aiRunRef`, which additionally serves the review's explicit
+   * Cancel button. Cancelling a review must not discard an in-flight rewrite.
+   */
+  const inputGenerationRef = React.useRef(0);
+
   const jdReady = isJobDescriptionReady(jobDescription);
-  const ready = resume !== null && jdReady;
+
+  /**
+   * A scan parses cleanly and yields no text. Without this the Analyze button
+   * is enabled, the server refuses, and the operator learns nothing about why
+   * — so the same floor the action enforces is applied here to explain it.
+   */
+  const parsedUsable =
+    parse.status !== "done" || parse.parsed.text.trim().length >= MIN_RESUME_CHARS;
+
+  const ready = resume !== null && jdReady && parsedUsable;
 
   // Named precisely rather than "complete both steps": telling someone what is
   // missing is the difference between a hint and a hint they can act on.
   const blockedReason = React.useMemo(() => {
+    if (!parsedUsable) {
+      return "No text could be read from that resume. If it is a scan, export a text-based PDF or DOCX.";
+    }
     if (!resume && !jdReady) return "Upload a resume and add a job description to continue.";
     if (!resume) return "Upload a resume to continue.";
     if (jobDescription?.source === "paste") {
       return `The job description needs at least ${MIN_JD_CHARS} characters.`;
     }
     return "Add a job description to continue.";
-  }, [resume, jdReady, jobDescription]);
+  }, [resume, jdReady, jobDescription, parsedUsable]);
 
   /**
    * Any change to either input invalidates the analysis.
@@ -219,6 +245,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   React.useEffect(() => {
     setAnalysis(null);
     aiRunRef.current += 1;
+    inputGenerationRef.current += 1;
     // Keep the existing object when already idle. A fresh `{ status: "idle" }`
     // would be a new identity every time, so this effect would schedule a
     // render on every keystroke in the job description — and each of those
@@ -340,6 +367,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   async function generateRewrite(options: RewriteOptions) {
     if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
 
+    const generation = inputGenerationRef.current;
     setRewritePending(true);
     setRewriteError(null);
     try {
@@ -350,12 +378,15 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       });
 
       if (isActionError(result)) {
+        if (inputGenerationRef.current !== generation) return;
         setRewriteError(result.formError ?? "Could not rewrite this resume.");
         return;
       }
+      if (inputGenerationRef.current !== generation) return;
       setRewrite(result.data.rewrite);
     } catch (error) {
       console.error("[resume-ai] rewrite failed:", error);
+      if (inputGenerationRef.current !== generation) return;
       setRewriteError("Could not rewrite this resume.");
     } finally {
       setRewritePending(false);
@@ -365,6 +396,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   async function regenerateInterview() {
     if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
 
+    const generation = inputGenerationRef.current;
     setInterviewPending(true);
     setInterviewError(null);
     try {
@@ -374,12 +406,15 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       });
 
       if (isActionError(result)) {
+        if (inputGenerationRef.current !== generation) return;
         setInterviewError(result.formError ?? "Could not generate interview questions.");
         return;
       }
+      if (inputGenerationRef.current !== generation) return;
       setInterview(result.data.questions);
     } catch (error) {
       console.error("[resume-ai] interview questions failed:", error);
+      if (inputGenerationRef.current !== generation) return;
       setInterviewError("Could not generate interview questions.");
     } finally {
       setInterviewPending(false);
@@ -389,6 +424,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   async function regenerateLinkedin() {
     if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
 
+    const generation = inputGenerationRef.current;
     setLinkedinPending(true);
     setLinkedinError(null);
     try {
@@ -398,12 +434,15 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       });
 
       if (isActionError(result)) {
+        if (inputGenerationRef.current !== generation) return;
         setLinkedinError(result.formError ?? "Could not generate LinkedIn copy.");
         return;
       }
+      if (inputGenerationRef.current !== generation) return;
       setLinkedin(result.data.linkedin);
     } catch (error) {
       console.error("[resume-ai] linkedin failed:", error);
+      if (inputGenerationRef.current !== generation) return;
       setLinkedinError("Could not generate LinkedIn copy.");
     } finally {
       setLinkedinPending(false);
@@ -413,6 +452,7 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   async function draftCoverLetter(options: CoverLetterOptions) {
     if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
 
+    const generation = inputGenerationRef.current;
     setCoverLetterPending(true);
     setCoverLetterError(null);
     try {
@@ -423,12 +463,15 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       });
 
       if (isActionError(result)) {
+        if (inputGenerationRef.current !== generation) return;
         setCoverLetterError(result.formError ?? "Could not draft a cover letter.");
         return;
       }
+      if (inputGenerationRef.current !== generation) return;
       setCoverLetter(result.data.draft);
     } catch (error) {
       console.error("[resume-ai] cover letter failed:", error);
+      if (inputGenerationRef.current !== generation) return;
       setCoverLetterError("Could not draft a cover letter.");
     } finally {
       setCoverLetterPending(false);

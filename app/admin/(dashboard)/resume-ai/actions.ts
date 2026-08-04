@@ -27,6 +27,7 @@ import {
   type RewriteResult,
 } from "@/lib/ai-analysis/RewriteTypes";
 import type { AiResumeInsights, InterviewQuestion } from "@/lib/ai-analysis/AIAnalysisTypes";
+import { MIN_RESUME_CHARS } from "@/lib/resume/parse";
 import type { ParsedResume } from "@/types/resume";
 
 /**
@@ -66,6 +67,12 @@ export interface AiAnalysisInput {
 function validate(input: AiAnalysisInput): string | null {
   if (!input?.resume || typeof input.resume.text !== "string" || !Array.isArray(input.resume.lines)) {
     return "That resume could not be read.";
+  }
+  // A scanned PDF parses successfully and yields no text. Without a floor here
+  // that reaches the gateway and bills four calls to analyse nothing — the
+  // job description has always had this guard and the resume did not.
+  if (input.resume.text.trim().length < MIN_RESUME_CHARS) {
+    return "No text could be read from that resume. If it is a scan, export a text-based PDF or DOCX.";
   }
   if (input.resume.text.length > MAX_RESUME_CHARS) return "That resume is too large to analyze.";
   if (typeof input.jobDescription !== "string" || !input.jobDescription.trim()) {

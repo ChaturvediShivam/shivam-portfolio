@@ -123,6 +123,23 @@ describe("buildDocx", () => {
     await expect(readZipEntryText(buffer, "word/document.xml")).resolves.toContain("w:body");
   });
 
+  it("strips characters that are illegal in XML rather than emitting a broken file", async () => {
+    // Model output reaches buildDocx without passing through normalizeText, so
+    // this boundary has to hold on its own. A single NUL makes document.xml
+    // unparseable and Word refuses the download with no explanation.
+    const dirty = [{ heading: "Experience", lines: ["Managed\u0000 data\u0007 pipelines\u000c"] }];
+    const bytes = buildDocx("CV\u0000", dirty);
+    const xml = await readZipEntryText(bytes.buffer as ArrayBuffer, "word/document.xml");
+    // eslint-disable-next-line no-control-regex
+    expect(xml).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
+    expect(xml).toContain("Managed data pipelines");
+  });
+
+  it("still round-trips text containing control characters", async () => {
+    const bytes = buildDocx("CV", [{ heading: "H", lines: ["a\u0000b"] }]);
+    await expect(extractDocxText(bytes.buffer as ArrayBuffer)).resolves.toContain("ab");
+  });
+
   it("is deterministic — same input, byte-identical output", () => {
     // Fixed DOS timestamps. A changing mtime would make every download differ
     // and defeat any future content-hash caching.

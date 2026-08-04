@@ -39,6 +39,20 @@ export class ResumeParseError extends Error {
  */
 export const MAX_RESUME_CHARS = 40_000;
 
+/**
+ * Floor on a usable resume.
+ *
+ * Roughly thirty words. Below it there is nothing to analyse, and every AI call
+ * made would be spend with no possible answer. A scanned PDF is the common
+ * case: it parses cleanly, warns that no text layer was found, and yields an
+ * empty string that otherwise flows all the way to the gateway.
+ *
+ * Lives here beside the ceiling rather than in the server action, because a
+ * "use server" file may only export async functions and both the action and the
+ * workspace need this number.
+ */
+export const MIN_RESUME_CHARS = 200;
+
 interface RawExtraction {
   text: string;
   pageCount: number | null;
