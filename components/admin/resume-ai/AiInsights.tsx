@@ -151,38 +151,6 @@ export function AiInsights({ insights }: AiInsightsProps) {
         </Panel>
       )}
 
-      {insights.linkedinSuggestions && (
-        <Panel title="LinkedIn" description="Profile copy, in your voice.">
-          <p className="text-xs font-medium text-slate-200">
-            {insights.linkedinSuggestions.headline}
-          </p>
-          <p className="mt-1.5 whitespace-pre-line text-xs text-slate-400">
-            {insights.linkedinSuggestions.about}
-          </p>
-          {insights.linkedinSuggestions.skillsToFeature.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {insights.linkedinSuggestions.skillsToFeature.map((skill) => (
-                <span
-                  key={skill}
-                  className="rounded border border-white/[0.08] px-1.5 py-0.5 text-xs text-slate-300"
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
-          )}
-          {insights.linkedinSuggestions.notes.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {insights.linkedinSuggestions.notes.map((note) => (
-                <li key={note} className="text-xs text-slate-500">
-                  — {note}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      )}
-
       {insights.dropped.length > 0 && (
         <details className="rounded-md border border-white/[0.06] px-3 py-2">
           <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">

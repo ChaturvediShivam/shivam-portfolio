@@ -9,6 +9,8 @@ import { AiInsights } from "./AiInsights";
 import { ResumeRewrite } from "./ResumeRewrite";
 import { CoverLetterStudio } from "./CoverLetterStudio";
 import { InterviewPrep } from "./InterviewPrep";
+import { LinkedInOptimizer } from "./LinkedInOptimizer";
+import type { GroundedLinkedIn } from "@/lib/ai-analysis/LinkedInOptimizer";
 import type { InterviewQuestion } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { CoverLetterOptions } from "@/lib/ai-analysis/CoverLetterTypes";
 import type { RewriteOptions, RewriteResult } from "@/lib/ai-analysis/RewriteTypes";
@@ -16,6 +18,7 @@ import {
   analyzeWithAiAction,
   draftCoverLetterAction,
   generateInterviewQuestionsAction,
+  optimizeLinkedInAction,
   rewriteResumeAction,
 } from "@/app/admin/(dashboard)/resume-ai/actions";
 import { isActionError } from "@/lib/action-result";
@@ -178,6 +181,10 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   const [interviewPending, setInterviewPending] = React.useState(false);
   const [interviewError, setInterviewError] = React.useState<string | null>(null);
 
+  const [linkedin, setLinkedin] = React.useState<GroundedLinkedIn | null>(null);
+  const [linkedinPending, setLinkedinPending] = React.useState(false);
+  const [linkedinError, setLinkedinError] = React.useState<string | null>(null);
+
   /**
    * Which AI request the UI is currently willing to accept.
    *
@@ -226,6 +233,8 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
     setRewriteError(null);
     setInterview([]);
     setInterviewError(null);
+    setLinkedin(null);
+    setLinkedinError(null);
   }, [parse, jobDescription]);
 
   /**
@@ -295,7 +304,15 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       setAi({ status: "done", insights: result.data.insights, note: result.data.note });
       // The review's enrichment already paid for a set; adopt it rather than
       // making the operator generate the same thing again.
-      if (result.data.insights) setInterview(result.data.insights.interviewQuestions);
+      if (result.data.insights) {
+        setInterview(result.data.insights.interviewQuestions);
+        setLinkedin({
+          suggestions: result.data.insights.linkedinSuggestions,
+          // generateInsights flattens every analyzer's drops into one list;
+          // these are the ones this panel is accountable for.
+          dropped: result.data.insights.dropped.filter((d) => d.startsWith("LinkedIn skill")),
+        });
+      }
     } catch (error) {
       if (aiRunRef.current !== run) return;
       const message =
@@ -366,6 +383,30 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       setInterviewError("Could not generate interview questions.");
     } finally {
       setInterviewPending(false);
+    }
+  }
+
+  async function regenerateLinkedin() {
+    if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
+
+    setLinkedinPending(true);
+    setLinkedinError(null);
+    try {
+      const result = await optimizeLinkedInAction({
+        resume: parse.parsed,
+        jobDescription: jobDescription.text,
+      });
+
+      if (isActionError(result)) {
+        setLinkedinError(result.formError ?? "Could not generate LinkedIn copy.");
+        return;
+      }
+      setLinkedin(result.data.linkedin);
+    } catch (error) {
+      console.error("[resume-ai] linkedin failed:", error);
+      setLinkedinError("Could not generate LinkedIn copy.");
+    } finally {
+      setLinkedinPending(false);
     }
   }
 
@@ -501,6 +542,17 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
           provider={ai.status === "done" ? (ai.insights?.aiProvider ?? null) : null}
           model={ai.status === "done" ? (ai.insights?.aiModel ?? null) : null}
           onRegenerate={() => void regenerateInterview()}
+        />
+      )}
+
+      {analysis && (
+        <LinkedInOptimizer
+          enabled={aiEnabled}
+          pending={linkedinPending}
+          error={linkedinError}
+          result={linkedin}
+          keywords={analysis.analysis.keywords}
+          onRegenerate={() => void regenerateLinkedin()}
         />
       )}
 

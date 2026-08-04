@@ -18,6 +18,7 @@ import {
 } from "@/lib/ai-analysis/CoverLetterTypes";
 import { rewriteSections } from "@/lib/ai-analysis/SectionRewriteService";
 import { generateInterviewQuestions } from "@/lib/ai-analysis/InterviewQuestionGenerator";
+import { optimizeLinkedIn, type GroundedLinkedIn } from "@/lib/ai-analysis/LinkedInOptimizer";
 import {
   REWRITE_INTENSITIES,
   REWRITE_SECTIONS,
@@ -221,6 +222,55 @@ export async function generateInterviewQuestionsAction(
       const message =
         error instanceof AiError ? error.message : "Could not generate interview questions.";
       console.error("[resume ai] interview questions failed:", error);
+      return actionError({ formError: message });
+    }
+  });
+}
+
+/**
+ * Regenerate LinkedIn profile copy on its own (Feature 5).
+ *
+ * Same shape as the interview action and for the same reason: the review
+ * already returns a set, and this exists so a retry costs one call rather than
+ * a whole review. It calls the same `optimizeLinkedIn` the review calls.
+ *
+ * Returns the grounded result whole — including `dropped`, which the review
+ * merges into one flat list. Kept separate here so the panel can say precisely
+ * which suggested skills were rejected and why.
+ */
+export async function optimizeLinkedInAction(
+  input: AiAnalysisInput,
+): Promise<ActionResult<{ linkedin: GroundedLinkedIn }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_RESUME_AI")) {
+      return actionError({ formError: "The AI review is not enabled." });
+    }
+
+    const invalid = validate(input);
+    if (invalid) return actionError({ formError: invalid });
+
+    try {
+      const { analysis, jobDescription } = analyzeResume({
+        resume: input.resume,
+        jobDescription: input.jobDescription,
+      });
+
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const linkedin = await optimizeLinkedIn(
+        gateway,
+        buildInsightRequest({
+          resume: input.resume,
+          jobDescription,
+          analysis,
+          ownerId: userId,
+        }),
+      );
+
+      return actionSuccess({ linkedin });
+    } catch (error) {
+      const message =
+        error instanceof AiError ? error.message : "Could not generate LinkedIn copy.";
+      console.error("[resume ai] linkedin failed:", error);
       return actionError({ formError: message });
     }
   });
