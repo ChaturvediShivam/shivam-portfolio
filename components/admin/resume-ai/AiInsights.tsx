@@ -183,27 +183,6 @@ export function AiInsights({ insights }: AiInsightsProps) {
         </Panel>
       )}
 
-      {insights.interviewQuestions.length > 0 && (
-        <Panel
-          title={`Interview questions (${insights.interviewQuestions.length})`}
-          description="What this posting and this resume make likely."
-        >
-          <ul className="space-y-2.5">
-            {insights.interviewQuestions.map((item) => (
-              <li key={item.question} className="text-xs">
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant={item.kind === "gap_probe" ? "danger" : "neutral"}>
-                    {item.kind === "gap_probe" ? "gap" : item.kind}
-                  </Badge>
-                  <span className="text-slate-200">{item.question}</span>
-                </span>
-                <span className="mt-0.5 block text-slate-500">{item.rationale}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
       {insights.dropped.length > 0 && (
         <details className="rounded-md border border-white/[0.06] px-3 py-2">
           <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">

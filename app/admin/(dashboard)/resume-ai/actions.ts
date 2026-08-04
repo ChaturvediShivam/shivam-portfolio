@@ -17,6 +17,7 @@ import {
   type CoverLetterOptions,
 } from "@/lib/ai-analysis/CoverLetterTypes";
 import { rewriteSections } from "@/lib/ai-analysis/SectionRewriteService";
+import { generateInterviewQuestions } from "@/lib/ai-analysis/InterviewQuestionGenerator";
 import {
   REWRITE_INTENSITIES,
   REWRITE_SECTIONS,
@@ -24,7 +25,7 @@ import {
   type RewriteOptions,
   type RewriteResult,
 } from "@/lib/ai-analysis/RewriteTypes";
-import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
+import type { AiResumeInsights, InterviewQuestion } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { ParsedResume } from "@/types/resume";
 
 /**
@@ -174,6 +175,52 @@ export async function rewriteResumeAction(
     } catch (error) {
       const message = error instanceof AiError ? error.message : "Could not rewrite this resume.";
       console.error("[resume ai] rewrite failed:", error);
+      return actionError({ formError: message });
+    }
+  });
+}
+
+/**
+ * Regenerate interview questions on their own (Feature 4).
+ *
+ * The review already returns a set as one of its enrichment calls. This exists
+ * so the operator can retry or refresh that set without paying for a whole
+ * review, and it calls the same `generateInterviewQuestions` the review calls —
+ * one generator, one template, one audited path.
+ */
+export async function generateInterviewQuestionsAction(
+  input: AiAnalysisInput,
+): Promise<ActionResult<{ questions: InterviewQuestion[] }>> {
+  return withAdminAction(async ({ supabase, userId }) => {
+    if (!featureEnabled("FEATURE_RESUME_AI")) {
+      return actionError({ formError: "The AI review is not enabled." });
+    }
+
+    const invalid = validate(input);
+    if (invalid) return actionError({ formError: invalid });
+
+    try {
+      const { analysis, jobDescription } = analyzeResume({
+        resume: input.resume,
+        jobDescription: input.jobDescription,
+      });
+
+      const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
+      const questions = await generateInterviewQuestions(
+        gateway,
+        buildInsightRequest({
+          resume: input.resume,
+          jobDescription,
+          analysis,
+          ownerId: userId,
+        }),
+      );
+
+      return actionSuccess({ questions });
+    } catch (error) {
+      const message =
+        error instanceof AiError ? error.message : "Could not generate interview questions.";
+      console.error("[resume ai] interview questions failed:", error);
       return actionError({ formError: message });
     }
   });

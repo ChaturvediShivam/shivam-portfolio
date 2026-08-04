@@ -100,11 +100,30 @@ export interface BulletImprovement {
   why: string;
 }
 
-export type InterviewQuestionKind = "technical" | "behavioural" | "gap_probe";
+/**
+ * Question categories (v2.0.0 of `resume_interview_questions`).
+ *
+ * `resume_based` is the old `gap_probe` renamed: it is still the question an
+ * interviewer asks about something the resume does not evidence, which remains
+ * the most useful prediction the deterministic engine enables.
+ */
+export const INTERVIEW_CATEGORIES = [
+  "technical",
+  "behavioural",
+  "experience",
+  "resume_based",
+  "hr",
+] as const;
+export type InterviewQuestionCategory = (typeof INTERVIEW_CATEGORIES)[number];
+
+/** Seniority the question is pitched at. Not a difficulty rating of the answer. */
+export const INTERVIEW_DIFFICULTIES = ["junior", "mid", "senior"] as const;
+export type InterviewDifficulty = (typeof INTERVIEW_DIFFICULTIES)[number];
 
 export interface InterviewQuestion {
   question: string;
-  kind: InterviewQuestionKind;
+  category: InterviewQuestionCategory;
+  difficulty: InterviewDifficulty;
   /** Why this posting and this resume make the question likely. */
   rationale: string;
 }

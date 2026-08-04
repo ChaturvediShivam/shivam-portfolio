@@ -1,9 +1,10 @@
 import "server-only";
 import type { AiGateway } from "@/lib/ai/gateway";
-import type {
-  InsightRequest,
-  InterviewQuestion,
-  InterviewQuestionKind,
+import {
+  INTERVIEW_CATEGORIES,
+  INTERVIEW_DIFFICULTIES,
+  type InsightRequest,
+  type InterviewQuestion,
 } from "@/lib/ai-analysis/AIAnalysisTypes";
 import { items, oneOf, text } from "@/lib/ai-analysis/grounding";
 
@@ -22,9 +23,9 @@ import { items, oneOf, text } from "@/lib/ai-analysis/grounding";
  */
 
 const TEMPLATE_ID = "resume_interview_questions";
+/** Pinned: the registry resolves the highest version when this is omitted. */
+const TEMPLATE_VERSION = "2.0.0";
 const MAX_QUESTIONS = 12;
-
-const KINDS: readonly InterviewQuestionKind[] = ["technical", "behavioural", "gap_probe"];
 
 interface InterviewOutput {
   questions: unknown;
@@ -36,6 +37,7 @@ export async function generateInterviewQuestions(
 ): Promise<InterviewQuestion[]> {
   const completion = await gateway.complete<InterviewOutput>({
     templateId: TEMPLATE_ID,
+    templateVersion: TEMPLATE_VERSION,
     ownerId: request.ownerId,
     actor: "user",
     action: "resume_interview_questions",
@@ -62,7 +64,11 @@ export async function generateInterviewQuestions(
     questions.push({
       question,
       rationale,
-      kind: oneOf(row.kind, KINDS) ?? "behavioural",
+      // An unrecognised label falls back rather than dropping the question: the
+      // question itself is the value, and the label only decides which heading
+      // it renders under.
+      category: oneOf(row.category, INTERVIEW_CATEGORIES) ?? "behavioural",
+      difficulty: oneOf(row.difficulty, INTERVIEW_DIFFICULTIES) ?? "mid",
     });
   }
 

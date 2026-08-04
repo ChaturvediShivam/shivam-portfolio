@@ -8,11 +8,14 @@ import { AiReview } from "./AiReview";
 import { AiInsights } from "./AiInsights";
 import { ResumeRewrite } from "./ResumeRewrite";
 import { CoverLetterStudio } from "./CoverLetterStudio";
+import { InterviewPrep } from "./InterviewPrep";
+import type { InterviewQuestion } from "@/lib/ai-analysis/AIAnalysisTypes";
 import type { CoverLetterOptions } from "@/lib/ai-analysis/CoverLetterTypes";
 import type { RewriteOptions, RewriteResult } from "@/lib/ai-analysis/RewriteTypes";
 import {
   analyzeWithAiAction,
   draftCoverLetterAction,
+  generateInterviewQuestionsAction,
   rewriteResumeAction,
 } from "@/app/admin/(dashboard)/resume-ai/actions";
 import { isActionError } from "@/lib/action-result";
@@ -166,6 +169,16 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
   const [rewriteError, setRewriteError] = React.useState<string | null>(null);
 
   /**
+   * Interview questions.
+   *
+   * Seeded from the review when one lands, and replaceable on its own so a
+   * retry costs one call rather than a whole review.
+   */
+  const [interview, setInterview] = React.useState<InterviewQuestion[]>([]);
+  const [interviewPending, setInterviewPending] = React.useState(false);
+  const [interviewError, setInterviewError] = React.useState<string | null>(null);
+
+  /**
    * Which AI request the UI is currently willing to accept.
    *
    * A server action cannot be aborted mid-flight, so cancelling means refusing
@@ -211,6 +224,8 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
     // loaded — the same staleness the analysis reset above guards against.
     setRewrite(null);
     setRewriteError(null);
+    setInterview([]);
+    setInterviewError(null);
   }, [parse, jobDescription]);
 
   /**
@@ -278,6 +293,9 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       }
 
       setAi({ status: "done", insights: result.data.insights, note: result.data.note });
+      // The review's enrichment already paid for a set; adopt it rather than
+      // making the operator generate the same thing again.
+      if (result.data.insights) setInterview(result.data.insights.interviewQuestions);
     } catch (error) {
       if (aiRunRef.current !== run) return;
       const message =
@@ -324,6 +342,30 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
       setRewriteError("Could not rewrite this resume.");
     } finally {
       setRewritePending(false);
+    }
+  }
+
+  async function regenerateInterview() {
+    if (parse.status !== "done" || !jobDescription || jobDescription.source !== "paste") return;
+
+    setInterviewPending(true);
+    setInterviewError(null);
+    try {
+      const result = await generateInterviewQuestionsAction({
+        resume: parse.parsed,
+        jobDescription: jobDescription.text,
+      });
+
+      if (isActionError(result)) {
+        setInterviewError(result.formError ?? "Could not generate interview questions.");
+        return;
+      }
+      setInterview(result.data.questions);
+    } catch (error) {
+      console.error("[resume-ai] interview questions failed:", error);
+      setInterviewError("Could not generate interview questions.");
+    } finally {
+      setInterviewPending(false);
     }
   }
 
@@ -447,6 +489,18 @@ export function ResumeAiWorkspace({ aiEnabled = false }: { aiEnabled?: boolean }
           error={rewriteError}
           result={rewrite}
           onGenerate={(options) => void generateRewrite(options)}
+        />
+      )}
+
+      {analysis && (
+        <InterviewPrep
+          enabled={aiEnabled}
+          pending={interviewPending}
+          error={interviewError}
+          questions={interview}
+          provider={ai.status === "done" ? (ai.insights?.aiProvider ?? null) : null}
+          model={ai.status === "done" ? (ai.insights?.aiModel ?? null) : null}
+          onRegenerate={() => void regenerateInterview()}
         />
       )}
 

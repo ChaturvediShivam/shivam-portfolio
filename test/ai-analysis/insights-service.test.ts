@@ -134,8 +134,18 @@ const REVIEW = {
 
 const INTERVIEW = {
   questions: [
-    { question: "How would you approach adopting Kubernetes here?", kind: "gap_probe", rationale: "Unmet requirement." },
-    { question: "Walk me through the settlement rebuild.", kind: "technical", rationale: "Named on the resume." },
+    {
+      question: "How would you approach adopting Kubernetes here?",
+      category: "resume_based",
+      difficulty: "senior",
+      rationale: "Unmet requirement.",
+    },
+    {
+      question: "Walk me through the settlement rebuild.",
+      category: "technical",
+      difficulty: "mid",
+      rationale: "Named on the resume.",
+    },
   ],
 };
 
