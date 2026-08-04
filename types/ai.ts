@@ -87,11 +87,25 @@ export interface AiRequest {
   cachePolicy?: AiCachePolicy;
 }
 
-/** Token accounting for one call. `cachedInputTokens` is 0 when unsupported. */
+/**
+ * Token usage for one call.
+ *
+ * The three input figures are disjoint and priced differently, which is why
+ * they are carried separately rather than summed at the source:
+ *
+ *   inputTokens              uncached input, base rate
+ *   cacheCreationInputTokens written to the cache this call, ~1.25x base
+ *   cachedInputTokens        read from the cache, ~0.1x base
+ *
+ * Total billable input is the sum of all three. Omitting the middle one — as
+ * this type did until the accounting fix — makes every prompt-cached call
+ * under-report by the size of its cached prefix, silently.
+ */
 export interface AiUsage {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  cacheCreationInputTokens: number;
 }
 
 /** The result of one completion. The only shape consumers ever see. */
@@ -199,6 +213,7 @@ export interface AiAuditEntry {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  cacheCreationInputTokens: number;
   costMicros: number;
   latencyMs: number;
   outcome: AiCallOutcome;

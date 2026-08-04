@@ -18,6 +18,16 @@ interface RawUsage {
   input_tokens?: number | null;
   output_tokens?: number | null;
   cache_read_input_tokens?: number | null;
+  /**
+   * Tokens written to the prompt cache on this call.
+   *
+   * The vendor reports total input as input + cache_creation + cache_read.
+   * Every request this gateway sends carries `cache_control` on the system
+   * block, so a changed system prompt lands its whole prefix here and NOT in
+   * `input_tokens` — which is how dropping this field made four calls with
+   * demonstrably different system prompts all report the same input count.
+   */
+  cache_creation_input_tokens?: number | null;
 }
 
 interface RawBlock {
@@ -89,6 +99,7 @@ export function toUsage(raw: RawUsage | null | undefined): AiUsage {
     inputTokens: raw?.input_tokens ?? 0,
     outputTokens: raw?.output_tokens ?? 0,
     cachedInputTokens: raw?.cache_read_input_tokens ?? 0,
+    cacheCreationInputTokens: raw?.cache_creation_input_tokens ?? 0,
   };
 }
 
@@ -152,7 +163,12 @@ export class StreamAssembler {
   private text = "";
   private stopReason: string | null = null;
   private model: string | null = null;
-  private usage: AiUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+  private usage: AiUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cachedInputTokens: 0,
+    cacheCreationInputTokens: 0,
+  };
   /** Partially-received `tool_use` blocks, keyed by their stream index. */
   private readonly pending = new Map<number, { id: string; name: string; json: string }>();
   private readonly calls: AiToolCall[] = [];
@@ -168,6 +184,7 @@ export class StreamAssembler {
         const usage = toUsage(event.message?.usage);
         this.usage.inputTokens = usage.inputTokens;
         this.usage.cachedInputTokens = usage.cachedInputTokens;
+        this.usage.cacheCreationInputTokens = usage.cacheCreationInputTokens;
         return "";
       }
 

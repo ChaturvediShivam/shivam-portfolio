@@ -77,13 +77,30 @@ export interface AiCompleteInput {
 }
 
 function emptyUsage(): AiUsage {
-  return { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+  return { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, cacheCreationInputTokens: 0 };
 }
 
 function addUsage(total: AiUsage, next: AiUsage): void {
   total.inputTokens += next.inputTokens;
   total.outputTokens += next.outputTokens;
   total.cachedInputTokens += next.cachedInputTokens;
+  total.cacheCreationInputTokens += next.cacheCreationInputTokens;
+}
+
+/**
+ * Every token the provider charges for.
+ *
+ * Cache writes and cache reads are billed, so the budget must see them. Leaving
+ * them out let the daily ceiling be overspent by the size of the cached prefix
+ * on every call.
+ */
+function billableTokens(usage: AiUsage): number {
+  return (
+    usage.inputTokens +
+    usage.outputTokens +
+    usage.cachedInputTokens +
+    usage.cacheCreationInputTokens
+  );
 }
 
 function outcomeOf(completion: AiCompletion): AiCallOutcome {
@@ -245,7 +262,7 @@ export class AiGateway {
     } finally {
       // Always reconcile: on the error path this releases the unused portion of
       // the reservation instead of stranding it for the rest of the day.
-      await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
+      await commitBudget(this.client, grant, billableTokens(usage), costMicros);
     }
   }
 
@@ -341,7 +358,7 @@ export class AiGateway {
         final.errorCode,
       );
 
-      await commitBudget(this.client, grant, usage.inputTokens + usage.outputTokens, costMicros);
+      await commitBudget(this.client, grant, billableTokens(usage), costMicros);
     }
   }
 
@@ -432,6 +449,7 @@ export class AiGateway {
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       cachedInputTokens: usage.cachedInputTokens,
+      cacheCreationInputTokens: usage.cacheCreationInputTokens,
       costMicros,
       latencyMs,
       outcome,

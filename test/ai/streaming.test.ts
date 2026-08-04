@@ -25,7 +25,12 @@ const CAPABILITIES: AiCapabilities = {
   streaming: true,
 };
 
-const USAGE: AiUsage = { inputTokens: 10, outputTokens: 4, cachedInputTokens: 0 };
+const USAGE: AiUsage = {
+  inputTokens: 10,
+  outputTokens: 4,
+  cachedInputTokens: 0,
+  cacheCreationInputTokens: 0,
+};
 
 function completion(overrides: Partial<AiCompletion> = {}): AiCompletion {
   return {
@@ -154,7 +159,12 @@ describe("StreamAssembler", () => {
     const result = assembler.finish({ provider: "p", model: "fallback", latencyMs: 2 });
     expect(result.text).toBe("Hello there");
     expect(result.stopReason).toBe("completed");
-    expect(result.usage).toEqual({ inputTokens: 7, outputTokens: 3, cachedInputTokens: 0 });
+    expect(result.usage).toEqual({
+      inputTokens: 7,
+      outputTokens: 3,
+      cachedInputTokens: 0,
+      cacheCreationInputTokens: 0,
+    });
     expect(result.model).toBe("m");
   });
 
