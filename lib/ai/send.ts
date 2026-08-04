@@ -180,6 +180,7 @@ export async function sendApprovedReply(
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
+    cacheCreationInputTokens: 0,
       costMicros: 0,
       latencyMs: 0,
       outcome: "success",

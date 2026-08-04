@@ -26,6 +26,7 @@ describe("stop reason mapping", () => {
 describe("usage mapping", () => {
   it("reads token counts including cache reads", () => {
     expect(toUsage({ input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 3 })).toEqual({
+      cacheCreationInputTokens: 0,
       inputTokens: 10,
       outputTokens: 5,
       cachedInputTokens: 3,
@@ -33,7 +34,12 @@ describe("usage mapping", () => {
   });
 
   it("defaults every counter to zero when absent", () => {
-    expect(toUsage(null)).toEqual({ inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 });
+    expect(toUsage(null)).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      cacheCreationInputTokens: 0,
+    });
   });
 });
 

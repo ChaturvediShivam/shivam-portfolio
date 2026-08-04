@@ -99,37 +99,14 @@ export interface ResumeProfile {
   yearsExperience: number | null;
 }
 
-export type MatchSeverity = "critical" | "important" | "nice_to_have";
-
-/** One requirement the resume does not evidence. */
-export interface ResumeGap {
-  requirement: string;
-  severity: MatchSeverity;
-  /** What the operator could add or emphasise. */
-  suggestion: string;
-}
-
 /**
- * The analysis result.
+ * The analysis shapes once declared here (`MatchSeverity`, `ResumeGap`,
+ * `ResumeAnalysis`) now live in `types/resume-analysis.ts`.
  *
- * Carries the same `ai_*` provenance every AI-written record in this codebase
- * carries, so a stored analysis is reproducible and auditable on the day it is
- * persisted rather than needing a migration to become so.
+ * Phase 1 declared them as forward contracts for an AI-produced analysis.
+ * Phase 3 changed what an analysis IS: scores, matches and gaps are computed
+ * deterministically, and the model's role became enriching that result rather
+ * than generating it. Keeping a second, incompatible `ResumeAnalysis` here
+ * would have left two types with one name and no way to tell which a caller
+ * meant.
  */
-export interface ResumeAnalysis {
-  id: string;
-  resumeId: string;
-  jobDescriptionId: string;
-  /** 0–100. Deliberately not called "ATS score" in the type — see docs. */
-  matchScore: number;
-  strengths: string[];
-  gaps: ResumeGap[];
-  keywordsMatched: string[];
-  keywordsMissing: string[];
-  summary: string;
-  aiProvider: string | null;
-  aiModel: string | null;
-  aiPromptVersion: string | null;
-  aiConfidence: number | null;
-  createdAt: string;
-}

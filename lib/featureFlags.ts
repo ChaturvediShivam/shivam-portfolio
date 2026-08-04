@@ -19,7 +19,8 @@ export type FeatureFlag =
   | "FEATURE_ASSISTANT"
   | "FEATURE_EMAIL_DRAFTING"
   | "FEATURE_AUTOMATION"
-  | "FEATURE_INBOX_ASSISTANT";
+  | "FEATURE_INBOX_ASSISTANT"
+  | "FEATURE_RESUME_AI";
 
 /** True only when the flag env var is exactly the string "true". */
 export function featureEnabled(flag: FeatureFlag): boolean {

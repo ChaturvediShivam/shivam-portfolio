@@ -30,7 +30,8 @@
 
 import type { AiGateway } from "@/lib/ai/gateway";
 import type { AcceptedDocumentType, UploadedDocument } from "@/types/upload";
-import type { ParsedResume, ResumeAnalysis, ResumeProfile } from "@/types/resume";
+import type { ParsedResume, ResumeProfile } from "@/types/resume";
+import type { ResumeAnalysis } from "@/types/resume-analysis";
 import type { JobRequirements, ResolvedJobDescription } from "@/types/job-description";
 
 /**
@@ -64,7 +65,15 @@ export interface JobDescriptionStructurer {
   ): Promise<JobRequirements>;
 }
 
-/** Compares a resume against a job description. The only billed step. */
+/**
+ * Compares a resume against a job description.
+ *
+ * SUPERSEDED IN PHASE 3 by `lib/resume-analysis/ResumeAnalysisService.ts`,
+ * which computes the analysis deterministically and needs no gateway at all.
+ * The interface is kept because the store below still refers to the result
+ * shape, but nothing should implement it — the AI layer's remaining job is
+ * `RecommendationEngine`, not scoring.
+ */
 export interface ResumeAnalyzer {
   analyze(input: {
     resume: ParsedResume;

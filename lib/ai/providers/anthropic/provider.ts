@@ -51,6 +51,14 @@ const PRICING: Record<string, { input: number; output: number }> = {
 };
 const FALLBACK_PRICING = { input: 15, output: 75 };
 const CACHED_INPUT_MULTIPLIER = 0.1;
+/**
+ * Writing to the prompt cache costs more than plain input.
+ *
+ * `cache_control: { type: "ephemeral" }` is the 5-minute tier, billed at ~1.25x
+ * the base input rate. Charging cache writes at 1.0x would under-report every
+ * call whose system prefix changed.
+ */
+const CACHE_WRITE_MULTIPLIER = 1.25;
 
 /** Effort per task class; overridable without touching code. */
 function effortFor(taskClass: AiTaskClass): "low" | "medium" | "high" | "xhigh" | "max" {
@@ -147,8 +155,9 @@ export class AnthropicProvider implements AiProvider {
     const price = PRICING[model] ?? FALLBACK_PRICING;
     const input = usage.inputTokens * price.input;
     const cached = usage.cachedInputTokens * price.input * CACHED_INPUT_MULTIPLIER;
+    const cacheWrite = usage.cacheCreationInputTokens * price.input * CACHE_WRITE_MULTIPLIER;
     const output = usage.outputTokens * price.output;
-    return Math.round(input + cached + output);
+    return Math.round(input + cached + cacheWrite + output);
   }
 
   async complete(request: AiRequest): Promise<AiCompletion> {

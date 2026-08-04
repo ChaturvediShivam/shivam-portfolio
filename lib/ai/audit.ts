@@ -24,7 +24,12 @@ export async function recordAiCall(client: SupabaseClient, entry: AiAuditEntry):
     ai_provider: entry.aiProvider,
     ai_model: entry.aiModel,
     ai_prompt_version: entry.aiPromptVersion,
-    input_tokens: entry.inputTokens,
+    // Cache writes are full-rate input the vendor reports in its own bucket.
+    // There is no dedicated column, and folding them here is what makes
+    // `input_tokens` mean "input billed at full rate" rather than silently
+    // excluding the cached prefix. `cost_micros` is computed upstream from the
+    // separate figures, so the differing rates are already accounted for.
+    input_tokens: entry.inputTokens + entry.cacheCreationInputTokens,
     output_tokens: entry.outputTokens,
     cached_input_tokens: entry.cachedInputTokens,
     cost_micros: entry.costMicros,

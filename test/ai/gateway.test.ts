@@ -26,7 +26,12 @@ const FULL_CAPABILITIES: AiCapabilities = {
   streaming: false,
 };
 
-const USAGE: AiUsage = { inputTokens: 100, outputTokens: 20, cachedInputTokens: 5 };
+const USAGE: AiUsage = {
+  inputTokens: 100,
+  outputTokens: 20,
+  cachedInputTokens: 5,
+  cacheCreationInputTokens: 40,
+};
 
 function completion(overrides: Partial<AiCompletion> = {}): AiCompletion {
   return {
@@ -137,7 +142,9 @@ describe("happy path", () => {
       outcome: "success",
       ai_provider: "stub",
       ai_prompt_version: "1.0.0",
-      input_tokens: 100,
+      // Cache writes are full-rate input with no column of their own, so they
+      // fold into input_tokens: 100 uncached + 40 written to cache.
+      input_tokens: 140,
       output_tokens: 20,
       cached_input_tokens: 5,
       owner_id: "owner-1",
@@ -153,7 +160,10 @@ describe("happy path", () => {
     expect(rpcCalls.map((call) => call.name)).toEqual(["ai_reserve_budget", "ai_commit_budget"]);
     expect(rpcCalls[0].args.p_tokens).toBeGreaterThan(0);
     // Actual = input + output; the estimate is replaced, not added to.
-    expect(rpcCalls[1].args.p_actual).toBe(120);
+    // Every billable token, not just the uncached ones: 100 + 20 + 5 + 40.
+    // This asserted 120 before the accounting fix, which let the daily ceiling
+    // be overspent by the size of the cached prefix on every call.
+    expect(rpcCalls[1].args.p_actual).toBe(165);
   });
 
   it("stamps the prompt version that produced the result", async () => {
@@ -327,7 +337,7 @@ describe("bounded tool rounds", () => {
 
     await new AiGateway({ provider, client }).complete({ ...INPUT, enableTools: true });
 
-    expect(audits[0]).toMatchObject({ input_tokens: 200, output_tokens: 40 });
+    expect(audits[0]).toMatchObject({ input_tokens: 280, output_tokens: 40 });
   });
 
   it("returns a tool error to the model instead of aborting the turn", async () => {
