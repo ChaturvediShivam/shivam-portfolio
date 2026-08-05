@@ -11,6 +11,13 @@
 import * as Sentry from "@sentry/nextjs";
 
 export async function register() {
+  // TEMPORARY diagnostic — proving whether Vercel invokes this hook at all.
+  console.log(
+    `[sentry-instrumentation] register() runtime=${process.env.NEXT_RUNTIME} dsn=${
+      process.env.NEXT_PUBLIC_SENTRY_DSN ? "set" : "MISSING"
+    }`,
+  );
+
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
   }
