@@ -10,7 +10,13 @@ import type {
 } from "@/types/ai";
 import type { PromptTemplate } from "@/lib/ai/prompts/template";
 import { featureEnabled } from "@/lib/featureFlags";
-import { AiDisabledError, AiTransientError, aiErrorCode } from "@/lib/ai/errors";
+import {
+  AiDisabledError,
+  AiRateLimitedError,
+  AiTransientError,
+  aiErrorCode,
+} from "@/lib/ai/errors";
+import { checkAiRateLimit } from "@/lib/ai/rateLimit";
 import { recordAiCall } from "@/lib/ai/audit";
 import { commitBudget, reserveBudget, type BudgetGrant } from "@/lib/ai/budget";
 import { getPromptTemplate } from "@/lib/ai/prompts/registry";
@@ -176,12 +182,36 @@ export class AiGateway {
     return { template, request, wantsStructured, needsPromptFallback };
   }
 
+  /**
+   * Refuse a burst before anything is reserved or spent.
+   *
+   * Only `actor: "user"` is throttled. Background work — M7 summaries, M10
+   * automation runs — is already paced by the cron cadence and the automation
+   * loop governor, and throttling it here would make a backlog permanent by
+   * refusing the very calls meant to drain it.
+   *
+   * Audited on refusal for the same reason a budget refusal is: it is an
+   * operator-visible event even though no provider call was made.
+   */
+  private async enforceRateLimit(input: AiCompleteInput, promptVersion: string, model: string) {
+    if ((input.actor ?? "system") !== "user") return;
+
+    const state = await checkAiRateLimit(this.client, input.ownerId);
+    if (!state.limited) return;
+
+    const error = new AiRateLimitedError(state.windowMinutes);
+    await this.audit(input, promptVersion, model, emptyUsage(), 0, 0, "error", aiErrorCode(error));
+    throw error;
+  }
+
   async complete<T = unknown>(input: AiCompleteInput): Promise<AiCompletion<T>> {
     const { template, request, wantsStructured } = this.prepare(input);
     const model = this.provider.resolveModel(template.taskClass);
     const usage = emptyUsage();
     let costMicros = 0;
     let latencyMs = 0;
+
+    await this.enforceRateLimit(input, template.version, model);
 
     const estimate = await this.estimate(request);
 
@@ -292,6 +322,8 @@ export class AiGateway {
     let costMicros = 0;
     let latencyMs = 0;
     let settled: { outcome: AiCallOutcome; errorCode: string | null; model: string } | null = null;
+
+    await this.enforceRateLimit(input, template.version, model);
 
     const estimate = await this.estimate(request);
 

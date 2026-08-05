@@ -230,6 +230,15 @@ function fakeClient() {
           if (table === "ai_audit_log") audits.push(row);
           return Promise.resolve({ error: null });
         },
+        // The rate limiter counts recent rows in this same table. Zero keeps
+        // these tests about grounding rather than about throttling.
+        select() {
+          return {
+            eq() {
+              return { gte: () => Promise.resolve({ count: 0, error: null }) };
+            },
+          };
+        },
       };
     },
   } as unknown as SupabaseClient;

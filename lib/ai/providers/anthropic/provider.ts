@@ -30,6 +30,20 @@ import { StreamAssembler, toCompletion, type RawMessage, type RawStreamEvent } f
 
 const PROVIDER_NAME = "anthropic";
 
+/**
+ * Per-request ceiling.
+ *
+ * The SDK defaults to a ten-minute timeout and two retries, so a hung request
+ * could hold a serverless function for roughly half an hour while the browser
+ * gave up at 120s — and every attempt the server completed still billed.
+ *
+ * 90s sits above every latency measured in production (the slowest observed
+ * call was 30.3s) and below the client's own 120s abort, which is the ordering
+ * that matters: the server must give up before the operator is told it has, or
+ * the UI reports a timeout on work that is still running and still spending.
+ */
+const REQUEST_TIMEOUT_MS = 90_000;
+
 /** Defaults live here, not in shared code, so no vendor id leaks upward. */
 const DEFAULT_MODELS: Record<AiTaskClass, string> = {
   fast: "claude-opus-5",
@@ -108,6 +122,11 @@ function classify(error: unknown): AiTransientError | AiPermanentError {
   if (error instanceof Anthropic.RateLimitError) {
     return new AiTransientError("AI provider rate limit reached.");
   }
+  // Before APIConnectionError, which it extends — otherwise a timeout is
+  // reported as a connection failure and the operator debugs the wrong thing.
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return new AiTransientError("AI provider did not respond in time.");
+  }
   if (error instanceof Anthropic.APIConnectionError) {
     return new AiTransientError("AI provider connection failed.");
   }
@@ -143,7 +162,16 @@ export class AnthropicProvider implements AiProvider {
 
   constructor(apiKey: string) {
     if (!apiKey) throw new AiUnconfiguredError();
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({
+      apiKey,
+      timeout: REQUEST_TIMEOUT_MS,
+      // Retry policy belongs to the caller, not the transport. The SDK defaults
+      // to two retries of its own, which multiply with the single retry
+      // `ResumeInsightsService` performs: one logical review call could become
+      // six HTTP attempts, and any attempt the server completed is billed even
+      // when the client stopped waiting for it.
+      maxRetries: 0,
+    });
   }
 
   resolveModel(taskClass: AiTaskClass): string {

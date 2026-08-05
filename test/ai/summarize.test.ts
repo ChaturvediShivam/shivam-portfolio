@@ -679,7 +679,7 @@ describe("opportunity rollups (M7.3)", () => {
       { ownerId: OWNER, actor: "user" },
     );
 
-    const audit = stub.operations.find((operation) => operation.table === "ai_audit_log");
+    const audit = stub.operations.find((operation) => operation.table === "ai_audit_log" && operation.type === "insert");
     expect(audit?.values).toMatchObject({
       action: "summarize",
       entity_type: "opportunity",
@@ -846,7 +846,7 @@ describe("accounting", () => {
 
     expect(stub.rpcCalls.map((call) => call.name)).toEqual(["ai_reserve_budget", "ai_commit_budget"]);
 
-    const audit = stub.operations.find((operation) => operation.table === "ai_audit_log");
+    const audit = stub.operations.find((operation) => operation.table === "ai_audit_log" && operation.type === "insert");
     expect(audit?.values).toMatchObject({
       action: "summarize",
       actor: "user",

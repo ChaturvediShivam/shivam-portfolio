@@ -205,7 +205,7 @@ describe("summarizeMessageAction", () => {
     expect(stub.hasFilter(read, "eq", "owner_id", OWNER)).toBe(true);
     expect(stub.hasFilter(read, "eq", "owner_id", OTHER_OWNER)).toBe(false);
 
-    const audit = stub.operations.find((op) => op.table === "ai_audit_log");
+    const audit = stub.operations.find((op) => op.table === "ai_audit_log" && op.type === "insert");
     expect(audit?.values).toMatchObject({ owner_id: OWNER, actor: "user", entity_type: "message" });
   });
 
@@ -315,7 +315,7 @@ describe("summarizeOpportunityAction", () => {
     for (const table of ["opportunities", "messages", "opportunity_notes"]) {
       expect(stub.hasFilter(stub.opsFor(table)[0], "eq", "owner_id", OWNER)).toBe(true);
     }
-    const audit = stub.operations.find((op) => op.table === "ai_audit_log");
+    const audit = stub.operations.find((op) => op.table === "ai_audit_log" && op.type === "insert");
     expect(audit?.values).toMatchObject({ owner_id: OWNER, entity_type: "opportunity" });
   });
 

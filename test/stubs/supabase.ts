@@ -24,6 +24,8 @@ export interface StubFilter {
 export interface StubOperation {
   table: string;
   type: "select" | "update" | "insert";
+  /** True when the caller asked for a count only (`{ head: true }`). */
+  countOnly?: boolean;
   /** Column list passed to `.select(...)`, when one was given. */
   columns?: string;
   /** Row handed to `.update()` / `.insert()`. */
@@ -38,6 +40,8 @@ export interface StubOperation {
 export interface SupabaseStubConfig {
   /** Result for a `select` on a table: a row, null, or a list. */
   select?: Record<string, unknown>;
+  /** Row count returned for `select(..., { head: true })` on a table. */
+  count?: Record<string, number>;
   /** Rows returned by `update(...).select(...)` on a table. */
   update?: Record<string, unknown[]>;
   /** Result data for an `rpc` by function name. */
@@ -68,7 +72,11 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
   ) {}
 
   /** Column list, or — on an update/insert — the RETURNING clause. */
-  select(columns?: string): this {
+  select(columns?: string, options?: { count?: string; head?: boolean }): this {
+    // `{ head: true }` is a COUNT query: PostgREST returns no rows, only a
+    // count. The rate limiter uses this shape, and a stub that ignored it would
+    // demand a fabricated row list for a query that never returns rows.
+    if (options?.head) this.operation.countOnly = true;
     this.operation.columns = columns;
     return this;
   }
@@ -117,8 +125,14 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return this;
   }
 
-  private result(): { data: unknown; error: null } {
+  private result(): { data: unknown; error: null; count?: number } {
     const { table, type } = this.operation;
+
+    if (type === "select" && this.operation.countOnly) {
+      // Defaults to zero so a test that is not about rate limiting does not
+      // have to configure one. Set `count: { ai_audit_log: n }` to exercise it.
+      return { data: null, error: null, count: this.config.count?.[table] ?? 0 };
+    }
 
     if (type === "select") {
       if (!(table in (this.config.select ?? {}))) {
@@ -140,8 +154,10 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return { data: null, error: null };
   }
 
-  then<TResult1 = { data: unknown; error: null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: unknown; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = { data: unknown; error: null; count?: number }, TResult2 = never>(
+    onfulfilled?:
+      | ((value: { data: unknown; error: null; count?: number }) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
     return Promise.resolve(this.result()).then(onfulfilled, onrejected);
@@ -161,7 +177,8 @@ export function createSupabaseStub(config: SupabaseStubConfig = {}): SupabaseStu
   const client = {
     from(table: string) {
       return {
-        select: (columns?: string) => start(table, "select").select(columns),
+        select: (columns?: string, options?: { count?: string; head?: boolean }) =>
+          start(table, "select").select(columns, options),
         update: (values: Record<string, unknown>) => start(table, "update", values),
         insert: (values: Record<string, unknown>) => start(table, "insert", values),
       };

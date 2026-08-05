@@ -18,6 +18,7 @@ export type AiErrorCode =
   | "transient"
   | "permanent"
   | "budget_exceeded"
+  | "rate_limited"
   | "approval_required"
   | "invalid_output"
   | "unknown_template"
@@ -69,6 +70,24 @@ export class AiPermanentError extends AiError {
 export class AiBudgetExceededError extends AiError {
   constructor(message = "Daily AI token budget exhausted.") {
     super("budget_exceeded", message, false);
+  }
+}
+
+/**
+ * Too many calls in a short window.
+ *
+ * Distinct from `budget_exceeded`: that one means the day's spend is gone and
+ * waiting will not help until tomorrow. This one clears on its own in minutes,
+ * which is why the message says so. Non-retryable all the same — an immediate
+ * retry is exactly the behaviour being refused.
+ */
+export class AiRateLimitedError extends AiError {
+  constructor(windowMinutes: number) {
+    super(
+      "rate_limited",
+      `Too many AI requests in a short time. This clears within ${windowMinutes} minutes.`,
+      false,
+    );
   }
 }
 

@@ -8,6 +8,7 @@ import {
   AiBudgetExceededError,
   AiDisabledError,
   AiInvalidOutputError,
+  AiRateLimitedError,
   AiTransientError,
 } from "@/lib/ai/errors";
 
@@ -80,7 +81,7 @@ class StubProvider implements AiProvider {
 }
 
 /** Records rpc + insert traffic so budget and audit behaviour can be asserted. */
-function fakeClient(options: { reserve?: boolean } = {}) {
+function fakeClient(options: { reserve?: boolean; recentCalls?: number } = {}) {
   const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
   const audits: Record<string, unknown>[] = [];
 
@@ -97,6 +98,16 @@ function fakeClient(options: { reserve?: boolean } = {}) {
         insert(row: Record<string, unknown>) {
           if (table === "ai_audit_log") audits.push(row);
           return Promise.resolve({ error: null });
+        },
+        // Count query behind the rate limiter, on this same table.
+        select() {
+          return {
+            eq() {
+              return {
+                gte: () => Promise.resolve({ count: options.recentCalls ?? 0, error: null }),
+              };
+            },
+          };
         },
       };
     },
@@ -364,5 +375,60 @@ describe("bounded tool rounds", () => {
     const toolTurn = provider.requests[1].messages.find((message) => message.role === "tool");
     expect(toolTurn?.content).toContain("tool exploded");
     expect(result.parsed).toEqual({ echo: "nonce-1", ok: true });
+  });
+});
+
+describe("rate limiting", () => {
+  const USER_INPUT = { ...INPUT, actor: "user" as const };
+
+  it("lets a user call through when the window is quiet", async () => {
+    const { client } = fakeClient({ recentCalls: 3 });
+    const provider = new StubProvider([completion()]);
+    const result = await new AiGateway({ provider, client }).complete(USER_INPUT);
+    expect(result.stopReason).toBe("completed");
+  });
+
+  it("refuses a user burst before the provider is called or budget reserved", async () => {
+    // Order matters: refusing after reservation would strand tokens, and
+    // refusing after the call would have already spent the money.
+    const { client, rpcCalls } = fakeClient({ recentCalls: 20 });
+    const provider = new StubProvider([completion()]);
+    const gateway = new AiGateway({ provider, client });
+
+    await expect(gateway.complete(USER_INPUT)).rejects.toBeInstanceOf(AiRateLimitedError);
+    expect(provider.requests).toHaveLength(0);
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it("audits the refusal — an operator-visible event with no provider call", async () => {
+    const { client, audits } = fakeClient({ recentCalls: 20 });
+    const gateway = new AiGateway({ provider: new StubProvider([completion()]), client });
+
+    await expect(gateway.complete(USER_INPUT)).rejects.toThrow();
+    expect(audits[0]).toMatchObject({
+      outcome: "error",
+      error_code: "rate_limited",
+      input_tokens: 0,
+      output_tokens: 0,
+    });
+  });
+
+  it("does NOT throttle background work", async () => {
+    // M7 summaries and M10 automation runs are already paced by the cron
+    // cadence and the loop governor. Throttling them here would make a backlog
+    // permanent by refusing the very calls meant to drain it.
+    const { client } = fakeClient({ recentCalls: 9999 });
+    const provider = new StubProvider([completion(), completion()]);
+    const gateway = new AiGateway({ provider, client });
+
+    await expect(gateway.complete({ ...INPUT, actor: "system" })).resolves.toBeDefined();
+    await expect(gateway.complete({ ...INPUT, actor: "agent" })).resolves.toBeDefined();
+    expect(provider.requests).toHaveLength(2);
+  });
+
+  it("treats an unspecified actor as background, matching the audit default", async () => {
+    const { client } = fakeClient({ recentCalls: 9999 });
+    const gateway = new AiGateway({ provider: new StubProvider([completion()]), client });
+    await expect(gateway.complete(INPUT)).resolves.toBeDefined();
   });
 });
