@@ -30,6 +30,17 @@ export async function GET(request: Request) {
     throw new Error("Sentry production verification — deliberate test error (Phase 6 Sprint 1)");
   }
 
+  // Explicit capture + awaited flush. If this delivers but `throw=1` does not,
+  // the SDK and transport are fine and the gap is that nothing keeps the
+  // serverless function alive long enough for the automatic path to flush.
+  if (url.searchParams.get("capture") === "1") {
+    const eventId = Sentry.captureException(
+      new Error("Sentry production verification — explicit capture (Phase 6 Sprint 1)"),
+    );
+    const flushed = await Sentry.flush(5000);
+    return NextResponse.json({ eventId, flushed });
+  }
+
   const client = Sentry.getClient();
 
   return NextResponse.json({
