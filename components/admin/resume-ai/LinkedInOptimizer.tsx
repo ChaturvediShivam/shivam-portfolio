@@ -8,11 +8,11 @@ import {
   Download,
   FileText,
   Info,
-  Linkedin,
   Loader2,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
+import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/admin/ui";
 import { downloadDocx } from "@/lib/resume/exportDocx";
@@ -226,7 +226,7 @@ export function LinkedInOptimizer({
             id="linkedin-heading"
             className="flex items-center gap-2 text-sm font-semibold text-white"
           >
-            <Linkedin className="size-4 text-purple-300" aria-hidden />
+            <LinkedinIcon className="size-4 text-purple-300" aria-hidden />
             LinkedIn optimizer
           </h3>
           <p className="mt-0.5 text-xs text-slate-500">

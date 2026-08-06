@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { SITE_CONFIG, HERO_CONTENT } from "@/constants";
-import { Linkedin } from "lucide-react";
+import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 
 export default function Footer() {
   return (
@@ -74,7 +74,7 @@ export default function Footer() {
             aria-label="LinkedIn"
             className="flex items-center justify-center w-9 h-9 rounded-full border border-slate-200 dark:border-white/10 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal transition-colors duration-200 ease-calm"
           >
-            <Linkedin size={16} aria-hidden="true" />
+            <LinkedinIcon size={16} aria-hidden="true" />
           </Link>
         </div>
       </div>

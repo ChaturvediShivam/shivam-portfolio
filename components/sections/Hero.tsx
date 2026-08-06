@@ -5,12 +5,13 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { HERO_CONTENT } from "@/constants";
 import { EASE_CALM } from "@/lib/motion";
-import { Linkedin, LayoutDashboard, MessageSquare } from "lucide-react";
+import { LayoutDashboard, MessageSquare } from "lucide-react";
+import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 
 const ctaIconMap: Record<string, React.ElementType<{ size?: number | string; className?: string }>> = {
   LayoutDashboard,
   MessageSquare,
-  Linkedin,
+  Linkedin: LinkedinIcon,
 };
 
 // Inline SVG noise — keeps the texture off the network (no remote fetch).
