@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function ResearchNote({ params }: { params: { slug: string } }) {
+export default async function ResearchNote(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   return (
     <div className="section-container py-24 max-w-4xl mx-auto px-6">
       <Link href="/blog" className="flex items-center gap-2 text-sm font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal transition-colors mb-12">
