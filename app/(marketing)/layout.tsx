@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BackToTop from "@/components/ui/BackToTop";
 import AuthFragmentRescue from "@/components/auth/AuthFragmentRescue";
+import { Analytics } from "@vercel/analytics/next";
 import { SITE_CONFIG } from "@/constants";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -87,6 +88,9 @@ export default function MarketingLayout({
           <Footer />
           <BackToTop />
         </ThemeProvider>
+        {/* Page views + Web Vitals. Inert until Web Analytics is enabled for
+            the project in the Vercel dashboard. */}
+        <Analytics />
       </body>
     </html>
   );
