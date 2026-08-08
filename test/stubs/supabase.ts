@@ -16,14 +16,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export interface StubFilter {
-  op: "eq" | "is" | "in" | "gte" | "lte" | "not";
+  op: "eq" | "is" | "in" | "gte" | "lte" | "lt" | "not";
   column: string;
   value: unknown;
 }
 
 export interface StubOperation {
   table: string;
-  type: "select" | "update" | "insert";
+  type: "select" | "update" | "insert" | "delete";
   /** True when the caller asked for a count only (`{ head: true }`). */
   countOnly?: boolean;
   /** Column list passed to `.select(...)`, when one was given. */
@@ -47,6 +47,14 @@ export interface SupabaseStubConfig {
   /** Result data for an `rpc` by function name. */
   rpc?: Record<string, unknown>;
   /**
+   * Error returned for every operation on a table, in place of a result.
+   *
+   * Exists so a caller's failure path can be exercised. Which way a limiter
+   * fails when its own meter is unavailable is a security property, not an
+   * implementation detail, and it is untestable while every query succeeds.
+   */
+  error?: Record<string, { message: string; code?: string }>;
+  /**
    * Session user returned by `auth.getUser()`. Omit to simulate no session,
    * which is how Server Actions are driven down their unauthenticated path.
    */
@@ -65,7 +73,12 @@ export interface SupabaseStub {
   hasFilter(operation: StubOperation, op: StubFilter["op"], column: string, value: unknown): boolean;
 }
 
-class Query implements PromiseLike<{ data: unknown; error: null }> {
+export interface StubError {
+  message: string;
+  code?: string;
+}
+
+class Query implements PromiseLike<{ data: unknown; error: StubError | null }> {
   constructor(
     private readonly operation: StubOperation,
     private readonly config: SupabaseStubConfig,
@@ -106,6 +119,11 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return this;
   }
 
+  lt(column: string, value: unknown): this {
+    this.operation.filters.push({ op: "lt", column, value });
+    return this;
+  }
+
   order(): this {
     return this;
   }
@@ -125,8 +143,15 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return this;
   }
 
-  private result(): { data: unknown; error: null; count?: number } {
+  private result(): { data: unknown; error: StubError | null; count?: number } {
     const { table, type } = this.operation;
+
+    // Configured failure wins over every result shape: a table that is erroring
+    // errors for reads, writes and counts alike.
+    const failure = this.config.error?.[table];
+    if (failure) return { data: null, error: failure, count: undefined };
+
+    if (type === "delete") return { data: null, error: null };
 
     if (type === "select" && this.operation.countOnly) {
       // Defaults to zero so a test that is not about rate limiting does not
@@ -154,9 +179,11 @@ class Query implements PromiseLike<{ data: unknown; error: null }> {
     return { data: null, error: null };
   }
 
-  then<TResult1 = { data: unknown; error: null; count?: number }, TResult2 = never>(
+  then<TResult1 = { data: unknown; error: StubError | null; count?: number }, TResult2 = never>(
     onfulfilled?:
-      | ((value: { data: unknown; error: null; count?: number }) => TResult1 | PromiseLike<TResult1>)
+      | ((
+          value: { data: unknown; error: StubError | null; count?: number },
+        ) => TResult1 | PromiseLike<TResult1>)
       | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
@@ -181,6 +208,7 @@ export function createSupabaseStub(config: SupabaseStubConfig = {}): SupabaseStu
           start(table, "select").select(columns, options),
         update: (values: Record<string, unknown>) => start(table, "update", values),
         insert: (values: Record<string, unknown>) => start(table, "insert", values),
+        delete: () => start(table, "delete"),
       };
     },
     rpc(name: string, args: Record<string, unknown>) {
