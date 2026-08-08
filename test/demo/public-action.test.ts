@@ -159,42 +159,61 @@ describe("gate 3 — per-visitor allowance", () => {
   });
 });
 
-describe("gate 4 — global demo budget", () => {
-  it("rejects when the daily ceiling is spent", async () => {
+describe("budget — reported to the action, never a rejection", () => {
+  it("still runs the action when the ceiling is spent, flagging the AI as unavailable", async () => {
     turnstilePasses();
     const stub = healthyStub({
       select: { ai_usage_counters: { usage_date: "2026-08-09", tokens_reserved: 50_000, tokens_used: 50_000, cost_micros: 0, request_count: 9 } },
     });
-    const body = vi.fn();
+    let seen: DemoContext | null = null;
 
-    const result = await withPublicDemoAction({ turnstileToken: TOKEN, visitorIp: IP }, body, () => stub.client);
+    const result = await withPublicDemoAction(
+      { turnstileToken: TOKEN, visitorIp: IP },
+      async (context) => { seen = context; return demoSuccess("deterministic"); },
+      () => stub.client,
+    );
 
-    expect(!result.ok && result.code).toBe("budget_exhausted");
-    expect(body).not.toHaveBeenCalled();
+    // A spent budget bounds the provider call, not the analysis. The visitor
+    // must never be left with a blank page because the AI half is unaffordable.
+    expect(result.ok && result.data).toBe("deterministic");
+    expect(seen!.aiBudgetAvailable).toBe(false);
   });
 
-  it("allows when the ceiling has room", async () => {
+  it("reports room when the ceiling has some", async () => {
     turnstilePasses();
     const stub = healthyStub({
       select: { ai_usage_counters: { usage_date: "2026-08-09", tokens_reserved: 100, tokens_used: 100, cost_micros: 0, request_count: 1 } },
     });
+    let seen: DemoContext | null = null;
 
-    const result = await withPublicDemoAction({ turnstileToken: TOKEN, visitorIp: IP }, async () => demoSuccess("ran"), () => stub.client);
-    expect(result.ok && result.data).toBe("ran");
+    await withPublicDemoAction(
+      { turnstileToken: TOKEN, visitorIp: IP },
+      async (context) => { seen = context; return demoSuccess(null); },
+      () => stub.client,
+    );
+
+    expect(seen!.aiBudgetAvailable).toBe(true);
   });
 
-  it("fails closed when the ledger is unreadable", async () => {
+  it("treats an unreadable ledger as no budget, without blocking the analysis", async () => {
     turnstilePasses();
     // demo_usage answers (throttle passes); ai_usage_counters errors.
     const stub = createSupabaseStub({
       count: { demo_usage: 0 },
       error: { ai_usage_counters: { message: "permission denied for relation" } },
     });
+    let seen: DemoContext | null = null;
 
-    const result = await withPublicDemoAction({ turnstileToken: TOKEN, visitorIp: IP }, vi.fn(), () => stub.client);
+    const result = await withPublicDemoAction(
+      { turnstileToken: TOKEN, visitorIp: IP },
+      async (context) => { seen = context; return demoSuccess("deterministic"); },
+      () => stub.client,
+    );
 
-    // An unenforceable ceiling is not an open one.
-    expect(!result.ok && result.code).toBe("budget_exhausted");
+    // An unenforceable ceiling is not an open one — but it is also not a reason
+    // to withhold work that costs nothing at a provider.
+    expect(seen!.aiBudgetAvailable).toBe(false);
+    expect(result.ok && result.data).toBe("deterministic");
   });
 });
 

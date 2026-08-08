@@ -17,16 +17,19 @@ import {
  *
  * `lib/actions.ts` resolves a session and hands the action a user id. There is
  * no session here and never will be, so the thing that has to be established
- * before an action runs is not "who is this" but "should this run at all". Four
- * gates answer that, cheapest first, and the action body only ever executes
- * once all four have passed.
+ * before an action runs is not "who is this" but "should this run at all".
+ * Three gates answer that, cheapest first, and the action body only executes
+ * once all three have passed. A fourth check follows them and rejects nothing:
+ * the token budget resolves to a flag the action reads, because it bounds the
+ * provider call rather than the analysis, and a spent budget must still leave a
+ * visitor with a deterministic score rather than a blank page.
  *
  * Ordering is a cost decision, not a stylistic one. The flag and configuration
  * checks read environment variables and cost nothing. Turnstile costs one
  * outbound request, and it comes before the database work deliberately: it is
  * what keeps unverified traffic from reaching our tables at all, so a script
- * that never solves a challenge cannot make us issue a single query. The two
- * database gates follow, and the action's own work — parsing, scoring, a
+ * that never solves a challenge cannot make us issue a single query. The
+ * database work follows, and the action's own work — parsing, scoring, a
  * provider call — is the most expensive thing here and runs last.
  *
  * `lib/actions.ts` and every admin action are untouched. The two wrappers share
@@ -49,7 +52,7 @@ export type DemoErrorCode =
   | "demo_unconfigured"
   | "verification_failed"
   | "rate_limited"
-  | "budget_exhausted"
+  | "invalid_input"
   | "internal_error";
 
 /**
@@ -66,6 +69,8 @@ export type DemoActionResult<T> =
       formError: string;
       /** Present on `rate_limited`, so the UI can say when to come back. */
       retryAfterMinutes?: number;
+      /** Present on `invalid_input`, to mark the field that needs attention. */
+      fieldErrors?: Record<string, string>;
     };
 
 /** What the action body receives once every gate has passed. */
@@ -76,6 +81,14 @@ export interface DemoContext {
   ownerId: string;
   /** Present when the request carried a resolvable address. */
   visitorIp: string | null;
+  /**
+   * Whether the shared daily token ceiling has room left.
+   *
+   * False does not mean refuse: it means run everything that costs nothing and
+   * skip only the provider call, so a visitor who arrives after the budget is
+   * spent still gets a full deterministic analysis.
+   */
+  aiBudgetAvailable: boolean;
 }
 
 export interface DemoActionInput {
@@ -93,7 +106,10 @@ const MESSAGES: Record<DemoErrorCode, string> = {
   demo_unconfigured: "The live demo is not available right now.",
   verification_failed: "We could not verify that request. Refresh the page and try again.",
   rate_limited: "You have used all of this hour's analyses. Try again shortly.",
-  budget_exhausted: "The AI review is paused for today. Please try again tomorrow.",
+  // Overridden by the caller with the specific problem: unlike every other
+  // message here, this one describes the visitor's input rather than our state,
+  // so saying "check your resume" is useful rather than a leak.
+  invalid_input: "Check the resume and job description, then try again.",
   internal_error: "Something went wrong. Please try again.",
 };
 
@@ -103,9 +119,15 @@ export function demoSuccess<T>(data: T): DemoActionResult<T> {
 
 export function demoFailure(
   code: DemoErrorCode,
-  extra?: { retryAfterMinutes?: number },
+  extra?: {
+    retryAfterMinutes?: number;
+    fieldErrors?: Record<string, string>;
+    /** Replaces the default sentence. Only ever caller-authored copy. */
+    formError?: string;
+  },
 ): DemoActionResult<never> {
-  return { ok: false, code, formError: MESSAGES[code], ...extra };
+  const { formError, ...rest } = extra ?? {};
+  return { ok: false, code, formError: formError ?? MESSAGES[code], ...rest };
 }
 
 export async function withPublicDemoAction<T>(
@@ -152,13 +174,17 @@ export async function withPublicDemoAction<T>(
     return demoFailure("rate_limited", { retryAfterMinutes: DEMO_VISITOR_WINDOW_MINUTES });
   }
 
-  // ---- Gate 4: global demo budget. The ceiling every visitor shares. ----
-  if (await budgetExhausted(supabase, ownerId)) return demoFailure("budget_exhausted");
+  // ---- Gate 4: global demo budget. Reported, not enforced as a rejection. ----
+  // The ceiling bounds the AI insight, which is one part of an analysis. The
+  // deterministic score costs nothing at a provider and must still be produced
+  // when the budget is gone, so this resolves to a flag the action reads rather
+  // than a refusal that would leave a visitor with a blank page.
+  const aiBudgetAvailable = !(await budgetExhausted(supabase, ownerId));
 
   // ---- Gate 5: run the action. ----
   let result: DemoActionResult<T>;
   try {
-    result = await run({ supabase, ownerId, visitorIp });
+    result = await run({ supabase, ownerId, visitorIp, aiBudgetAvailable });
   } catch (error) {
     // ---- Gate 6: scrub. ----
     // The only place an unexpected throw becomes a response. Provider errors
