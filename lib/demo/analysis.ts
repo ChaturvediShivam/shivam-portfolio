@@ -6,6 +6,7 @@ import { MIN_RESUME_CHARS } from "@/lib/resume/parse";
 import { DEMO_MAX_JD_CHARS, DEMO_MAX_RESUME_CHARS } from "@/lib/demo/config";
 import { sampleJobDescription, sampleResume } from "@/lib/demo/samples";
 import type { ParsedResume } from "@/types/resume";
+import type { AiResumeInsights } from "@/lib/ai-analysis/AIAnalysisTypes";
 
 /**
  * The demo's deterministic analysis.
@@ -47,10 +48,13 @@ export interface DemoAnalysisData {
   usedSampleResume: boolean;
   usedSampleJobDescription: boolean;
   /**
-   * The AI review, once T9 adds it. Null here means "not attempted": this step
-   * never calls a provider.
+   * The AI review, when one was produced.
+   *
+   * Null is never an error: it means the review was skipped or did not return
+   * anything gradeable, and `aiNote` says so. The deterministic half above is
+   * complete and correct either way.
    */
-  aiInsights: null;
+  aiInsights: AiResumeInsights | null;
   /** Why the AI review is absent, when the deterministic half still succeeded. */
   aiNote: string | null;
 }
@@ -125,6 +129,16 @@ export function resumeFromText(text: string): ParsedResume {
 }
 
 /**
+ * The resume an input selects: the bundled sample, or the caller's text rebuilt
+ * server-side. Exported because the AI step needs the same document the score
+ * was computed from — asking for it here is cheaper than threading it back out
+ * of the analysis, and cheaper still than letting the two disagree.
+ */
+export function resolveDemoResume(input: DemoAnalysisInput): ParsedResume {
+  return input.resumeText === null ? sampleResume() : resumeFromText(input.resumeText);
+}
+
+/**
  * Score a resume against a posting. No provider call, no network, no budget.
  *
  * Pure with respect to its inputs, which is why it is testable without a
@@ -134,7 +148,7 @@ export function runDeterministicAnalysis(input: DemoAnalysisInput): DemoAnalysis
   const usedSampleResume = input.resumeText === null;
   const usedSampleJobDescription = input.jobDescription === null;
 
-  const resume = usedSampleResume ? sampleResume() : resumeFromText(input.resumeText!);
+  const resume = resolveDemoResume(input);
   const jobDescription = usedSampleJobDescription
     ? sampleJobDescription()
     : input.jobDescription!;
