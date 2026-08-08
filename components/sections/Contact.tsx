@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { FormInput } from "@/components/ui/FormInput";
 import { CONTACT_INFO, SITE_CONFIG } from "@/constants";
 import { headingReveal } from "@/lib/motion";
-import { Linkedin, MapPin, Send, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { MapPin, Send, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 
 const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
 
@@ -264,7 +265,7 @@ export default function Contact() {
             className="flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 hover:border-consulting-royal/40 hover:shadow-[0_16px_32px_-20px_rgba(10,25,47,0.18)] dark:hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 transition-all duration-300 ease-calm group"
           >
             <div className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-200 dark:border-white/10 bg-consulting-royal/[0.06] dark:bg-white/[0.03] text-consulting-royal group-hover:bg-consulting-royal/10 transition-colors flex-shrink-0">
-              <Linkedin size={20} aria-hidden="true" />
+              <LinkedinIcon size={20} aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-mono uppercase text-slate-600 dark:text-slate-400">LinkedIn</p>

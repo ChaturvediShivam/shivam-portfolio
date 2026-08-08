@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Workflow,
   FileSearch,
+  FileText,
+  AppWindow,
 } from "lucide-react";
 
 /**
@@ -70,6 +72,8 @@ export const adminNavigation: NavItem[] = [
   { id: "approvals", label: "Approvals", href: "/admin/approvals", icon: ShieldCheck, enabled: true, flag: "FEATURE_EMAIL_DRAFTING" },
   { id: "automations", label: "Automations", href: "/admin/automations", icon: Workflow, enabled: true, flag: "FEATURE_AUTOMATION" },
   { id: "resume-ai", label: "Resume AI", href: "/admin/resume-ai", icon: FileSearch, enabled: true },
+  { id: "documents", label: "Documents", href: "/admin/documents", icon: FileText, enabled: true },
+  { id: "browser-inbox", label: "Browser Inbox", href: "/admin/browser-inbox", icon: AppWindow, enabled: true },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];

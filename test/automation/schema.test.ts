@@ -168,8 +168,11 @@ describe("validateActions", () => {
   });
 
   it("rejects a stage outside the opportunity_stage domain", () => {
-    expect(validateActions([{ action: "change_stage", to: "ghosted" }]).ok).toBe(false);
+    // "ghosted" used to be the sentinel here; it became a real stage in the
+    // Career Intelligence migration, so this needs a value that is still absent.
+    expect(validateActions([{ action: "change_stage", to: "shortlisted" }]).ok).toBe(false);
     expect(validateActions([{ action: "change_stage", to: "offer" }]).ok).toBe(true);
+    expect(validateActions([{ action: "change_stage", to: "ghosted" }]).ok).toBe(true);
   });
 
   it("rejects an unknown action rather than dropping it", () => {

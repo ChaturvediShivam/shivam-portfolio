@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/auth/safeNext";
 
 /**
  * Handles both of Supabase's auth redirect formats:
@@ -24,7 +25,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/admin/reset-password";
+  const next = safeNext(searchParams.get("next"), origin);
 
   if (code) {
     const supabase = await createServerSupabaseClient();

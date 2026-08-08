@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -111,12 +112,12 @@ export default function AuthVerifiedPage() {
               <p className="text-base font-semibold text-white">Email verified successfully</p>
               <p className="mt-1 text-sm text-slate-400">Your account is now active.</p>
             </div>
-            <a
+            <Link
               href="/"
               className="mt-2 inline-flex items-center justify-center px-5 h-10 rounded-md bg-white text-[#0B0E14] text-sm font-semibold hover:bg-slate-200 transition-colors"
             >
               Continue
-            </a>
+            </Link>
           </div>
         )}
       </div>

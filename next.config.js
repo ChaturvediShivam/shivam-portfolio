@@ -2,11 +2,6 @@ const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // Next 14 only runs `instrumentation.ts` behind this flag; it becomes the
-    // default in 15, at which point this line can be deleted.
-    instrumentationHook: true,
-  },
   headers: async () => [
     {
       source: "/(.*)",
