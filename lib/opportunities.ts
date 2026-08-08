@@ -59,9 +59,25 @@ function toScore(value?: string | null): number | null {
   return Math.min(100, Math.max(0, n));
 }
 
-/** Editable columns, excluding `stage` (stage changes go through changeStage). */
+/**
+ * Editable columns, excluding `stage` (stage changes go through changeStage).
+ *
+ * Only columns the caller actually supplied are emitted. `updateOpportunity`
+ * writes this object wholesale, so any key present here overwrites its column —
+ * and a partial payload would silently null everything it omitted. The
+ * opportunity form is exactly such a payload: it carries only the fields it
+ * renders, so without this an edit to the title would erase deadline_at,
+ * priority, resume_score, ats_score, offer_at, rejected_at and both version
+ * links.
+ *
+ * `undefined` means "not part of this edit" and is dropped; `null` and "" still
+ * mean "clear this column" and are written. That distinction is the whole point.
+ *
+ * Relies on every emitted column name matching its `OpportunityInput` key. A
+ * future column whose name diverges from its input key must not use this path.
+ */
 function mapInput(input: OpportunityInput): Record<string, unknown> {
-  return {
+  const row: Record<string, unknown> = {
     title: input.title.trim(),
     company_id: input.company_id || null,
     primary_contact_id: input.primary_contact_id || null,
@@ -87,6 +103,11 @@ function mapInput(input: OpportunityInput): Record<string, unknown> {
     resume_version_id: input.resume_version_id || null,
     cover_letter_version_id: input.cover_letter_version_id || null,
   };
+
+  for (const column of Object.keys(row)) {
+    if (input[column as keyof OpportunityInput] === undefined) delete row[column];
+  }
+  return row;
 }
 
 async function insertEvent(
