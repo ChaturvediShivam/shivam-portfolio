@@ -40,6 +40,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/sanitize-html": "^2.16.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "autoprefixer": "^10.5.0",
     "eslint": "^8",
     "eslint-config-next": "^15.5.22",
