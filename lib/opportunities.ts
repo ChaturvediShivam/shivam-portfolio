@@ -13,6 +13,7 @@ import {
   type OpportunityNote,
   type OpportunityStage,
 } from "@/types/opportunity";
+import { TASK_PRIORITIES, type TaskPriority } from "@/types/task";
 
 /**
  * Opportunities data layer (server-only). Reuses lib/companies + lib/contacts
@@ -43,6 +44,21 @@ function validStage(stage?: string | null): OpportunityStage {
   return OPPORTUNITY_STAGES.includes(stage as never) ? (stage as OpportunityStage) : "lead";
 }
 
+/** Unrecognized priorities become null rather than a Postgres enum error. */
+function validPriority(priority?: string | null): TaskPriority | null {
+  return TASK_PRIORITIES.includes(priority as never) ? (priority as TaskPriority) : null;
+}
+
+/**
+ * Scores are CHECK-constrained to 0-100 in Postgres. Clamping here turns a
+ * bad client value into a stored bound instead of a 500 from the database.
+ */
+function toScore(value?: string | null): number | null {
+  const n = toNumber(value);
+  if (n == null) return null;
+  return Math.min(100, Math.max(0, n));
+}
+
 /** Editable columns, excluding `stage` (stage changes go through changeStage). */
 function mapInput(input: OpportunityInput): Record<string, unknown> {
   return {
@@ -62,6 +78,14 @@ function mapInput(input: OpportunityInput): Record<string, unknown> {
     salary_currency: clean(input.salary_currency) ?? "USD",
     applied_at: clean(input.applied_at),
     next_action_at: clean(input.next_action_at),
+    deadline_at: clean(input.deadline_at),
+    priority: validPriority(input.priority),
+    offer_at: clean(input.offer_at),
+    rejected_at: clean(input.rejected_at),
+    resume_score: toScore(input.resume_score),
+    ats_score: toScore(input.ats_score),
+    resume_version_id: input.resume_version_id || null,
+    cover_letter_version_id: input.cover_letter_version_id || null,
   };
 }
 

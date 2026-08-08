@@ -5,15 +5,36 @@
  */
 
 import type { BadgeVariant } from "@/components/admin/ui";
+import type { TaskPriority } from "@/types/task";
 
+/**
+ * Pipeline stages, in the same order as the `opportunity_stage` enum in
+ * Postgres (declaration order is the enum's sort order). Phase 1 of Career
+ * Intelligence spliced the pre-application, assessment, interview-round,
+ * negotiation and ghosted stages into their pipeline positions; no pre-existing
+ * value was renamed or removed.
+ *
+ * `accepted` is the candidate accepting an offer; `hired` remains the terminal
+ * "started the role" state.
+ */
 export const OPPORTUNITY_STAGES = [
+  "draft",
+  "prepared",
   "lead",
   "applied",
+  "assessment",
   "screening",
   "interview",
+  "interview_round_1",
+  "interview_round_2",
+  "interview_round_3",
+  "final_interview",
   "offer",
+  "negotiation",
+  "accepted",
   "hired",
   "rejected",
+  "ghosted",
   "withdrawn",
   "on_hold",
 ] as const;
@@ -37,25 +58,41 @@ export function humanize(value: string): string {
   return value.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpperCase());
 }
 
+/** Stages whose label `humanize` alone would render awkwardly. */
+const STAGE_LABELS: Partial<Record<OpportunityStage, string>> = {
+  interview_round_1: "Interview Round 1",
+  interview_round_2: "Interview Round 2",
+  interview_round_3: "Interview Round 3",
+  final_interview: "Final Interview",
+};
+
 export function stageLabel(stage: string): string {
-  return humanize(stage);
+  return STAGE_LABELS[stage as OpportunityStage] ?? humanize(stage);
 }
 
 export function stageBadgeVariant(stage: OpportunityStage): BadgeVariant {
   switch (stage) {
     case "hired":
+    case "accepted":
       return "success";
     case "offer":
+    case "negotiation":
       return "special";
     case "interview":
+    case "interview_round_1":
+    case "interview_round_2":
+    case "interview_round_3":
+    case "final_interview":
+    case "assessment":
       return "progress";
     case "applied":
     case "screening":
       return "info";
     case "rejected":
+    case "ghosted":
       return "danger";
     default:
-      return "neutral"; // lead, withdrawn, on_hold
+      return "neutral"; // draft, prepared, lead, withdrawn, on_hold
   }
 }
 
@@ -91,6 +128,21 @@ export interface Opportunity {
   salary_currency: string | null;
   applied_at: string | null;
   next_action_at: string | null;
+  /** Career Intelligence Phase 1 — pursuit planning and outcome dates. */
+  deadline_at: string | null;
+  priority: TaskPriority | null;
+  offer_at: string | null;
+  rejected_at: string | null;
+  /**
+   * Fit scores for this (resume, role) pair, 0-100. They live on the
+   * opportunity rather than the resume version because both describe the fit of
+   * a resume to *this* role, not the resume in isolation.
+   */
+  resume_score: number | null;
+  ats_score: number | null;
+  /** Which resume / cover letter revision was submitted for this role. */
+  resume_version_id: string | null;
+  cover_letter_version_id: string | null;
   /** AI rollup + its provenance (Phase 3 · M7). Null until summarized. */
   ai_summary: string | null;
   ai_model: string | null;
@@ -124,6 +176,14 @@ export interface OpportunityInput {
   salary_currency?: string | null;
   applied_at?: string | null;
   next_action_at?: string | null;
+  deadline_at?: string | null;
+  priority?: string | null;
+  offer_at?: string | null;
+  rejected_at?: string | null;
+  resume_score?: string | null;
+  ats_score?: string | null;
+  resume_version_id?: string | null;
+  cover_letter_version_id?: string | null;
 }
 
 export interface OpportunityContactLink {
