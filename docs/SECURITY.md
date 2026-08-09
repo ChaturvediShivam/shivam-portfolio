@@ -434,9 +434,16 @@ Cross-ref: [Runbook §6–§8](./operations/RUNBOOK.md) ·
   **X-Frame-Options: DENY**, **X-Content-Type-Options: nosniff**,
   **Referrer-Policy: strict-origin-when-cross-origin**, and a restrictive
   **Permissions-Policy**.
-  - ⚪ **Hardening note:** the CSP `script-src` includes `'unsafe-inline'`
-    /`'unsafe-eval'` (a Next.js requirement) — a known relaxation; a nonce/hash-based
-    CSP is a future improvement. Admin pages are additionally `noindex` via metadata.
+  - ⚪ **Hardening note:** the CSP `script-src` includes `'unsafe-inline'` — a known
+    relaxation, still required because Next streams its RSC payload through inline
+    `<script>` tags and `next-themes` injects a pre-paint theme script. A
+    nonce-based CSP is the fix and is a separate change: the nonce must come from
+    middleware on *every* route, and it makes every page dynamic, so the
+    statically prerendered marketing routes would lose static generation.
+    `'unsafe-eval'` was **removed** — it was documented as a Next.js requirement,
+    but that is only true of the dev server's hot reloading; the production bundle
+    has no `eval(` or `new Function(` call site.
+    Admin pages are additionally `noindex` via metadata.
 - **Secrets** 🟢 — server-only (§6). **Build pipeline** 🟢 — lint → `tsc --noEmit` →
   build gates before deploy. **Rollback** 🟢 — promote last-good deployment / `v1.0.0`
   ([Runbook §3/§17](./operations/RUNBOOK.md)).
