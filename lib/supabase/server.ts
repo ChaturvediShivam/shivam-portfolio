@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { isAdminEmail } from "@/lib/auth/adminEmail";
 
 /**
  * Session-bound Supabase client for Server Components and Route Handlers
@@ -40,11 +41,18 @@ export async function createServerSupabaseClient() {
 }
 
 /**
- * Shared guard for every admin API route: confirms a real Supabase session
- * exists and returns a client already scoped to it. Middleware already
- * blocks unauthenticated requests to /admin/*, but API routes check this
- * again themselves rather than trusting middleware alone — defense in
- * depth, and it means each route never has to duplicate the check.
+ * Shared guard for every admin API route: confirms the caller is *the admin*
+ * and returns a client already scoped to their session. Middleware applies the
+ * same rule to /admin/*, but API routes check again themselves rather than
+ * trusting middleware alone — defense in depth, and it means each route never
+ * has to duplicate the check.
+ *
+ * A session alone is not authorization. Every RLS policy grants full access to
+ * any authenticated role, so "has a session" and "may read the CRM" were the
+ * same statement until this check existed: any confirmed row in auth.users
+ * cleared the whole database. The allowlist is therefore enforced here, on
+ * access, and not only at signup where it can be sidestepped by posting
+ * directly to Supabase's own auth endpoint with the public anon key.
  */
 export async function requireAdminSession(): Promise<
   { supabase: SupabaseClient; error: null } | { supabase: null; error: Response }
@@ -58,6 +66,16 @@ export async function requireAdminSession(): Promise<
     return {
       supabase: null,
       error: Response.json({ error: "Not authenticated." }, { status: 401 }),
+    };
+  }
+
+  // Authenticated but not the admin: 403, distinct from the 401 above so the
+  // two failures stay distinguishable in logs. `isAdminEmail` fails closed on a
+  // missing address and on an unset or empty allowlist.
+  if (!isAdminEmail(user.email)) {
+    return {
+      supabase: null,
+      error: Response.json({ error: "Not authorized." }, { status: 403 }),
     };
   }
 

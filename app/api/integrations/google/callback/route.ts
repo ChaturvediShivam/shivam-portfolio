@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { featureEnabled } from "@/lib/featureFlags";
+import { isAdminEmail } from "@/lib/auth/adminEmail";
 import { consumeOAuthState, upsertGoogleAccount } from "@/lib/integrations";
 import {
   GOOGLE_OAUTH_SCOPES,
@@ -39,7 +40,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/admin/login", req.url));
+  // Same rule as /connect: outside the /admin matcher, so the allowlist is
+  // enforced here rather than assumed from the presence of a session.
+  if (!user || !isAdminEmail(user.email)) {
+    return NextResponse.redirect(new URL("/admin/login", req.url));
+  }
 
   // User denied consent or Google returned an error.
   if (url.searchParams.get("error")) return settings({ error: "oauth_denied" });

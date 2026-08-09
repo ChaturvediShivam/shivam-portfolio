@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { featureEnabled } from "@/lib/featureFlags";
+import { isAdminEmail } from "@/lib/auth/adminEmail";
 import { createOAuthState } from "@/lib/integrations";
 import {
   CALENDAR_SCOPES,
@@ -38,7 +39,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/admin/login", req.url));
+  // Admin-only, and this path is outside the /admin middleware matcher, so the
+  // allowlist has to be applied here too — a session by itself is not authority.
+  if (!user || !isAdminEmail(user.email)) {
+    return NextResponse.redirect(new URL("/admin/login", req.url));
+  }
 
   const config = getGoogleOAuthConfig();
   if (!config) {

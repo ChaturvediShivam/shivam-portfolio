@@ -133,15 +133,22 @@ function arrange(
   return { stub, provider };
 }
 
-const SIGNED_IN = { user: { id: OWNER } };
+// `withAdminAction` enforces the admin allowlist, not just the presence of a
+// session, so the fixture user needs the address the allowlist below names.
+// Authorization itself is covered in test/auth/admin-authorization.test.ts;
+// here it only has to pass so the AI behaviour under test is actually reached.
+const ADMIN_EMAIL = "admin@example.com";
+const SIGNED_IN = { user: { id: OWNER, email: ADMIN_EMAIL } };
 
 beforeEach(() => {
+  process.env.ADMIN_SIGNUP_ALLOWLIST = ADMIN_EMAIL;
   process.env.FEATURE_AI = "true";
   process.env.FEATURE_AI_SUMMARIES = "true";
   process.env.AI_DAILY_TOKEN_BUDGET = "500000";
 });
 
 afterEach(() => {
+  delete process.env.ADMIN_SIGNUP_ALLOWLIST;
   delete process.env.FEATURE_AI;
   delete process.env.FEATURE_AI_SUMMARIES;
   delete process.env.AI_DAILY_TOKEN_BUDGET;
