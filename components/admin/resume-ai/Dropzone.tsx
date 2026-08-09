@@ -39,6 +39,24 @@ export interface DropzoneProps {
   invalid?: boolean;
   /** Ties the control to an external message element. */
   describedBy?: string;
+  /**
+   * Size shown in the hint line. Defaults to the shared MAX_FILE_BYTES.
+   *
+   * Exists because a caller may enforce a stricter ceiling than the shared one —
+   * the public demo does — and a dropzone advertising a limit its caller will
+   * reject is worse than no limit at all.
+   */
+  maxBytes?: number;
+  /**
+   * Which surface this sits on.
+   *
+   * The control was written for the admin dashboard, which is dark throughout,
+   * so its palette assumes a dark background. On the light public demo page
+   * that palette fails WCAG AA badly — axe measured the label at a contrast
+   * ratio of 1.17 against the page, which is effectively invisible. "dark" is
+   * the default so every existing caller is unchanged.
+   */
+  tone?: "dark" | "light";
   onFiles: (files: FileList | File[]) => void;
   className?: string;
 }
@@ -50,6 +68,8 @@ export function Dropzone({
   busy = false,
   invalid = false,
   describedBy,
+  maxBytes = MAX_FILE_BYTES,
+  tone = "dark",
   onFiles,
   className,
 }: DropzoneProps) {
@@ -58,6 +78,7 @@ export function Dropzone({
   const dragDepth = React.useRef(0);
 
   const inert = disabled || busy;
+  const light = tone === "light";
   const picker = useFilePicker(onFiles, inert);
 
   const reset = React.useCallback(() => {
@@ -115,28 +136,44 @@ export function Dropzone({
           invalid
             ? "border-red-500/40 bg-red-500/[0.03]"
             : dragging
-              ? "border-white/30 bg-white/[0.06]"
-              : "border-white/[0.12] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]",
+              ? light
+                ? "border-consulting-royal/50 bg-consulting-royal/[0.06]"
+                : "border-white/30 bg-white/[0.06]"
+              : light
+                ? "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
+                : "border-white/[0.12] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]",
         )}
       >
         <span
           className={cn(
-            "flex size-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]",
-            dragging ? "text-slate-200" : "text-slate-500",
+            "flex size-11 items-center justify-center rounded-lg border",
+            light ? "border-slate-300 bg-white" : "border-white/10 bg-white/[0.03]",
+            dragging
+              ? light
+                ? "text-consulting-navy"
+                : "text-slate-200"
+              : light
+                ? "text-consulting-slate"
+                : "text-slate-500",
           )}
         >
           <UploadCloud className="size-5" aria-hidden />
         </span>
 
         <span className="space-y-1">
-          <span className="block text-sm font-medium text-slate-200">
+          <span
+            className={cn(
+              "block text-sm font-medium",
+              light ? "text-consulting-navy" : "text-slate-200",
+            )}
+          >
             {dragging ? "Drop to upload" : label}
           </span>
-          <span className="block text-xs text-slate-500">
+          <span className={cn("block text-xs", light ? "text-consulting-slate" : "text-slate-500")}>
             {hint ?? "Drag and drop, or click to browse"}
           </span>
-          <span className="block text-xs text-slate-600">
-            PDF or DOCX · up to {formatFileSize(MAX_FILE_BYTES)}
+          <span className={cn("block text-xs", light ? "text-consulting-slate" : "text-slate-600")}>
+            PDF or DOCX · up to {formatFileSize(maxBytes)}
           </span>
         </span>
       </button>
