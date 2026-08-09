@@ -68,9 +68,23 @@ async function sendNotificationEmail(params: {
   message: string;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!resend || !CONTACT_RECIPIENT) {
-    console.warn(
-      `[CONTACT FORM] Notification not sent — ${!RESEND_API_KEY ? "RESEND_API_KEY" : "CONTACT_RECIPIENT_EMAIL"} is missing from .env.local.`
-    );
+    const missing = [
+      !RESEND_API_KEY && "RESEND_API_KEY",
+      !CONTACT_RECIPIENT && "CONTACT_RECIPIENT_EMAIL",
+    ]
+      .filter(Boolean)
+      .join(" and ");
+    console.error(`[CONTACT FORM] Notification not sent — ${missing} is not configured.`);
+
+    // Unconfigured email used to return ok, which made the visitor's "Inquiry
+    // sent — I will respond within 24 hours" a lie: nobody was notified. The
+    // inquiry is still stored (that happened before this call), so nothing is
+    // lost, but the visitor is now told the truth and can follow up another
+    // way. Development keeps the permissive path so the form stays usable
+    // without a Resend account.
+    if (process.env.NODE_ENV === "production") {
+      return { ok: false, error: "Failed to deliver the message. Please try again later." };
+    }
     return { ok: true };
   }
 
@@ -111,7 +125,7 @@ async function sendNotificationEmail(params: {
 
 async function sendAcknowledgementEmail(params: { name: string; email: string }): Promise<void> {
   if (!resend) {
-    console.warn("[CONTACT FORM] Acknowledgement not sent — RESEND_API_KEY is missing from .env.local.");
+    console.warn("[CONTACT FORM] Acknowledgement not sent — RESEND_API_KEY is not configured.");
     return;
   }
 
