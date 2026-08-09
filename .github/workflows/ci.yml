@@ -1,0 +1,80 @@
+name: CI
+
+# Enforces the checks this repository already defines, on every pull request and
+# on anything landing in main. Phase 5's completion criteria call for exactly
+# this ("CI enforces tests/lint/typecheck"); until now the 990-test suite ran
+# only when someone remembered to run it, and the public demo merged in PR #9
+# with no automated gate at all.
+#
+# WHY THIS JOB NEEDS NO SECRETS
+#
+# Every check below was verified to pass with .env.local absent. The unit suite
+# stubs its Supabase client and mocks the AI provider, and the production build
+# reads no environment variable it cannot default. So this workflow is given no
+# secrets, which means a fork's pull request runs the same checks as a branch
+# and neither can reach a real provider, a real database, or a real key.
+#
+# WHAT IS DELIBERATELY NOT HERE
+#
+# Playwright. It needs a browser download and four Next servers, and its
+# opt-in real-AI test spends provider budget when E2E_REAL_AI=1. Putting it on
+# the default path would make every push slow and, one careless variable later,
+# expensive. It stays a local and on-demand suite.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Lets a maintainer re-run the gate from the Actions tab without a new commit.
+  workflow_dispatch:
+
+# A newer push to the same branch makes an in-flight run irrelevant. Cancelling
+# it keeps queue time honest without affecting main, which is never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# The job only reads the checkout. Nothing here writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    # Generous against a cold cache, tight enough that a hang fails rather than
+    # burning minutes. The whole job runs in about two locally.
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Matches the Vercel project's runtime, so CI compiles on the same
+          # major version that ships. Pinned rather than "latest" because a
+          # silent Node bump is not a change anyone reviewed.
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        # `npm ci` over `npm install`: it installs exactly the lockfile and
+        # fails when the two disagree, so a dependency cannot drift in unnoticed.
+        run: npm ci
+
+      # Each check runs as its own step so a failure names itself in the summary
+      # rather than being buried in a combined log. The job is fail-fast: the
+      # first failing step stops the run.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
