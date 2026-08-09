@@ -2,6 +2,11 @@
 # Real environment files never enter version control.
 .env
 .env.*
+# ...including the `<name>.env` shape, which the two rules above do not match:
+# they only cover names that START with ".env". `vercel env pull ./prod.env`
+# writes exactly such a file into the repo root, secrets and all, and it would
+# otherwise show up as an untracked file one `git add -A` away from history.
+*.env
 # The template does — it documents required variables and holds placeholders only.
 !.env.example
 node_modules
