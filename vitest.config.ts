@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL(".", import.meta.url)).replace(/\/$/, "");
 
 export default defineConfig({
+  // tsconfig sets `jsx: "preserve"` because Next does its own transform. Vitest
+  // has no such step, so it needs the automatic runtime named explicitly —
+  // otherwise every component suite fails with "React is not defined".
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": root,
@@ -14,7 +18,14 @@ export default defineConfig({
     },
   },
   test: {
+    // Node stays the default: every logic suite runs there, and a DOM would be
+    // dead weight for 58 files that never touch one.
     environment: "node",
-    include: ["test/**/*.test.ts"],
+    include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
+    // Only component suites pay for jsdom. Keyed on the extension rather than a
+    // directory so a new .tsx suite gets the right environment without anyone
+    // remembering to add it here.
+    environmentMatchGlobs: [["test/**/*.test.tsx", "jsdom"]],
+    setupFiles: ["test/setup/dom.ts"],
   },
 });

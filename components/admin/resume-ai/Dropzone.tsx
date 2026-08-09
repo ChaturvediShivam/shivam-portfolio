@@ -39,6 +39,14 @@ export interface DropzoneProps {
   invalid?: boolean;
   /** Ties the control to an external message element. */
   describedBy?: string;
+  /**
+   * Size shown in the hint line. Defaults to the shared MAX_FILE_BYTES.
+   *
+   * Exists because a caller may enforce a stricter ceiling than the shared one —
+   * the public demo does — and a dropzone advertising a limit its caller will
+   * reject is worse than no limit at all.
+   */
+  maxBytes?: number;
   onFiles: (files: FileList | File[]) => void;
   className?: string;
 }
@@ -50,6 +58,7 @@ export function Dropzone({
   busy = false,
   invalid = false,
   describedBy,
+  maxBytes = MAX_FILE_BYTES,
   onFiles,
   className,
 }: DropzoneProps) {
@@ -136,7 +145,7 @@ export function Dropzone({
             {hint ?? "Drag and drop, or click to browse"}
           </span>
           <span className="block text-xs text-slate-600">
-            PDF or DOCX · up to {formatFileSize(MAX_FILE_BYTES)}
+            PDF or DOCX · up to {formatFileSize(maxBytes)}
           </span>
         </span>
       </button>
