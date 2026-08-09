@@ -250,6 +250,21 @@ describe("budget is enforced by the gateway, not re-implemented", () => {
     expect(reserve?.args.p_owner_id).toBe(OWNER);
   });
 
+  it("reserves against the DEMO ceiling, not the operator's", async () => {
+    const stub = stubClient();
+    resolveClient.mockReturnValue(stub.client);
+    resolveProvider.mockReturnValue(new StubProvider([completion(REVIEW)]));
+
+    await analyzeDemoAction(SAMPLE_INPUT);
+
+    const reserve = stub.rpcCalls.find((c) => c.name === "ai_reserve_budget");
+    // 50_000 is AI_DEMO_DAILY_TOKEN_BUDGET; 500_000 is the operator's. The
+    // preflight is a read and cannot bound concurrent callers, so the number
+    // inside the atomic statement has to be the demo's own.
+    expect(reserve?.args.p_limit).toBe(50_000);
+    expect(reserve?.args.p_limit).not.toBe(500_000);
+  });
+
   it("writes an audit row for the call", async () => {
     const stub = stubClient();
     resolveClient.mockReturnValue(stub.client);
@@ -313,6 +328,41 @@ describe("every AI failure degrades to the deterministic score", () => {
 
   it("when the provider is down", async () => {
     await expectDegraded(stubClient(), new StubProvider([new Error("upstream 503")]));
+  });
+
+  it("when the AI provider is not configured at all", async () => {
+    // getAiProvider throws AiUnconfiguredError on a deployment with no key.
+    // That must degrade like any other AI failure rather than 500 the request.
+    const stub = stubClient();
+    resolveClient.mockReturnValue(stub.client);
+    resolveProvider.mockImplementation(() => {
+      throw new Error("AI provider is not configured.");
+    });
+
+    const result = await analyzeDemoAction(SAMPLE_INPUT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.analysis.overallScore).toBeGreaterThan(0);
+    expect(result.data.aiInsights).toBeNull();
+    expect(result.data.aiNote).toBe(AI_UNAVAILABLE_NOTE);
+    // Nothing was reserved: the failure happened before the gateway existed.
+    expect(stub.rpcCalls.map((c) => c.name)).not.toContain("ai_reserve_budget");
+  });
+
+  it("when the budget ledger refuses the reservation atomically", async () => {
+    // The ceiling reached between the preflight and the reservation — the race
+    // the demo-specific limit exists to close. The visitor still gets a score.
+    const stub = stubClient({ rpc: { ai_reserve_budget: null } });
+    const provider = new StubProvider([completion(REVIEW)]);
+    resolveClient.mockReturnValue(stub.client);
+    resolveProvider.mockReturnValue(provider);
+
+    const result = await analyzeDemoAction(SAMPLE_INPUT);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.analysis.overallScore).toBeGreaterThan(0);
+    expect(provider.requests, "a refused reservation must not reach the provider").toHaveLength(0);
   });
 
   it("when the model returns nothing gradeable", async () => {

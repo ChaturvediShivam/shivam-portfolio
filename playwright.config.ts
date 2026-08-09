@@ -26,16 +26,31 @@ import { defineConfig, devices } from "@playwright/test";
 /** Cloudflare's documented always-passes test keys. Public by design. */
 export const TURNSTILE_PASS_SECRET = "1x0000000000000000000000000000000AA";
 
+/**
+ * Whether this run is allowed to spend real provider budget.
+ *
+ * Off by default. A suite that bills the operator every time it runs is a suite
+ * people stop running, and on a push-triggered CI it would spend continuously.
+ * T11 measured roughly $0.053 and ~7k tokens per analysis, so a full run with
+ * AI on costs real money for coverage that the mocked unit suites already give.
+ *
+ * `E2E_REAL_AI=1` turns it on deliberately, which is how the genuine
+ * provider path was verified in T11 — seven successful calls recorded in
+ * ai_audit_log. Keep that capability; just do not make it the default.
+ */
+export const REAL_AI = process.env.E2E_REAL_AI === "1";
+
 const SHARED = {
   FEATURE_PUBLIC_DEMO: "true",
-  FEATURE_AI: "true",
+  // Deterministic scoring is unaffected by this: it never calls a provider.
+  FEATURE_AI: REAL_AI ? "true" : "false",
   FEATURE_RESUME_AI: "true",
   CLOUDFLARE_TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET,
 };
 
 /** Ports, named so a failing test says which configuration it was against. */
 export const PORTS = {
-  /** Everything on. The happy path, including a real provider call. */
+  /** Every gate on. Reaches a real provider only when E2E_REAL_AI=1. */
   full: 3210,
   /** FEATURE_PUBLIC_DEMO off. */
   demoOff: 3211,

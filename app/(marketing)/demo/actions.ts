@@ -2,6 +2,8 @@
 
 import { headers } from "next/headers";
 import { featureEnabled } from "@/lib/featureFlags";
+import { demoDailyTokenBudget } from "@/lib/demo/config";
+import { logDemoEvent, type AiSkipReason } from "@/lib/demo/telemetry";
 import { AiGateway } from "@/lib/ai/gateway";
 import { getAiProvider } from "@/lib/ai/providers";
 import { generateInsights } from "@/lib/ai-analysis/ResumeInsightsService";
@@ -65,6 +67,7 @@ export async function analyzeDemoAction(
     // input validation becomes a free, unmetered oracle.
     const rejection = validateDemoInput(input);
     if (rejection) {
+      logDemoEvent("invalid_input");
       return demoFailure("invalid_input", {
         formError: rejection.message,
         fieldErrors: { [rejection.field]: rejection.message },
@@ -79,7 +82,18 @@ export async function analyzeDemoAction(
       jobDescription: input.jobDescription,
     });
 
-    return demoSuccess(await withAiReview(data, context, input));
+    const started = Date.now();
+    const enriched = await withAiReview(data, context, input);
+
+    // Always emitted on success, so the deterministic half's health is visible
+    // even when every review is being skipped.
+    logDemoEvent("analysis_ok", {
+      score: enriched.analysis.overallScore,
+      sample: enriched.usedSampleResume && enriched.usedSampleJobDescription,
+      ms: Date.now() - started,
+    });
+
+    return demoSuccess(enriched);
   });
 }
 
@@ -104,13 +118,13 @@ async function withAiReview(
   // The shared ceiling is spent. Checked before the flags because it is the
   // reason a working demo stops mid-day, and it is worth logging as distinct
   // from never having been switched on.
-  if (!context.aiBudgetAvailable) return { ...data, aiNote: AI_UNAVAILABLE_NOTE };
+  if (!context.aiBudgetAvailable) return skipAi(data, "budget");
 
   // The gateway throws AiDisabledError without FEATURE_AI. Checking both here
   // turns that into a graceful skip rather than a caught exception, and keeps
   // the demo's AI half switchable independently of the deterministic half.
   if (!featureEnabled("FEATURE_AI") || !featureEnabled("FEATURE_RESUME_AI")) {
-    return { ...data, aiNote: AI_UNAVAILABLE_NOTE };
+    return skipAi(data, "flag_off");
   }
 
   try {
@@ -125,6 +139,11 @@ async function withAiReview(
         // Owned by the dedicated demo user, so demo spend is attributable and
         // never lands on the operator's ledger.
         ownerId: context.ownerId,
+        // The ceiling the demo advertises, carried into the atomic reservation
+        // rather than left to the preflight alone. Without it a burst of
+        // concurrent visitors could each pass the preflight and then reserve
+        // against the operator's much larger budget.
+        budgetLimit: demoDailyTokenBudget(),
       },
       // No enrichment: that adds interview questions, LinkedIn copy and a
       // rewrite as three further provider calls. One call is what a demo needs
@@ -136,12 +155,25 @@ async function withAiReview(
       ? { ...data, aiInsights: insights, aiNote: null }
       : // The model answered with nothing gradeable. Not an error — the score
         // on screen is unaffected and complete.
-        { ...data, aiNote: AI_UNAVAILABLE_NOTE };
+        skipAi(data, "ungradeable");
   } catch (error) {
     // Includes budget refusal, the burst limiter, provider outages and malformed
     // output. All of it is logged; none of it reaches the visitor, and none of
     // it costs them the analysis.
     console.error("[demo] ai review failed, returning deterministic result only:", error);
-    return { ...data, aiNote: AI_UNAVAILABLE_NOTE };
+    logDemoEvent("provider_failed");
+    return skipAi(data, "provider_error");
   }
+}
+
+/**
+ * Record why the review is absent and attach the note.
+ *
+ * One place, so every skip is both visible in the logs and identical on screen:
+ * a visitor learns nothing about which of the four reasons applied, and the
+ * operator learns exactly which.
+ */
+function skipAi(data: DemoAnalysisData, reason: AiSkipReason): DemoAnalysisData {
+  logDemoEvent("ai_unavailable", { reason });
+  return { ...data, aiInsights: null, aiNote: AI_UNAVAILABLE_NOTE };
 }

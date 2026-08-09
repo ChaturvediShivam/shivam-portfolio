@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Request } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { PORTS } from "../playwright.config";
+import { PORTS, REAL_AI } from "../playwright.config";
 import {
   SAMPLE_PDF,
   CORRUPT_PDF,
@@ -367,6 +367,28 @@ test.describe("successful analysis", () => {
     });
     // The PDF's own skills reached the scorer, which proves extraction worked.
     await expect(page.getByText("TypeScript", { exact: true })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10b · The real provider path, opt-in only
+// ---------------------------------------------------------------------------
+test.describe("real AI review", () => {
+  test.skip(!REAL_AI, "set E2E_REAL_AI=1 to spend real provider budget");
+
+  test("returns a grounded review from the live provider", async ({ page }) => {
+    await openDemo(page);
+    await submit(page);
+
+    await expect(page.getByRole("heading", { name: /match score/i })).toBeVisible({
+      timeout: 90_000,
+    });
+
+    // Either a real review, or the documented fallback if the daily ceiling has
+    // already been reached. Both are correct; a blank AI section is not.
+    const review = page.getByText(/temporarily unavailable/i);
+    const provider = page.getByText(/claude|anthropic/i);
+    await expect(review.or(provider).first()).toBeVisible();
   });
 });
 

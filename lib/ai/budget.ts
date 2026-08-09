@@ -40,8 +40,26 @@ export async function reserveBudget(
   client: SupabaseClient,
   ownerId: string,
   tokens: number,
+  /**
+   * Ceiling for this reservation, when the caller has a tighter one than the
+   * operator's daily budget.
+   *
+   * The public demo does: it advertises AI_DEMO_DAILY_TOKEN_BUDGET but, without
+   * this, would be measured against AI_DAILY_TOKEN_BUDGET — the only ceiling
+   * `ai_reserve_budget` was ever told about. A preflight read cannot close that
+   * gap, because two concurrent requests can both read "under the limit" before
+   * either reserves. Passing the number here puts it inside the same atomic
+   * statement everything else is already protected by.
+   *
+   * Omitted means the operator's budget, so every existing caller is unchanged.
+   * `null` means unlimited, matching `dailyTokenBudget()`.
+   */
+  limitOverride?: number | null,
 ): Promise<BudgetGrant> {
-  const limit = dailyTokenBudget();
+  // `undefined` and `null` mean different things: absent falls back to the
+  // operator's budget, explicit null is a deliberate "no ceiling". A supplied 0
+  // must stay 0 rather than collapsing into unlimited.
+  const limit = limitOverride === undefined ? dailyTokenBudget() : limitOverride;
   const estimate = Math.max(0, Math.trunc(tokens));
 
   const { data, error } = await client.rpc("ai_reserve_budget", {

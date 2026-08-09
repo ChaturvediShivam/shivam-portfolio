@@ -4,6 +4,7 @@ import { featureEnabled } from "@/lib/featureFlags";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUsageSnapshot } from "@/lib/ai/budget";
 import { verifyDemoTurnstile } from "@/lib/demo/turnstile";
+import { logDemoEvent } from "@/lib/demo/telemetry";
 import { checkVisitorThrottle, recordVisitorUsage } from "@/lib/demo/visitorThrottle";
 import {
   DEMO_VISITOR_WINDOW_MINUTES,
@@ -140,23 +141,33 @@ export async function withPublicDemoAction<T>(
   createClient: () => SupabaseClient = createServiceClient,
 ): Promise<DemoActionResult<T>> {
   // ---- Gate 1: feature flag and configuration. Environment reads only. ----
-  if (!featureEnabled("FEATURE_PUBLIC_DEMO")) return demoFailure("demo_disabled");
+  if (!featureEnabled("FEATURE_PUBLIC_DEMO")) {
+    logDemoEvent("demo_disabled");
+    return demoFailure("demo_disabled");
+  }
 
   if (!demoConfigured()) {
     console.error(
       "[demo] FEATURE_PUBLIC_DEMO is on but DEMO_OWNER_ID or DEMO_IP_SALT is unset; refusing.",
     );
+    logDemoEvent("demo_unconfigured");
     return demoFailure("demo_unconfigured");
   }
 
   const ownerId = demoOwnerId();
-  if (!ownerId) return demoFailure("demo_unconfigured");
+  if (!ownerId) {
+    logDemoEvent("demo_unconfigured");
+    return demoFailure("demo_unconfigured");
+  }
 
   const visitorIp = input.visitorIp ?? null;
 
   // ---- Gate 2: Turnstile. One outbound request, before any database work. ----
   const verified = await verifyDemoTurnstile(input.turnstileToken, visitorIp);
-  if (!verified) return demoFailure("verification_failed");
+  if (!verified) {
+    logDemoEvent("verification_failed");
+    return demoFailure("verification_failed");
+  }
 
   let supabase: SupabaseClient;
   try {
@@ -171,6 +182,7 @@ export async function withPublicDemoAction<T>(
   // ---- Gate 3: per-visitor allowance. Fails closed inside the limiter. ----
   const throttle = await checkVisitorThrottle(supabase, visitorIp);
   if (throttle.limited) {
+    logDemoEvent("rate_limited");
     return demoFailure("rate_limited", { retryAfterMinutes: DEMO_VISITOR_WINDOW_MINUTES });
   }
 
@@ -192,6 +204,7 @@ export async function withPublicDemoAction<T>(
     // traces carry paths — none of it crosses this line. The server log keeps
     // everything; the visitor gets one sentence.
     console.error("[demo] action threw:", error);
+    logDemoEvent("internal_error");
     return demoFailure("internal_error");
   }
 

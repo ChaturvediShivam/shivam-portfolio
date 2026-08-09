@@ -80,6 +80,13 @@ export interface AiCompleteInput {
   /** Offer the read-tool catalogue to the model. */
   enableTools?: boolean;
   maxToolRounds?: number;
+  /**
+   * A ceiling tighter than the operator's daily budget, for callers that have
+   * one. Threaded straight to `reserveBudget` so the limit a caller advertises
+   * is the limit the atomic reservation enforces. Omitted keeps the existing
+   * behaviour.
+   */
+  budgetLimit?: number | null;
 }
 
 function emptyUsage(): AiUsage {
@@ -217,7 +224,7 @@ export class AiGateway {
 
     let grant: BudgetGrant;
     try {
-      grant = await reserveBudget(this.client, input.ownerId, estimate);
+      grant = await reserveBudget(this.client, input.ownerId, estimate, input.budgetLimit);
     } catch (error) {
       // A budget refusal is an operator-visible event, so it is audited even
       // though no provider call was made.
@@ -329,7 +336,7 @@ export class AiGateway {
 
     let grant: BudgetGrant;
     try {
-      grant = await reserveBudget(this.client, input.ownerId, estimate);
+      grant = await reserveBudget(this.client, input.ownerId, estimate, input.budgetLimit);
     } catch (error) {
       await this.audit(input, template.version, model, usage, 0, 0, "error", aiErrorCode(error));
       throw error;

@@ -81,6 +81,11 @@ export interface InsightInput {
   jobDescription: JobDescriptionAnalysis;
   analysis: ResumeAnalysis;
   ownerId: string;
+  /**
+   * A ceiling tighter than the operator's daily budget. The public demo passes
+   * its own; the admin caller omits it and is unchanged.
+   */
+  budgetLimit?: number | null;
 }
 
 function clip(value: string, limit: number): { text: string; truncated: boolean } {
@@ -144,11 +149,13 @@ async function completeReview(
   gateway: AiGateway,
   request: InsightRequest,
   variables: Record<string, unknown>,
+  budgetLimit?: number | null,
 ) {
   const call = () =>
     gateway.complete<ReviewOutput>({
       templateId: TEMPLATE_ID,
       ownerId: request.ownerId,
+      budgetLimit,
       actor: "user",
       action: "resume_review",
       entityType: "resume",
@@ -180,7 +187,10 @@ export async function generateInsights(
   const ctx = buildGroundingContext(resume, jd, analysis);
   const clipped = clip(resume.text, MAX_RESUME_CHARS);
 
-  const completion = await completeReview(gateway, request, {
+  const completion = await completeReview(
+    gateway,
+    request,
+    {
     overallScore: analysis.overallScore,
     confidence: `${Math.round(analysis.confidence.value * 100)}%`,
     categoryScores: analysis.breakdown
@@ -195,8 +205,10 @@ export async function generateInsights(
     jobTitle: request.jobTitle,
     jobDescription: request.jobDescriptionText,
     resume: clipped.text,
-    truncationNote: clipped.truncated ? TRUNCATION_NOTE : "",
-  });
+      truncationNote: clipped.truncated ? TRUNCATION_NOTE : "",
+    },
+    input.budgetLimit,
+  );
 
   if (completion.stopReason !== "completed" || !completion.parsed) return null;
 
