@@ -100,6 +100,9 @@ describe("demoOwnerId", () => {
   });
 
   it("returns the trimmed id when set", () => {
+    // A syntactically valid uuid, deliberately not the real demo owner's: the
+    // test proves trimming, and publishing the production account's identifier
+    // in a repository buys nothing.
     process.env.DEMO_OWNER_ID = "  00000000-0000-4000-8000-000000000000  ";
     expect(demoOwnerId()).toBe("00000000-0000-4000-8000-000000000000");
   });
