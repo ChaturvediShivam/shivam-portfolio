@@ -27,7 +27,13 @@ const nextConfig = {
           value:
             "default-src 'self'; " +
             "img-src 'self' data: https:; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; " +
+            // No 'unsafe-eval'. The production bundle contains no `eval(` and no
+            // `new Function(` call site — webpack only needs eval for the dev
+            // server's hot reloading, which never reaches this header. Dropping
+            // it is what stops an injected string from becoming executable code;
+            // 'unsafe-inline' has to stay until the inline hydration, theme and
+            // JSON-LD scripts below carry a nonce, which is a separate change.
+            "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; " +
             "style-src 'self' 'unsafe-inline'; " +
             "font-src 'self'; " +
             // *.sentry.io is the browser SDK's ingest host. Without it this CSP
