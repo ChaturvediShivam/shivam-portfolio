@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { isAdminEmail } from "@/lib/auth/adminEmail";
 import { actionError, type ActionResult } from "@/lib/action-result";
 
 export { actionSuccess, actionError, isActionError, type ActionResult, type ActionFailure } from "@/lib/action-result";
@@ -45,6 +46,17 @@ export async function getAdminActionContext(): Promise<
     return {
       context: null,
       error: actionError({ formError: "You must be signed in to do that." }),
+    };
+  }
+
+  // A session is not authorization. RLS grants every authenticated role full
+  // access, so without this the allowlist only guarded signup — and signup can
+  // be bypassed by posting straight to Supabase's auth endpoint with the public
+  // anon key. `isAdminEmail` fails closed when the allowlist is unset or empty.
+  if (!isAdminEmail(user.email)) {
+    return {
+      context: null,
+      error: actionError({ formError: "You are not authorized to do that." }),
     };
   }
 

@@ -49,15 +49,16 @@ both.
   routes inherit the auth gate; secrets default to server-only.
 - **Human-in-the-loop approval** 🟡 — every external/high-impact AI or automation
   action is approval-gated ([ADR-006](./architecture/decisions/ADR-006-ai-approval.md)).
-- **Fail closed** 🟢 — unauthenticated `/admin/*` → redirect to login; unauthenticated
-  API → `401`; missing/invalid cron secret → `401` 🟡; on error, deny (never
-  fall through to data).
+- **Fail closed** 🟢 — unauthenticated `/admin/*` → redirect to login; authenticated
+  non-admin → `403`; unauthenticated API → `401`; missing/invalid cron secret →
+  `401` 🟡; a missing or malformed admin allowlist denies everyone, including the
+  admin; on error, deny (never fall through to data).
 
 ```mermaid
 flowchart TD
   R[Request] --> TLS["TLS / security headers (CSP, X-Frame-Options)"]
-  TLS --> MW["Middleware: session gate on /admin/*"]
-  MW --> AUTH["Handler/Action: requireAdminSession / withAdminAction"]
+  TLS --> MW["Middleware: admin allowlist gate on /admin/*"]
+  MW --> AUTH["Handler/Action: requireAdminSession / withAdminAction (allowlist)"]
   AUTH --> VAL["Input validation + sanitization"]
   VAL --> RLS["Supabase RLS (owner-scoped ready)"]
   RLS --> DATA[(Data)]
@@ -96,25 +97,40 @@ flowchart TD
 
 ## 4. Authorization
 
+**Authenticated is not authorized.** Every check below tests allowlist
+membership (`isAdminEmail`), not merely the presence of a session. This
+distinction is the boundary itself: RLS grants full access to any authenticated
+role, and Supabase's `/auth/v1/signup` is reachable directly with the public
+anon key — so an account can exist without `/api/auth/signup` ever running. A
+signup-time allowlist alone was therefore bypassable; it is enforced on **access**.
+
 - **`requireAdminSession()`** 🟢 (`lib/supabase/server.ts`) — resolves the session
-  client; returns a `401 { error }` `Response` when unauthenticated. Used by the
-  inquiry API routes.
+  client; `401` when unauthenticated, `403` when authenticated but not
+  allowlisted. Used by the inquiry API routes, `/api/ai/chat`, `/api/jobs/health`.
 - **Server Actions protection** 🟢 — `getAdminActionContext()` / `withAdminAction`
-  (`lib/actions.ts`) require a session and provide the `userId`; unauthenticated →
-  `{ ok:false, formError }`. All CRM mutations run under the caller's RLS.
-- **Middleware** 🟢 (`middleware.ts`, matcher `"/admin/:path*"`) — redirects
-  unauthenticated page requests to `/admin/login`; login/signup/reset-password are
-  allow-listed. **Not modified by any Phase 3 milestone.**
+  (`lib/actions.ts`) require an allowlisted admin and provide the `userId`;
+  unauthenticated or unauthorized → `{ ok:false, formError }` (distinct messages).
+  All CRM mutations run under the caller's RLS.
+- **Middleware** 🟢 (`middleware.ts`, matcher `"/admin/:path*"`) — unauthenticated
+  page requests redirect to `/admin/login`; authenticated non-admins get `403`
+  (not a redirect, which would ping-pong against the login rule). This is the only
+  guard on admin **pages**, whose Server Components query the database directly
+  and pass through neither helper above. Login/signup/reset-password stay
+  reachable, and only a real admin is redirected from login to the dashboard.
 - **Route protection** 🟢 — admin **pages** are gated by middleware; admin **API
   routes** are **not** in the matcher and therefore **self-guard** via
-  `requireAdminSession()`. Public routes (`/api/contact`, `/api/auth/signup`,
-  `/api/auth/role`, `/auth/callback`) are intentionally reachable with their own
-  protections.
-- **API protection** 🟢 — see above; system endpoints (cron/webhook) will use a
-  shared secret/signature 🟡.
-- **Admin-only architecture & role model** 🟢 — single-admin: any authenticated
-  user is treated as admin (RLS `auth.role() = 'authenticated'`). The **allowlist**
-  is the real membership boundary (gates signup). There is **no finer role system**.
+  `requireAdminSession()`. `/api/integrations/google/{connect,callback}` sit
+  outside the matcher too and call `isAdminEmail` directly. Public routes
+  (`/api/contact`, `/api/auth/signup`, `/api/auth/role`, `/auth/callback`) are
+  intentionally reachable with their own protections; `/api/auth/role` returns
+  only a boolean and carries no data.
+- **API protection** 🟢 — see above; `/api/jobs/run` uses a constant-time
+  `CRON_SECRET` comparison and refuses to run when the secret is unset.
+- **Admin-only architecture & role model** 🟢 — single-admin: RLS is coarse
+  (`auth.role() = 'authenticated'`), so the **allowlist is the membership
+  boundary**, enforced at every entry point above and fails closed when unset,
+  empty or malformed. There is **no finer role system**. Public signup is also
+  disabled at the Supabase project level — defence in depth, not the boundary.
 - **Future RBAC** ⚪ — multi-user/teams tighten RLS to `owner_id = auth.uid()` and
   introduce roles ([ADR-008](./architecture/decisions/ADR-008-additive-schema-and-rls.md),
   Phase 5 · Production Hardening). `owner_id` already exists on every table to enable
@@ -492,14 +508,14 @@ after mitigation.
 | **XSS** | Message HTML, user input | Low | High | React escaping; server-side `sanitize-html`; CSP 🟢 | Low — CSP `unsafe-inline` relaxation (⚪ nonce CSP) |
 | **CSRF** | State-changing requests | Low | Med | Server-Action origin checks; Turnstile on contact; OAuth `state` 🟡 | Low |
 | **SQL injection** | DB queries | Very low | High | PostgREST parameterization; no raw SQL; `ilike` input sanitized 🟢 | Very low |
-| **Broken authentication** | Login/session | Low | High | Supabase Auth; httpOnly cookies; middleware refresh; allowlist signup 🟢 | Low |
+| **Broken authentication** | Login/session | Low | High | Supabase Auth; httpOnly cookies; middleware refresh; allowlist enforced on access, not only signup 🟢 | Low |
 | **Broken access control** | RLS/route gating | Low | High | RLS everywhere; middleware + per-handler auth; anon denied 🟢 | Med until per-user RLS (⚪ RBAC) — single-admin today |
 | **Prompt injection** | AI (Phase 3) | Med | Med/High | System-prompt separation; RLS-scoped tools; approval gating 🟡 | Med — inherent to LLMs; bounded by approval |
 | **Credential theft** | Sessions/secrets | Low | High | Server-only secrets; httpOnly cookies; no secrets in bundle/logs 🟢 | Low |
 | **Secrets leakage** | Env/logs | Low | Critical | Vercel env; server-only reads; generic errors; names-only inventory 🟢 | Low |
 | **Replay attack** | Events/webhooks (P3) | Low | Med | Idempotency keys; dedupe indexes; signature verification 🟡 | Low |
 | **Webhook forgery** | Gmail push (P3) | Low | Med | Provider signature/token verification; cron secret 🟡 | Low |
-| **Privilege escalation** | Auth model | Low | High | Single-admin RLS; allowlist boundary; service-role server-only 🟢 | Med — coarse model until RBAC (⚪) |
+| **Privilege escalation** | Auth model | Low | High | Single-admin RLS; allowlist checked at every admin entry point; service-role server-only 🟢 | Med — coarse model until RBAC (⚪) |
 | **Race conditions** | Concurrent writes / jobs | Low | Med | DB constraints/unique indexes; `SKIP LOCKED` job leasing 🟡; optimistic UI with rollback 🟢 | Low |
 | **Sensitive data exposure** | PII, tokens | Low | High | RLS; encrypted tokens 🟡; sanitized rendering; no PII in `role` endpoint/logs 🟢 | Low |
 
