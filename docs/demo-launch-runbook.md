@@ -2,6 +2,9 @@
 
 Operational notes for `/demo`. Read before enabling it in production.
 
+For the step-by-step deploy sequence see
+[`demo-launch-checklist.md`](./demo-launch-checklist.md).
+
 The demo is **off by default**. Nothing below happens until `FEATURE_PUBLIC_DEMO=true`
 is set on the deployment.
 
@@ -53,9 +56,12 @@ never calls a provider. Visitors see the score plus
 ## 6. Budget and capacity
 
 - Ceiling: **50,000 tokens/day** (`AI_DEMO_DAILY_TOKEN_BUDGET`).
-- Measured: **~7,000 tokens and ~$0.053 per analysis** (T11, seven live calls).
-- So roughly **7 AI analyses per day**, then the demo degrades to scoring-only
-  until midnight UTC.
+- Measured: **~7,150 tokens and ~$0.053 per analysis** (T11, seven live calls against claude-sonnet-5).
+- So roughly **7 AI analyses per day** (~$0.37 at the ceiling), after which the
+  demo degrades to scoring-only until the counter rolls over.
+- A traffic spike consumes the day's budget quickly. That is the designed
+  behaviour, not a fault: every later visitor still gets a full deterministic
+  score with the AI review marked unavailable.
 - The ceiling is enforced **atomically** inside `ai_reserve_budget`, so concurrent
   visitors cannot overshoot it.
 - Deterministic scoring is unlimited and free.
@@ -110,13 +116,26 @@ Check `ai_unavailable`'s `reason`:
 
 The score keeps working in all four cases. AI failure is never a demo outage.
 
-## 11. Never commit
+## 11. Real-AI tests are opt-in
+
+The Playwright suite runs with `FEATURE_AI=false` by default, so a normal run —
+including CI — spends nothing. One test exercises the live provider and is
+skipped unless `E2E_REAL_AI=1` is set deliberately:
+
+```bash
+E2E_REAL_AI=1 npm run test:e2e   # spends real provider budget
+npm run test:e2e                 # $0, real-AI test reported as skipped
+```
+
+Do not set `E2E_REAL_AI` in CI. At ~$0.053 per analysis it bills on every push.
+
+## 12. Never commit
 
 `.env.local`, any real key or salt, the demo user's password, service-role
 credentials. `.env.local` is gitignored; `.env.example` holds placeholders only
 and is asserted by tests to contain no real secret.
 
-## 12. Known limitations
+## 13. Known limitations
 
 - `x-forwarded-for` is forgeable. The per-visitor limit is a speed bump, not
   authentication. The atomic budget is the real spend bound.
