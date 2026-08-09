@@ -20,6 +20,19 @@ export const metadata: Metadata = {
  * still explains what the demo is, and still links to the write-up and the
  * source; it simply cannot be run.
  */
+
+/**
+ * Read the flag per request rather than once per build.
+ *
+ * Without this the page has no dynamic input, so Next prerenders it and bakes
+ * whatever FEATURE_PUBLIC_DEMO said at BUILD time into static HTML — flipping
+ * the flag afterwards changes nothing until the next deploy. That breaks the
+ * property every flag in this codebase is documented to have: "rollback is
+ * flipping the flag, no redeploy". The five other flag-gated pages
+ * (assistant, calendar, automations, approvals, notifications) all carry this
+ * line for the same reason.
+ */
+export const dynamic = "force-dynamic";
 export default function DemoPage() {
   const enabled = featureEnabled("FEATURE_PUBLIC_DEMO");
   // NEXT_PUBLIC_ by definition: this is the widget's public site key, not the

@@ -187,7 +187,10 @@ export const DemoResults = React.forwardRef<HTMLDivElement, DemoResultsProps>(
               role="status"
             >
               {aiNote ?? "AI review is temporarily unavailable."}{" "}
-              <span className="text-consulting-slate/80 dark:text-slate-400">
+              {/* Full-strength slate, not /80: at 80% opacity axe measured this
+                  at 3.13 against the panel, under the 4.5 AA needs for body
+                  text. The de-emphasis was not worth an unreadable sentence. */}
+              <span className="text-consulting-slate dark:text-slate-400">
                 The score above is unaffected.
               </span>
             </p>

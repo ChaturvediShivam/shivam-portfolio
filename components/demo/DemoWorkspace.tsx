@@ -39,6 +39,23 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
   });
   const [jobDescription, setJobDescription] = React.useState<string | null>(null);
   const [token, setToken] = React.useState<string | null>(null);
+  /**
+   * Whether the challenge has finished.
+   *
+   * Turnstile takes roughly two seconds to hand back a token. Submitting before
+   * then sends a null one, which the server correctly refuses — leaving a
+   * visitor who simply clicked promptly staring at "we could not verify that
+   * request" for no reason they could have known about. Measured in a real
+   * browser; jsdom resolved the mock instantly and hid it.
+   *
+   * "failed" re-enables the button rather than trapping the visitor: the server
+   * is the authority on a bad token and gives an accurate message, which beats
+   * a control that never becomes usable.
+   */
+  const [challenge, setChallenge] = React.useState<"pending" | "ready" | "failed">(
+    // With no site key there is no challenge to wait for.
+    "pending",
+  );
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [result, setResult] = React.useState<DemoAnalysisData | null>(null);
   const [failure, setFailure] = React.useState<Failure | null>(null);
@@ -48,6 +65,8 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
   const resultsRef = React.useRef<HTMLDivElement>(null);
 
   const busy = phase === "analyzing";
+  // Only wait when there is actually a widget to wait for.
+  const awaitingChallenge = siteKey !== null && challenge === "pending";
 
   const analyze = React.useCallback(async () => {
     if (inFlight.current) return;
@@ -87,8 +106,24 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
       // whatever the outcome, or the second attempt fails verification.
       turnstileRef.current?.reset();
       setToken(null);
+      if (siteKey) setChallenge("pending");
     }
-  }, [resume.text, jobDescription, token]);
+  }, [resume.text, jobDescription, token, siteKey]);
+
+  /**
+   * Never leave the visitor with a control that cannot be pressed.
+   *
+   * If Cloudflare is unreachable the widget's onError may never fire, so
+   * "pending" would last forever and the button would stay disabled with no
+   * explanation — the page would look broken rather than degraded. After a
+   * generous wait, hand control back and let the server be the authority: it
+   * refuses a missing token with an accurate, safe message.
+   */
+  React.useEffect(() => {
+    if (!siteKey || challenge !== "pending") return;
+    const timer = setTimeout(() => setChallenge("failed"), 8_000);
+    return () => clearTimeout(timer);
+  }, [siteKey, challenge]);
 
   // Move focus to the results once they exist, so a keyboard or screen-reader
   // user lands on the answer instead of being left at the button.
@@ -118,9 +153,18 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
           <Turnstile
             ref={turnstileRef}
             siteKey={siteKey}
-            onSuccess={setToken}
-            onError={() => setToken(null)}
-            onExpire={() => setToken(null)}
+            onSuccess={(value) => {
+              setToken(value);
+              setChallenge("ready");
+            }}
+            onError={() => {
+              setToken(null);
+              setChallenge("failed");
+            }}
+            onExpire={() => {
+              setToken(null);
+              setChallenge("pending");
+            }}
             options={{ theme: "auto", size: "normal" }}
           />
         </div>
@@ -130,7 +174,7 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
         <button
           type="button"
           onClick={analyze}
-          disabled={busy}
+          disabled={busy || awaitingChallenge}
           aria-busy={busy}
           className="rounded-lg bg-consulting-royal px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -146,9 +190,11 @@ export function DemoWorkspace({ siteKey }: { siteKey: string | null }) {
         >
           {busy
             ? "Scoring on the server, then asking the model…"
-            : phase === "done"
-              ? "Analysis complete."
-              : ""}
+            : awaitingChallenge
+              ? "Checking your browser…"
+              : phase === "done"
+                ? "Analysis complete."
+                : ""}
         </p>
       </div>
 

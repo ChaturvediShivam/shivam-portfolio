@@ -24,3 +24,7 @@ public/pdf.worker.min.mjs
 # Browser "print page to PDF" captures of docs. The markdown is the source and
 # is committed; a 43 MB render of it nearly went into history once.
 docs/**/screencapture-*.pdf
+
+# Playwright artifacts — fixtures and traces are regenerated on every run.
+e2e/.artifacts/
+playwright-report/

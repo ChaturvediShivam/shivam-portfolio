@@ -87,6 +87,7 @@ export function DemoResumeInput({ value, label, disabled, onChange }: DemoResume
         label="Upload a resume"
         hint="Parsed in your browser — the file is never uploaded."
         maxBytes={DEMO_MAX_FILE_BYTES}
+        tone="light"
         disabled={disabled}
         busy={busy}
         invalid={error !== null}
