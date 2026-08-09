@@ -48,7 +48,15 @@ interface DemoEventMeta {
 }
 
 export function logDemoEvent(event: DemoEvent, meta: DemoEventMeta = {}): void {
-  // A single line so a log search groups cleanly, and a fixed prefix so demo
-  // traffic can be filtered out of everything else the server says.
-  console.info(`[demo:event] ${JSON.stringify({ event, ...meta })}`);
+  try {
+    // A single line so a log search groups cleanly, and a fixed prefix so demo
+    // traffic can be filtered out of everything else the server says.
+    console.info(`[demo:event] ${JSON.stringify({ event, ...meta })}`);
+  } catch {
+    // Observability must never be able to fail the thing it observes. A broken
+    // stdout (EPIPE) or a serialisation failure would otherwise throw into the
+    // caller — and the gate events fire before the wrapper's try block, so it
+    // would escape the Server Action entirely rather than being scrubbed.
+    // Losing a log line is the correct trade against losing the request.
+  }
 }
