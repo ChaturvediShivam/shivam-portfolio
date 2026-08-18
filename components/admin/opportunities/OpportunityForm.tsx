@@ -242,7 +242,13 @@ export function OpportunityForm({ mode, opportunity }: OpportunityFormProps) {
           <TextInput name="seniority" value={values.seniority} onChange={(e) => set("seniority", e.target.value)} placeholder="Senior" />
         </FormField>
 
-        <FormField label="Job URL" htmlFor="job_url" error={errors.job_url} className="sm:col-span-2">
+        <FormField
+          label="Job URL"
+          htmlFor="job_url"
+          error={errors.job_url}
+          hint="Used to detect duplicates. Tracking parameters are stripped, so the same posting shared from different places counts once."
+          className="sm:col-span-2"
+        >
           <TextInput name="job_url" type="url" value={values.job_url} onChange={(e) => set("job_url", e.target.value)} placeholder="https://…" />
         </FormField>
 

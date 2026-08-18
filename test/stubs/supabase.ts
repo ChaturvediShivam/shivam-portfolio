@@ -16,7 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export interface StubFilter {
-  op: "eq" | "is" | "in" | "gte" | "lte" | "lt" | "not";
+  op: "eq" | "neq" | "is" | "in" | "gte" | "lte" | "lt" | "not";
   column: string;
   value: unknown;
 }
@@ -96,6 +96,11 @@ class Query implements PromiseLike<{ data: unknown; error: StubError | null }> {
 
   eq(column: string, value: unknown): this {
     this.operation.filters.push({ op: "eq", column, value });
+    return this;
+  }
+
+  neq(column: string, value: unknown): this {
+    this.operation.filters.push({ op: "neq", column, value });
     return this;
   }
 
