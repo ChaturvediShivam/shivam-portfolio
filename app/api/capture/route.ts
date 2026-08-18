@@ -64,6 +64,8 @@ function asPage(body: unknown): CapturedPage | null {
             heading: typeof raw.heading === "string" ? raw.heading.slice(0, 200) : null,
             level: typeof raw.level === "number" && Number.isFinite(raw.level) ? raw.level : 0,
             text: typeof raw.text === "string" ? raw.text.slice(0, 20_000) : "",
+            blocks: typeof raw.blocks === "number" && Number.isFinite(raw.blocks) ? raw.blocks : 0,
+            cells: typeof raw.cells === "number" && Number.isFinite(raw.cells) ? raw.cells : 0,
           }))
       : [],
     labels: Array.isArray(b.labels)

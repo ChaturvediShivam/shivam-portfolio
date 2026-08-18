@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { structureDeterministically, sourceFor } from "@/lib/capture/structure";
-import { applyHeuristics } from "@/lib/capture/heuristics";
 import type { CapturedPage } from "@/types/capture";
 
 /**
@@ -32,10 +31,21 @@ const FIXTURES = JSON.parse(
   readFileSync(join(process.cwd(), "test/capture/fixtures/real-pages.json"), "utf8"),
 ) as Record<string, CapturedPage & { note: string }>;
 
+/**
+ * Hand the fixture over as the extension would send it.
+ *
+ * Passes every field through. It used to blank `text`, which quietly meant the
+ * fixtures were exercising a payload no extension ever produces — and hid the
+ * fallback path entirely once that path moved.
+ */
 const asPage = (f: CapturedPage & { note: string }): CapturedPage => ({
   url: f.url,
+  canonicalUrl: f.canonicalUrl ?? null,
   title: f.title,
-  text: "",
+  h1: f.h1 ?? null,
+  text: f.text ?? "",
+  sections: f.sections ?? [],
+  labels: f.labels ?? [],
   meta: f.meta,
   jsonLd: f.jsonLd,
 });
@@ -141,15 +151,7 @@ describe("SurelyRemote (no JobPosting, no Open Graph at all)", () => {
    * work arrangement and several paragraphs of description.
    */
   const fixture = FIXTURES.surelyremote;
-  const { job, provenance } = (() => {
-    const base = structureDeterministically(asPage(fixture));
-    applyHeuristics(base.job, base.provenance, {
-      title: fixture.title,
-      h1: fixture.h1 ?? null,
-      text: fixture.text ?? "",
-    });
-    return base;
-  })();
+  const { job, provenance } = structureDeterministically(asPage(fixture));
 
   it("recovers the role without the company appended", () => {
     expect(job.title).toBe("Applied AI Engineer");
@@ -189,15 +191,7 @@ describe("SurelyRemote labelled summary block", () => {
    * being mistaken for a field.
    */
   const fixture = FIXTURES.surelyremote;
-  const { job, provenance } = (() => {
-    const base = structureDeterministically(asPage(fixture));
-    applyHeuristics(base.job, base.provenance, {
-      title: fixture.title,
-      h1: fixture.h1 ?? null,
-      text: fixture.text ?? "",
-    });
-    return base;
-  })();
+  const { job, provenance } = structureDeterministically(asPage(fixture));
 
   it("reads employment type and seniority from the labelled block", () => {
     expect(job.employment_type).toBe("full_time");
@@ -238,8 +232,19 @@ describe("20. Surely Remote / Bjak — full-page regression", () => {
   });
 
   it("reads employment and seniority from the Job Summary card", () => {
+    // That card is a 12-cell <div> grid — no <dl>, no <table>, no <p>. Before
+    // leaf containers were captured it came back with zero characters and
+    // neither field was extracted at all.
     expect(job.employment_type).toBe("full_time");
     expect(job.seniority).toBe("mid");
+  });
+
+  it("keeps the parent heading whose content lives under its children", () => {
+    // "Skills & Requirements" has no body of its own; "Required Skills:" and
+    // "Nice-to-Have Skills:" sit beneath it. Dropping it flattens a grouping
+    // the employer wrote deliberately.
+    expect(description).toContain("Skills & Requirements");
+    expect(description.indexOf("Skills & Requirements")).toBeLessThan(description.indexOf("Required Skills:"));
   });
 
   it("captures the role overview, which is headed with the job title itself", () => {
@@ -290,13 +295,31 @@ describe("20. Surely Remote / Bjak — full-page regression", () => {
   });
 
   it("is a substantial description, not a summary of one", () => {
-    expect(description.length).toBeGreaterThan(900);
+    expect(description.length).toBeGreaterThan(1500);
   });
 
-  it("does not conclude remote from the board's editorial or byline", () => {
-    // "Written by Surely Remote" is in the page text, and "Remote Readiness
-    // Overview" / "remote-first culture" are the board's commentary about the
-    // employer. None of that states this role's arrangement.
+  it("contains only employer content, measured line by line", () => {
+    // Every non-blank line must trace back to an employer section. A whitelist
+    // check rather than a blacklist: a blacklist only catches the contamination
+    // someone thought to name.
+    const employerText = fixture.sections
+      .filter((s: { heading: string | null }) =>
+        [null, "Applied AI Engineer", "Responsibilities", "Skills & Requirements",
+         "Required Skills:", "Nice-to-Have Skills:", "About the Company"].includes(s.heading))
+      .map((s: { heading: string | null; text: string }) => `${s.heading ?? ""}\n${s.text}`)
+      .join("\n");
+
+    for (const line of description.split("\n").map((l) => l.trim()).filter(Boolean)) {
+      expect(employerText, `leaked line: ${line}`).toContain(line);
+    }
+  });
+
+  it("does not conclude remote from the board's editorial", () => {
+    // The board's "Remote Readiness Overview" states, in as many words, "The
+    // role is fully remote". It is still the BOARD's analysis, not the
+    // employer's posting, so it must not set the field — and the only reason it
+    // cannot is that heuristics read employer sections rather than page text.
+    expect(fixture.sections.some((s: { text: string }) => /fully remote/i.test(s.text))).toBe(true);
     expect(job.location_type).toBeNull();
   });
 

@@ -61,7 +61,7 @@
     "text": "BJAK\n\nApplied AI Engineer\n\nThis role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency. You will work closely with product and engineering teams to deploy reliable AI solutions that handle real-world constraints like latency, security, and compliance. The position requires hands-on engineering experience with LLMs, RAG systems, and production-grade software development.\n\nResponsibilities\nBuild AI agents, workflows, tools, and automations to solve customer and operational problems.\nShip production features with appropriate evaluation and monitoring.\n\nRequirements\nFull-time. Remote.\nExperience with LLMs and RAG systems.\n\nWritten by Surely Remote\n\nGrowth Opportunities\n\nJob Summary\nCompany\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago\nIndustry\nInformation Technology (IT), Banking & Financial Services\n"
   },
   "surelyremote_sections": {
-    "note": "jobs.surelyremote.com/job/view/SR285910 \u2014 captured live with extension/extractor.js on 2026-08-19. No JobPosting, no Open Graph, no <dl>/<table> labels: sections are the only structure. The employer's posting and the board's editorial sit side by side, which is what makes this the regression case.",
+    "note": "jobs.surelyremote.com/job/view/SR285910 \u2014 captured live with extension/extractor.js on 2026-08-19. Employer section text and every blocks/cells count are VERBATIM from the live capture; the board's editorial sections are truncated to their opening lines for size, which is enough to prove exclusion. 'Skills & Requirements' really does come back empty \u2014 it is a parent heading whose content sits under its two child headings \u2014 and 'Job Summary' is a 12-cell div grid, which is what makes it a field card rather than prose.",
     "url": "https://jobs.surelyremote.com/job/view/SR285910",
     "canonicalUrl": null,
     "title": "Applied AI Engineer at Bjak",
@@ -74,77 +74,119 @@
     },
     "jsonLd": [],
     "labels": [],
-    "text": "BJAK\n\nApplied AI Engineer\n\nThis role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency.\n\nWritten by Surely Remote\n\nJob Summary\nCompany\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago",
+    "text": "BJAK\n\nApplied AI Engineer\n\nThis role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency.\n\nResponsibilities\nBuild AI agents, workflows, tools, and automations to solve customer and operational problems.\n\nAbout the Company\nBjak is a leading Southeast Asian insurance and financial platform founded in 2019.\n\nEditorial Analysis\nThe Job in a Nutshell:\nThis is a hands-on engineering role.\n\nRemote Readiness Overview\nWork From Home Perks\nThe role is fully remote, allowing for flexibility while requiring the candidate to be based in India to support the local market.\n\nWritten by Surely Remote\n\nJob Summary\nCompany\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago",
     "sections": [
       {
         "heading": null,
         "level": 0,
-        "text": "BJAK"
+        "text": "BJAK",
+        "blocks": 1,
+        "cells": 0
       },
       {
         "heading": "Applied AI Engineer",
         "level": 1,
-        "text": "This role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency. You will work closely with product and engineering teams to deploy reliable AI solutions that handle real-world constraints like latency, security, and compliance. The position requires hands-on engineering experience with LLMs, RAG systems, and production-grade software development. You will be responsible for the full lifecycle of AI features, from identifying opportunities to maintaining them in production."
+        "text": "This role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency. You will work closely with product and engineering teams to deploy reliable AI solutions that handle real-world constraints like latency, security, and compliance. The position requires hands-on engineering experience with LLMs, RAG systems, and production-grade software development. You will be responsible for the full lifecycle of AI features, from identifying opportunities to maintaining them in production.",
+        "blocks": 1,
+        "cells": 0
       },
       {
         "heading": "Responsibilities",
         "level": 3,
-        "text": "\u2022 Build AI agents, workflows, tools, and automations to solve customer and operational problems.\n\u2022 Apply LLMs, retrieval, tool calling, and guardrails to practical financial workflows.\n\u2022 Create AI-assisted experiences for onboarding, KYC, risk review, and CRM.\n\u2022 Collaborate with product and engineering teams to identify and build high-impact features.\n\u2022 Design systems with a focus on accuracy, latency and security."
+        "text": "\u2022 Build AI agents, workflows, tools, and automations to solve customer and operational problems.\n\u2022 Apply LLMs, retrieval, tool calling, and guardrails to practical financial workflows.\n\u2022 Create AI-assisted experiences for onboarding, KYC, risk review, and CRM.\n\u2022 Collaborate with product and engineering teams to identify and build high-impact features.\n\u2022 Design systems with a focus on accuracy, latency, cost, security, and compliance.",
+        "blocks": 5,
+        "cells": 0
       },
       {
         "heading": "Skills & Requirements",
         "level": 3,
-        "text": ""
+        "text": "",
+        "blocks": 0,
+        "cells": 0
       },
       {
         "heading": "Required Skills:",
         "level": 4,
-        "text": "\u2022 Python\n\u2022 TypeScript\n\u2022 JavaScript\n\u2022 LLM application development\n\u2022 RAG systems\n\u2022 AI agent design\n\u2022 Production-grade software engineering"
+        "text": "\u2022 Python\n\u2022 TypeScript\n\u2022 JavaScript\n\u2022 LLM application development\n\u2022 RAG systems\n\u2022 AI agent design\n\u2022 Production-grade software engineering",
+        "blocks": 7,
+        "cells": 0
       },
       {
         "heading": "Nice-to-Have Skills:",
         "level": 4,
-        "text": "\u2022 Fintech experience\n\u2022 Banking domain knowledge\n\u2022 Support automation\n\u2022 Fraud detection\n\u2022 KYC/Risk management"
+        "text": "\u2022 Fintech experience\n\u2022 Banking domain knowledge\n\u2022 Support automation\n\u2022 Fraud detection\n\u2022 KYC/Risk management",
+        "blocks": 5,
+        "cells": 0
       },
       {
         "heading": "About the Company",
         "level": 3,
-        "text": "Bjak is a leading Southeast Asian insurance and financial platform founded in 2019 with a mission to help people plan, save, and grow their money. The company operates globally with a remote-first engineering culture."
+        "text": "Bjak is a leading Southeast Asian insurance and financial platform founded in 2019 with a mission to help people plan, save, and grow their money. The company operates globally with a diverse team and is currently expanding its services to include broader financial applications.",
+        "blocks": 1,
+        "cells": 0
       },
       {
         "heading": "Editorial Analysis",
-        "level": 2,
-        "text": "The Job in a Nutshell:\nThis is a hands-on engineering role focused on shipping AI features rather than research. Candidates moving from prototyping into production will find this a natural step."
+        "level": 3,
+        "text": "The Job in a Nutshell:\nThis is a hands-on engineering role focused on building and shipping AI features, requiring a blend of software engineering and applied AI skills, with an emphasis on accuracy, latency, cost, security, and compliance in a financial context.",
+        "blocks": 9,
+        "cells": 1
       },
       {
         "heading": "Growth Opportunities",
-        "level": 2,
-        "text": "Skills You'll Develop:\nYou will gain deep expertise in AI-native product engineering, evaluation harnesses, and the operational side of running LLM features at scale."
+        "level": 3,
+        "text": "Skills You'll Develop:\nYou will gain deep expertise in AI-native product engineering and tackle complex, high-stakes technical challenges.",
+        "blocks": 7,
+        "cells": 1
       },
       {
         "heading": "Application Guide",
-        "level": 2,
-        "text": "Tailor your CV to highlight production LLM work. Mention specific systems you have shipped and the constraints you worked under."
+        "level": 3,
+        "text": "Optimize Your Resume:\nHighlight your experience with LLMs, RAG, Python and TypeScript.",
+        "blocks": 10,
+        "cells": 5
       },
       {
         "heading": "Remote Readiness Overview",
-        "level": 2,
-        "text": "This employer has a remote-first culture and distributed teams across several time zones."
+        "level": 3,
+        "text": "Work From Home Perks\nThe role is fully remote, allowing for flexibility while requiring the candidate to be based in India to support the local market.\nEstimated Annual Salary Range\nNot specified by the employer.",
+        "blocks": 11,
+        "cells": 0
       },
       {
         "heading": "Job Summary",
-        "level": 2,
-        "text": "Company\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago"
+        "level": 3,
+        "text": "Company\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago\nIndustry\nInformation Technology (IT), Banking & Financial Services, Data Science & AI\nCategories\nComputer & It, Engineering, Data Science & Analytics",
+        "blocks": 12,
+        "cells": 12
       },
       {
         "heading": "Our Commitment to Your Safety",
         "level": 2,
-        "text": "We verify employers where possible, but you should always apply care when sharing personal information with any company."
+        "text": "We are committed to a scam-free experience through rigorous vetting. There are still things you should check yourself.",
+        "blocks": 1,
+        "cells": 0
+      },
+      {
+        "heading": "Empowering Your Search: Know the Signs",
+        "level": 3,
+        "text": "\u2022 \u00d7\n \n Requests for Financial Account Setup.\n Employers will NEVER ask for bank details during an interview.",
+        "blocks": 5,
+        "cells": 0
       },
       {
         "heading": "Your Safety Checklist:",
         "level": 3,
-        "text": "\u2022 Never pay to apply\n\u2022 Verify the company domain\n\u2022 Do not share bank details during interviews"
+        "text": "\u2022 \u2713\n \n Verify the Offer with the REAL Company.\n If you get an offer, find the company website yourself.",
+        "blocks": 2,
+        "cells": 0
+      },
+      {
+        "heading": "A Partnership in Safety",
+        "level": 4,
+        "text": "Our top priority is your safety, and we work tirelessly to prevent fraudulent listings from reaching you.",
+        "blocks": 1,
+        "cells": 0
       }
     ]
   }

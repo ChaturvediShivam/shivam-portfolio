@@ -44,6 +44,14 @@ export interface CapturedSection {
   level: number;
   /** The block's text, with list items kept as "• " lines. */
   text: string;
+  /** How many text blocks the section was built from. */
+  blocks?: number;
+  /**
+   * How many of those were leaf containers — grid or card cells rather than
+   * prose. A section that is mostly cells is a field card, which is how an
+   * employer's own "Job Summary" is told apart from a board-generated one.
+   */
+  cells?: number;
 }
 
 /**

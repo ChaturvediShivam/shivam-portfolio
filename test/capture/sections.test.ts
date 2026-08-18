@@ -51,10 +51,26 @@ describe("classifySection", () => {
     expect(classifySection("How to apply")).toBe("employer");
   });
 
-  it("recognises a metadata card", () => {
-    for (const heading of ["Job Summary", "Job Details", "At a glance", "Quick facts", "Key details"]) {
+  it("recognises a metadata card by its heading where the heading is unambiguous", () => {
+    for (const heading of ["Job Details", "At a glance", "Quick facts", "Key details"]) {
       expect(classifySection(heading), heading).toBe("metadata");
     }
+  });
+
+  it("13. decides an ambiguous 'Job Summary' by its body, not its heading", () => {
+    // Board-generated: a grid of labels and values.
+    const generated = section("Job Summary", "Company\nBjak\nExperience\nMid-Level\nEmployment\nFull-time");
+    expect(classifySection({ ...generated, blocks: 6, cells: 6 })).toBe("metadata");
+    expect(classifySection(generated)).toBe("metadata");
+  });
+
+  it("12. treats an employer's own 'Job Summary' prose as part of the posting", () => {
+    // Same heading, different substance: this is the employer writing.
+    const authored = section(
+      "Job Summary",
+      "We are looking for an engineer to own our ingestion platform end to end. You will work across the stack and set the technical direction for the team.",
+    );
+    expect(classifySection(authored)).toBe("employer");
   });
 
   it("treats the lead block as employer content", () => {
@@ -123,10 +139,12 @@ describe("assembleJobDescription", () => {
     expect(description).not.toContain("Unrelated commentary");
   });
 
-  it("returns null rather than a stub when the page has no real description", () => {
+  it("returns null rather than a stub when the page has only a field card", () => {
     // CASE E: structured metadata but no description. Manufacturing one would
     // be inventing content.
-    const { description } = assembleJobDescription([section("Job Summary", "Company\nAcme")]);
+    const { description } = assembleJobDescription([
+      section("Job Summary", "Company\nAcme\nEmployment\nFull-time\nLocation\nRemote\nPosted\nToday"),
+    ]);
     expect(description).toBeNull();
   });
 

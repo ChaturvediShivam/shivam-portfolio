@@ -112,6 +112,24 @@ function captureCurrentPage() {
   var HEADING_TAGS = /^H([1-6])$/;
 
   /**
+   * Containers that hold text directly rather than wrapping other blocks.
+   *
+   * Job boards render summary cards as grids of bare <div>s — "Company",
+   * "Bjak", "Employment", "Full-time" — with no <dl>, no <table> and no <p>
+   * anywhere. Measured on the live page: the entire Job Summary card came back
+   * as a section with zero characters, so employment type and seniority were
+   * never extracted at all.
+   *
+   * Only LEAF containers qualify (`childElementCount === 0`). A wrapper div
+   * would swallow every block beneath it and report the page twice.
+   */
+  var LEAF_TAGS = /^(DIV|SECTION|SPAN|STRONG|B|EM)$/;
+
+  function isLeafTextCell(el) {
+    return LEAF_TAGS.test(el.tagName) && el.childElementCount === 0;
+  }
+
+  /**
    * Every text block inside the root, in document order, tagged by kind.
    *
    * A TreeWalker rather than querySelectorAll so the chrome check can reject a
@@ -124,7 +142,8 @@ function captureCurrentPage() {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
       acceptNode: function (el) {
         if (isChrome(el)) return NodeFilter.FILTER_REJECT;
-        return BLOCK_TAGS.test(el.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        if (BLOCK_TAGS.test(el.tagName)) return NodeFilter.FILTER_ACCEPT;
+        return isLeafTextCell(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       },
     });
 
@@ -144,7 +163,13 @@ function captureCurrentPage() {
         if (text) {
           var heading = HEADING_TAGS.exec(node.tagName);
           blocks.push({
-            kind: heading ? "heading" : node.tagName === "LI" ? "item" : "text",
+            kind: heading
+              ? "heading"
+              : node.tagName === "LI"
+                ? "item"
+                : isLeafTextCell(node)
+                  ? "cell"
+                  : "text",
             level: heading ? Number(heading[1]) : 0,
             text: text.slice(0, 2000),
           });
@@ -171,7 +196,10 @@ function captureCurrentPage() {
   function collectSections(root) {
     var blocks = textBlocks(root);
     var sections = [];
-    var current = { heading: null, level: 0, parts: [] };
+    // `cells` counts leaf-container blocks. A section built almost entirely
+    // from them is a field card, not prose — which is how the server tells an
+    // employer's own "Job Summary" from a board-generated one.
+    var current = { heading: null, level: 0, parts: [], cells: 0 };
 
     function flush() {
       var text = current.parts.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -180,6 +208,8 @@ function captureCurrentPage() {
           heading: current.heading,
           level: current.level,
           text: text.slice(0, MAX_SECTION_CHARS),
+          blocks: current.parts.length,
+          cells: current.cells,
         });
       }
     }
@@ -188,9 +218,10 @@ function captureCurrentPage() {
       var block = blocks[i];
       if (block.kind === "heading" && block.text.length <= 140) {
         flush();
-        current = { heading: block.text, level: block.level, parts: [] };
+        current = { heading: block.text, level: block.level, parts: [], cells: 0 };
       } else {
         current.parts.push(block.kind === "item" ? "• " + block.text : block.text);
+        if (block.kind === "cell") current.cells += 1;
       }
       if (sections.length >= MAX_SECTIONS) break;
     }

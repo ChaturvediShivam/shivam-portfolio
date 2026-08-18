@@ -467,9 +467,17 @@ export function parseLabelledFields(text: string): LabelledFields {
 export function applyHeuristics(
   job: CapturedJob,
   provenance: CaptureProvenance,
-  page: { title?: string; h1?: string | null; text?: string },
+  page: { title?: string; h1?: string | null; text?: string; labelText?: string },
 ): void {
   const text = page.text ?? "";
+  // Labels may be read from anywhere on the page; prose may not.
+  //
+  // "Employment: Full-time" states a fact about the job no matter which part of
+  // the page it sits in — that is what a label IS. A sentence containing the
+  // word "remote" states nothing unless it is the employer describing this
+  // role. So the label parser gets the whole page and every prose pattern below
+  // gets only the employer's own sections.
+  const labelText = page.labelText ?? text;
 
   const set = <K extends keyof CapturedJob>(key: K, value: CapturedJob[K] | null) => {
     if (value === null || value === undefined || value === "") return;
@@ -488,7 +496,7 @@ export function applyHeuristics(
 
   // A labelled summary block states what a value MEANS, so it is read before
   // any free-text pattern and wins wherever the two disagree.
-  const labelled = parseLabelledFields(text);
+  const labelled = parseLabelledFields(labelText);
 
   set("company", labelled.company ?? null);
   set("location", labelled.location ?? guessLocation(text));
@@ -503,13 +511,11 @@ export function applyHeuristics(
     set("salary_currency", salary.currency);
   }
 
-  // The posting body, last resort.
+  // NOTE: the job-description fallback deliberately does NOT live here.
   //
-  // The extension has already sent the page's readable text. Discarding it
-  // because a model was unavailable — and presenting an empty description next
-  // to a field the person watched get captured — is the worst possible outcome:
-  // it loses information we are holding. Unfiltered, so it is marked inferred.
-  if (!job.job_description && text.trim().length >= 200) {
-    set("job_description", text.trim());
-  }
+  // It used to, and it read the raw page text — untrimmed, so the board's
+  // editorial went straight into the field — behind a 200-character floor that
+  // silently dropped short postings. Both problems belong to text this function
+  // never sees the boundaries of. `structureDeterministically` owns it now,
+  // after the editorial boundary has been cut.
 }

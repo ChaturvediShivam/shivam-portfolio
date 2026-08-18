@@ -55,10 +55,54 @@ const EDITORIAL_PATTERNS: RegExp[] = [
  * this: Company / Bjak / Experience / Mid-Level / Employment / Full-time.
  */
 const METADATA_PATTERNS: RegExp[] = [
-  /^job (summary|details|info(rmation)?|facts|overview card)$/i,
-  /^(summary|details|at a glance|quick facts|key details|job data)$/i,
-  /^(position|role) (details|summary|information)$/i,
+  /^job (details|info(rmation)?|facts|overview card)$/i,
+  /^(details|at a glance|quick facts|key details|job data)$/i,
+  /^(position|role) (details|information)$/i,
 ];
+
+/**
+ * Headings that name either a field card or a real section, depending entirely
+ * on what is underneath them.
+ *
+ * "Job Summary" is the case that forces this. On one site it is the board's
+ * generated card — Company / Bjak / Employment / Full-time — and belongs in the
+ * structured columns. On another it is the employer's own opening paragraph and
+ * belongs in the description. The words are identical; only the body differs,
+ * so the body is what decides.
+ */
+const AMBIGUOUS_PATTERNS: RegExp[] = [/^(job |position |role )?summary$/i, /^overview$/i];
+
+/** Field labels a generated card almost always contains. */
+const CARD_LABELS =
+  /^(company|employer|employment|job type|experience|seniority|level|location|work type|workplace|salary|compensation|posted|date posted|industry|category|categories|deadline|apply by)$/i;
+
+/**
+ * Does this body read as a field card rather than as prose?
+ *
+ * Three signals, any of which is decisive:
+ *   - the extractor counted mostly leaf cells (a grid or card layout)
+ *   - several lines are bare field labels
+ *   - the lines are uniformly short and none of them is a sentence
+ *
+ * Prose has sentences. A card has labels and values. The distinction survives
+ * across sites because it is about the shape of the content, not its markup.
+ */
+export function looksLikeFieldCard(section: CapturedSection): boolean {
+  const text = section.text?.trim() ?? "";
+  if (!text) return false;
+
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return false;
+
+  if ((section.cells ?? 0) >= 4 && (section.cells ?? 0) >= (section.blocks ?? 0) * 0.7) return true;
+
+  const labelLines = lines.filter((l) => CARD_LABELS.test(l.replace(/[:\s]+$/, ""))).length;
+  if (labelLines >= 2) return true;
+
+  // No sentence anywhere, everything short: a list of values, not a narrative.
+  const hasSentence = lines.some((l) => l.length > 80 || /[a-z]{3,}[.!?]( |$)/.test(l));
+  return !hasSentence && lines.length >= 4 && lines.every((l) => l.length <= 40);
+}
 
 /**
  * Employer content — the posting itself.
@@ -107,7 +151,22 @@ const EMPLOYER_PATTERNS: RegExp[] = [
  * almost every posting is the role overview. It is employer content by position:
  * a board's commentary is never the first thing above the first heading.
  */
-export function classifySection(heading: string | null, roleTitle?: string | null): SectionKind {
+export function classifySection(
+  section: CapturedSection | string | null,
+  roleTitle?: string | null,
+): SectionKind {
+  // Accepts a bare heading so callers that only have one — and the tests that
+  // exercise heading matching in isolation — need not fabricate a section.
+  // Written as an explicit guard rather than a ternary: this project compiles
+  // with `strict: false`, where narrowing a union by `typeof` does not hold
+  // across both branches.
+  const isSection = (value: unknown): value is CapturedSection =>
+    typeof value === "object" && value !== null;
+  const node: CapturedSection = isSection(section)
+    ? section
+    : { heading: section as string | null, level: 2, text: "" };
+  const heading = node.heading;
+
   if (heading === null) return "employer";
 
   const text = heading.replace(/\s+/g, " ").trim();
@@ -125,6 +184,12 @@ export function classifySection(heading: string | null, roleTitle?: string | nul
 
   for (const pattern of EDITORIAL_PATTERNS) if (pattern.test(text)) return "editorial";
   for (const pattern of METADATA_PATTERNS) if (pattern.test(text)) return "metadata";
+
+  // Decided by what is underneath, not by the words in the heading.
+  if (AMBIGUOUS_PATTERNS.some((pattern) => pattern.test(text))) {
+    return looksLikeFieldCard(node) ? "metadata" : "employer";
+  }
+
   for (const pattern of EMPLOYER_PATTERNS) if (pattern.test(text)) return "employer";
 
   return "unknown";
@@ -141,28 +206,19 @@ export interface AssembledDescription {
   usedFallback: boolean;
 }
 
-/** Sections too short to be content — a stray label, a button caption. */
-const MIN_SECTION_CHARS = 40;
-
 /**
- * The lead block is only an overview if it is more than a breadcrumb.
+ * Length floors, kept as low as they can be while still excluding non-content.
  *
- * Set at the length of a short sentence rather than a paragraph. A genuine
- * one-line overview ("We are hiring an engineer to build practical AI systems")
- * is a real description and the only one some postings have — dropping it would
- * hand back an empty field on exactly the pages that can least afford it.
- * Breadcrumbs and button captions sit well under this.
- */
-const MIN_LEAD_CHARS = 55;
-
-/**
- * The floor for the assembled result.
+ * A floor is a way to lose a real description, so these exist only to reject
+ * things that are definitely not prose: a bare company name in the lead block
+ * ("BJAK", four characters, seen on the live page), a button caption, a stray
+ * label. Anything that could be a sentence gets through.
  *
- * Lower than the per-section floor on purpose: a posting whose entire
- * description is two short sentences still has a description, and returning
- * null there would mean retyping it by hand.
+ * A named section is subject to no floor at all. If an employer wrote a heading
+ * and put one line under it, that line is their description and it is kept.
  */
-const MIN_DESCRIPTION_CHARS = 40;
+const MIN_LEAD_CHARS = 25;
+const MIN_DESCRIPTION_CHARS = 1;
 
 /**
  * Assemble the employer's job description from classified sections.
@@ -176,6 +232,20 @@ const MIN_DESCRIPTION_CHARS = 40;
  * some extra content in it beats an empty one, because an empty one means
  * copying the posting by hand — the exact work this exists to remove.
  */
+/**
+ * Does the section at `index` head a group whose members carry the content?
+ *
+ * True when the next section is deeper and has a body. That is the shape of a
+ * parent heading — a grouping label with the substance underneath it — and it
+ * is worth keeping for the same reason the employer wrote it.
+ */
+function hasNestedContent(sections: CapturedSection[], index: number): boolean {
+  const parent = sections[index];
+  if (!parent?.heading) return false;
+  const next = sections[index + 1];
+  return Boolean(next && next.level > parent.level && next.text?.trim());
+}
+
 export function assembleJobDescription(
   sections: CapturedSection[],
   roleTitle?: string | null,
@@ -184,9 +254,9 @@ export function assembleJobDescription(
   const unknown: { heading: string | null; text: string }[] = [];
   const metadata: string[] = [];
 
-  for (const section of sections) {
+  for (const [index, section] of sections.entries()) {
     const text = section.text?.trim() ?? "";
-    const kind = classifySection(section.heading, roleTitle);
+    const kind = classifySection(section, roleTitle);
 
     if (kind === "metadata") {
       // Kept, but only as input to field extraction.
@@ -195,11 +265,15 @@ export function assembleJobDescription(
     }
     if (kind === "editorial") continue;
 
-    const isLead = section.heading === null;
-    const floor = isLead ? MIN_LEAD_CHARS : MIN_SECTION_CHARS;
-    // A heading with no body still carries meaning in a list of sections, but
-    // only when it sits alongside real content — never on its own.
-    if (text.length < floor && !(section.heading && text.length > 0)) continue;
+    // The lead block is the only one with a floor: it catches breadcrumbs and
+    // bare company names. A heading means an author put it there deliberately.
+    if (section.heading === null && text.length < MIN_LEAD_CHARS) continue;
+
+    // A heading with an empty body is kept when it is a PARENT of sections that
+    // follow it — "Skills & Requirements" above "Required Skills" and
+    // "Nice-to-Have Skills" on the live page. Dropping it flattens the
+    // employer's own grouping and loses information the page carried.
+    if (!text && !hasNestedContent(sections, index)) continue;
 
     if (kind === "employer") included.push({ heading: section.heading, text });
     else unknown.push({ heading: section.heading, text });
@@ -220,4 +294,31 @@ export function assembleJobDescription(
     metadataText: metadata.join("\n"),
     usedFallback,
   };
+}
+
+/**
+ * Cut raw page text at the first board-editorial heading.
+ *
+ * The last-resort path: a page whose structure the extractor could not read at
+ * all, where the only thing left is the flat text. Without this cut that text
+ * carries the board's commentary straight into the description — which is the
+ * contamination the section pipeline exists to prevent, arriving through the
+ * back door.
+ *
+ * Cutting at the first editorial heading works because boards append their
+ * sections AFTER the employer's posting, not before it. Nothing is reordered
+ * and nothing is summarised; the tail is simply dropped.
+ */
+export function trimAtEditorialBoundary(text: string): string {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    // Only short lines are considered: an editorial phrase inside a paragraph
+    // is prose, the same phrase alone on a line is a heading.
+    if (!line || line.length > 60) continue;
+    if (EDITORIAL_PATTERNS.some((pattern) => pattern.test(line))) {
+      return lines.slice(0, i).join("\n").trim();
+    }
+  }
+  return text.trim();
 }

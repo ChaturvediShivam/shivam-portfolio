@@ -6,7 +6,7 @@ import { getAiProvider } from "@/lib/ai/providers";
 import { AiError } from "@/lib/ai/errors";
 import { fromJsonLd } from "@/lib/capture/jsonld";
 import { applyHeuristics, fieldsFromLabels } from "@/lib/capture/heuristics";
-import { assembleJobDescription } from "@/lib/capture/sections";
+import { assembleJobDescription, trimAtEditorialBoundary } from "@/lib/capture/sections";
 import { normalizeJobUrl } from "@/lib/opportunities";
 import {
   CORE_CAPTURE_FIELDS,
@@ -212,12 +212,40 @@ export function structureDeterministically(page: CapturedPage): {
   // still deterministic, which is why it belongs in this function and not
   // alongside the model. `structureDeterministically` is the complete
   // no-provider pipeline, and callers rely on that.
+  // WHAT THE HEURISTICS ARE ALLOWED TO READ.
+  //
+  // The employer's own sections plus the metadata card — never the whole page.
+  // Measured live: the board's "Remote Readiness Overview" section contains the
+  // sentence "The role is fully remote", and while that is correctly excluded
+  // from the description, scanning raw page text let it set `location_type`
+  // anyway. A field inferred from the board's commentary about a job is not a
+  // fact about the job.
+  //
+  // Raw text is used only when the page yielded no sections at all — an older
+  // extension build, or a page the extractor could not read — and even then it
+  // is cut at the first editorial heading.
+  const employerText =
+    assembled.description ?? trimAtEditorialBoundary(page.selection?.trim() || page.text || "");
+  // Last resort for the description: the page yielded no usable sections, so
+  // the trimmed page text is the posting as far as anything can tell. Marked
+  // `heuristic` because its boundaries were inferred rather than read — the
+  // text itself is still the page's own words, never a rewrite of them.
+  //
+  // The floor is one short sentence. Anything higher discards real postings:
+  // "Run our support desk." is a complete job description on some pages.
+  if (!job.job_description && employerText.trim().length >= 20) {
+    fill(job, provenance, "job_description", employerText.trim(), "heuristic");
+  }
+
   applyHeuristics(job, provenance, {
     title: page.title,
     h1: page.h1 ?? null,
-    // Metadata sections are excluded from the description but are exactly where
-    // a summary card's labels live, so the text parser still gets to see them.
-    text: [page.selection?.trim() || page.text || "", assembled.metadataText].filter(Boolean).join("\n"),
+    text: employerText,
+    // The metadata card is excluded from the description but is exactly where a
+    // summary card's labels live. On a page that yielded no sections the card is
+    // still somewhere in the raw text, past the editorial boundary the
+    // description was cut at — so label parsing sees the untrimmed page.
+    labelText: [assembled.metadataText, page.selection?.trim() || page.text || ""].filter(Boolean).join("\n"),
   });
 
   return { job, provenance, assembled };

@@ -232,23 +232,17 @@ describe("applyHeuristics", () => {
     expect(provenance.title).toBe("heuristic");
   });
 
-  it("falls back to the page text for the job description", () => {
+  it("no longer owns the description fallback", () => {
+    // It used to, reading raw page text behind a 200-character floor — so it
+    // both carried the board's editorial into the field and silently dropped
+    // short postings. `structureDeterministically` owns it now, after the
+    // editorial boundary has been cut. See description.test.ts.
     const job = emptyJob();
     const provenance: CaptureProvenance = {};
-    const body = "This role focuses on building practical AI agents. ".repeat(10);
-    applyHeuristics(job, provenance, { title: "Engineer", h1: null, text: body });
-
-    // The extension already sent this text. Presenting an empty description
-    // next to it would discard information we are holding.
-    expect(job.job_description).toContain("practical AI agents");
-    expect(provenance.job_description).toBe("heuristic");
-  });
-
-  it("does not use a trivially short page as a description", () => {
-    const job = emptyJob();
-    applyHeuristics(job, {}, { title: "Engineer", h1: null, text: "Not found" });
+    applyHeuristics(job, provenance, { title: "Engineer", h1: null, text: "Long posting body. ".repeat(40) });
     expect(job.job_description).toBeNull();
   });
+
 
   it("marks everything it produces as a guess", () => {
     const job = emptyJob();
