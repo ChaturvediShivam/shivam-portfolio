@@ -40,6 +40,46 @@ export const OPPORTUNITY_STAGES = [
 ] as const;
 export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number];
 
+/**
+ * Stage groupings for job-search reporting.
+ *
+ * Grouped by stage rather than by `applied_at`, deliberately. `changeStage`
+ * does not stamp `applied_at` — only the form does, and only if the date field
+ * was filled in — so any count keyed on that column silently undercounts every
+ * application moved along the board without someone also back-filling a date.
+ * Stage is the field that is always maintained, because moving the card is the
+ * act of tracking.
+ *
+ * Every stage in `OPPORTUNITY_STAGES` belongs to exactly one of PRE_APPLICATION,
+ * INTERVIEW, OFFER or CLOSED, or to none (`applied`, `on_hold` — applied but not
+ * yet progressed or paused). A stage-parity test guards that.
+ */
+
+/** Saved or being prepared; nothing has been submitted yet. */
+export const PRE_APPLICATION_STAGES = ["draft", "prepared", "lead"] as const;
+
+/** An active conversation: screening through the final round. */
+export const INTERVIEW_STAGES = [
+  "assessment",
+  "screening",
+  "interview",
+  "interview_round_1",
+  "interview_round_2",
+  "interview_round_3",
+  "final_interview",
+] as const;
+
+/** An offer is on the table or has been taken. */
+export const OFFER_STAGES = ["offer", "negotiation", "accepted"] as const;
+
+/** Finished, one way or another. `ghosted` is an outcome, not a limbo. */
+export const CLOSED_STAGES = ["hired", "rejected", "ghosted", "withdrawn"] as const;
+
+/** PostgREST list literal, e.g. `(draft,prepared,lead)`. */
+export function stageList(stages: readonly string[]): string {
+  return `(${stages.join(",")})`;
+}
+
 export const EMPLOYMENT_TYPES = [
   "full_time",
   "part_time",
