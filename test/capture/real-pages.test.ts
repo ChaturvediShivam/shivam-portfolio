@@ -48,7 +48,8 @@ describe("Lever (publishes JobPosting)", () => {
     expect(job.company).toBe("Lever Demo 2");
     expect(job.location).toBe("Amsterdam, Netherlands");
     for (const field of ["title", "company", "location"] as const) {
-      expect(provenance[field]).toBe("page");
+      // Lever publishes a JobPosting block, which outranks every other source.
+      expect(provenance[field]).toBe("structured");
     }
   });
 
@@ -84,13 +85,21 @@ describe("Greenhouse (publishes NO JobPosting)", () => {
     expect(provenance.title).toBe("page");
   });
 
-  it("reports company and location as not found rather than guessing", () => {
-    // This board sets no og:site_name and no structured company. Leaving these
-    // null is the correct outcome: the AI pass reads the page text for them,
-    // and if that is unavailable the person fills them in.
-    expect(job.company).toBeNull();
+  it("recovers the company from the page title, marked as inferred", () => {
+    // This board sets no og:site_name and publishes no structured company, so
+    // the only statement of the employer is the document title: "Job
+    // Application for Anthropic Fellows Program at Anthropic". Splitting that
+    // is a guess and is labelled one — but a labelled guess the person can
+    // confirm at a glance beats an empty field they have to go and look up.
+    expect(job.company).toBe("Anthropic");
+    expect(provenance.company).toBe("heuristic");
+  });
+
+  it("still reports location as not found rather than inventing one", () => {
+    // og:description carries "London, UK; Ontario, CAN; ..." but that is the
+    // board's own summary line, not a labelled location field. Guessing from it
+    // would pick one city out of four.
     expect(job.location).toBeNull();
-    expect(provenance.company).toBeUndefined();
     expect(provenance.location).toBeUndefined();
   });
 
@@ -206,5 +215,100 @@ describe("SurelyRemote labelled summary block", () => {
   it("does not file the next label as the company name", () => {
     expect(job.company).toBe("Bjak");
     expect(job.company).not.toBe("Experience");
+  });
+});
+
+describe("20. Surely Remote / Bjak — full-page regression", () => {
+  /**
+   * The acceptance case, captured live with the shipped extractor.
+   *
+   * This page has no JobPosting, no Open Graph, and no <dl>/<table> labels.
+   * Sections are the only structure it offers, and the employer's posting sits
+   * directly alongside the board's own editorial — which is exactly what makes
+   * it the case worth pinning. Everything asserted here must hold with no
+   * provider involved at all.
+   */
+  const fixture = FIXTURES.surelyremote_sections;
+  const { job, provenance } = structureDeterministically(fixture as never);
+  const description = job.job_description ?? "";
+
+  it("captures the role and the employer", () => {
+    expect(job.title).toBe("Applied AI Engineer");
+    expect(job.company).toBe("Bjak");
+  });
+
+  it("reads employment and seniority from the Job Summary card", () => {
+    expect(job.employment_type).toBe("full_time");
+    expect(job.seniority).toBe("mid");
+  });
+
+  it("captures the role overview, which is headed with the job title itself", () => {
+    // The <h1> heads the opening paragraph. Matching no employer keyword, it
+    // would classify as unknown and be dropped — losing the single most
+    // important paragraph on the page.
+    expect(description).toContain("building practical AI agents");
+    expect(description).toContain("full lifecycle of AI features");
+  });
+
+  it("captures every employer section, with its bullets intact", () => {
+    for (const fragment of [
+      "• Build AI agents, workflows, tools",
+      "• Apply LLMs, retrieval, tool calling",
+      "• Python",
+      "• RAG systems",
+      "• Fintech experience",
+      "• KYC/Risk management",
+      "Bjak is a leading Southeast Asian insurance",
+    ]) {
+      expect(description, fragment).toContain(fragment);
+    }
+  });
+
+  it("keeps the employer's section headings", () => {
+    for (const heading of ["Responsibilities", "Required Skills:", "Nice-to-Have Skills:", "About the Company"]) {
+      expect(description, heading).toContain(heading);
+    }
+  });
+
+  it("excludes every one of the board's own sections", () => {
+    // §2: these are the board writing ABOUT the job, not the job.
+    for (const fragment of [
+      "The Job in a Nutshell",
+      "Skills You'll Develop",
+      "Tailor your CV",
+      "remote-first culture and distributed teams",
+      "Never pay to apply",
+      "We verify employers where possible",
+    ]) {
+      expect(description, fragment).not.toContain(fragment);
+    }
+  });
+
+  it("excludes the Job Summary card from the description while still reading it", () => {
+    expect(description).not.toContain("Posted\n1 month ago");
+    expect(job.employment_type).toBe("full_time");
+  });
+
+  it("is a substantial description, not a summary of one", () => {
+    expect(description.length).toBeGreaterThan(900);
+  });
+
+  it("does not conclude remote from the board's editorial or byline", () => {
+    // "Written by Surely Remote" is in the page text, and "Remote Readiness
+    // Overview" / "remote-first culture" are the board's commentary about the
+    // employer. None of that states this role's arrangement.
+    expect(job.location_type).toBeNull();
+  });
+
+  it("invents no salary and no location, because the page states neither", () => {
+    expect(job.salary_min).toBeNull();
+    expect(job.salary_max).toBeNull();
+    expect(job.location).toBeNull();
+  });
+
+  it("labels provenance honestly across the tiers it used", () => {
+    expect(provenance.job_description).toBe("page");
+    expect(provenance.employment_type).toBe("heuristic");
+    expect(provenance.title).toBe("heuristic");
   });
 });

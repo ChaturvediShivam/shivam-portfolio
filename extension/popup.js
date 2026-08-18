@@ -133,9 +133,10 @@ function renderReview(result) {
     const source = provenance[chip.dataset.prov];
     if (source) {
       chip.dataset.source = source;
-      // Three different claims, so three different words. "guess" is the one
-      // that matters: it is the only value nobody actually read off the page.
-      chip.textContent = source === "page" ? "page" : source === "ai" ? "AI" : "guess";
+      // Four different claims, so four different words. "guess" is the one that
+      // matters: it is the only value nobody actually read off the page.
+      chip.textContent =
+        source === "structured" ? "published" : source === "page" ? "page" : source === "ai" ? "AI" : "guess";
     } else {
       delete chip.dataset.source;
       chip.textContent = "";

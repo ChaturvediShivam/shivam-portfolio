@@ -6,16 +6,57 @@
  */
 
 /**
- * Where a field's value came from. Shown to the person reviewing, so the three
- * are genuinely different claims:
+ * Where a field's value came from. Shown to the person reviewing, because these
+ * are genuinely different claims and collapsing them hides real uncertainty:
  *
- *   page      — the site published it (schema.org JobPosting, Open Graph).
- *   ai        — a model read the page text and extracted it.
- *   heuristic — inferred by pattern from the title or the text. A guess, and
- *               labelled as one, because these fill in when AI is unavailable
- *               and a guess presented as a reading is how wrong data gets saved.
+ *   structured — machine-readable data the employer published for machines to
+ *                read (schema.org JobPosting). The strongest evidence there is.
+ *   page       — a value visibly labelled on the page: a <dl>/<table> pair, or
+ *                an Open Graph tag. Someone typed it into a field meant for it.
+ *   heuristic  — inferred by pattern from the title or the prose. A guess.
+ *   ai         — a model read the page text and extracted it.
+ *
+ * Precedence is structured > page > heuristic > ai. AI ranks last on purpose: it
+ * fills gaps and must never overwrite something the page states outright.
  */
-export type CaptureSource = "page" | "ai" | "heuristic";
+export type CaptureSource = "structured" | "page" | "heuristic" | "ai";
+
+/** Rank for precedence comparisons. Higher wins. */
+export const SOURCE_RANK: Record<CaptureSource, number> = {
+  structured: 4,
+  page: 3,
+  heuristic: 2,
+  ai: 1,
+};
+
+/**
+ * One heading-delimited block of the page, in document order.
+ *
+ * The extension collects these because only it has a DOM. A heading, a list and
+ * a paragraph are indistinguishable once flattened into text, and guessing
+ * which is which from a text blob is exactly the class of heuristic that
+ * produced the "Written by Surely Remote" false positive.
+ */
+export interface CapturedSection {
+  /** Heading text, or null for the lead paragraphs before the first heading. */
+  heading: string | null;
+  /** Heading level (1-4); 0 for the lead block. */
+  level: number;
+  /** The block's text, with list items kept as "• " lines. */
+  text: string;
+}
+
+/**
+ * A visibly labelled value: a <dl> dt/dd pair or a two-column table row.
+ *
+ * Separate from the text-regex label parser, which reads the same shapes at much
+ * lower confidence after they have been flattened. When the DOM says "this is a
+ * label and that is its value", that is page evidence, not a guess.
+ */
+export interface CapturedLabel {
+  label: string;
+  value: string;
+}
 
 /**
  * Raw material lifted from the tab, before any interpretation.
@@ -26,6 +67,13 @@ export type CaptureSource = "page" | "ai" | "heuristic";
  */
 export interface CapturedPage {
   url: string;
+  /**
+   * `<link rel="canonical">`, when the page publishes one and it names a real
+   * path. Preferred over `location.href` because it is the posting's clean
+   * address without tracking parameters — which is also what duplicate
+   * detection compares.
+   */
+  canonicalUrl?: string | null;
   title: string;
   /** Visible text, whitespace-collapsed and truncated by the extension. */
   text: string;
@@ -50,6 +98,10 @@ export interface CapturedPage {
    * source when no structured data exists.
    */
   h1?: string | null;
+  /** Heading-delimited blocks in document order. Drives JD assembly. */
+  sections?: CapturedSection[];
+  /** Explicitly labelled values lifted from <dl> and <table>. */
+  labels?: CapturedLabel[];
 }
 
 /**

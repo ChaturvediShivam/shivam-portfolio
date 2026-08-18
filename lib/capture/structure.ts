@@ -5,7 +5,8 @@ import { AiGateway } from "@/lib/ai/gateway";
 import { getAiProvider } from "@/lib/ai/providers";
 import { AiError } from "@/lib/ai/errors";
 import { fromJsonLd } from "@/lib/capture/jsonld";
-import { applyHeuristics } from "@/lib/capture/heuristics";
+import { applyHeuristics, fieldsFromLabels } from "@/lib/capture/heuristics";
+import { assembleJobDescription } from "@/lib/capture/sections";
 import { normalizeJobUrl } from "@/lib/opportunities";
 import {
   CORE_CAPTURE_FIELDS,
@@ -13,30 +14,42 @@ import {
   type CapturedPage,
   type CaptureProvenance,
   type CaptureResult,
+  type CaptureSource,
 } from "@/types/capture";
 
 /**
  * Turn a captured page into reviewable job fields.
  *
- * Two passes, in this order and never the other way round:
+ * Layered, strongest evidence first, and every layer only fills what the ones
+ * above it left empty:
  *
- *   1. Deterministic. schema.org JobPosting, then Open Graph, then the URL
- *      itself. Free, instant, and authored by the employer rather than inferred.
- *   2. AI, for whatever is still missing. Costs money and can be wrong, so it
- *      runs second and never overwrites a field the page already stated.
+ *   1. schema.org JobPosting          -> structured
+ *   2. Open Graph tags                -> page
+ *   3. <dl>/<table> label pairs       -> page
+ *   4. Employer sections of the page  -> page   (the job description)
+ *   5. Labelled text + prose patterns -> heuristic
+ *   6. The model, for what is left    -> ai
  *
- * On a Greenhouse or Lever posting the first pass usually fills everything that
- * matters, and the model is asked only to tidy the description. On a company
- * careers page with no structured data it does most of the work. On a page that
- * is not a job at all it should decline, and the caller shows that honestly.
+ * The model runs LAST, which is the point. It is an enhancement, not a
+ * dependency: everything above it is deterministic, so a disabled flag, an
+ * exhausted budget, a timeout or a malformed reply costs the gaps it would have
+ * filled and nothing else. A capture must never come back emptier because a
+ * provider was unavailable.
  *
- * Provenance is tracked per field so the preview can distinguish "the page said
- * this" from "a model inferred this" from "nobody found this" — a distinction
- * that is the entire justification for a human review step.
+ * Provenance is tracked per field so the preview can distinguish "the employer
+ * published this" from "a model inferred it" from "nobody found it" — the
+ * distinction that justifies a human review step at all.
  */
 
-/** Ceiling on page text sent to the provider. A long posting is ~8k characters. */
-const MAX_TEXT_CHARS = 24_000;
+/**
+ * Ceiling on text sent to the provider.
+ *
+ * Higher than the page text alone would need, because what gets sent is
+ * preferentially the ASSEMBLED description — the employer's own sections with
+ * the board's editorial already removed. That is denser signal per token than
+ * raw page text, so a larger window buys more here than it did before.
+ */
+const MAX_TEXT_CHARS = 40_000;
 
 interface AiJobOutput {
   title: string | null;
@@ -93,6 +106,20 @@ export function sourceFor(url: string): string | null {
   return host;
 }
 
+/**
+ * Prefer the page's own canonical URL.
+ *
+ * It is the posting's clean address without tracking parameters, which is also
+ * what duplicate detection compares. The extractor already refuses a canonical
+ * that names no real path, so a board pointing canonical at its homepage cannot
+ * collapse every job into one URL.
+ */
+function jobUrlFor(page: { url: string; canonicalUrl?: string | null }): string {
+  const canonical = page.canonicalUrl?.trim();
+  if (canonical) return normalizeJobUrl(canonical) ?? canonical;
+  return normalizeJobUrl(page.url) ?? page.url;
+}
+
 function emptyJob(url: string): CapturedJob {
   return {
     title: null,
@@ -121,7 +148,7 @@ function fill<K extends keyof CapturedJob>(
   provenance: CaptureProvenance,
   key: K,
   value: CapturedJob[K] | null | undefined,
-  source: "page" | "ai",
+  source: CaptureSource,
 ): void {
   if (value === null || value === undefined || value === "") return;
   if (Array.isArray(value) && value.length === 0) return;
@@ -134,16 +161,19 @@ function fill<K extends keyof CapturedJob>(
 export function structureDeterministically(page: CapturedPage): {
   job: CapturedJob;
   provenance: CaptureProvenance;
+  assembled: ReturnType<typeof assembleJobDescription>;
 } {
   const job = emptyJob(page.url);
+  job.job_url = jobUrlFor(page);
   const provenance: CaptureProvenance = {};
 
+  // 1. schema.org JobPosting — machine-readable, published by the employer.
   const ld = fromJsonLd(page.jsonLd ?? []);
   for (const [key, value] of Object.entries(ld.job)) {
-    fill(job, provenance, key as keyof CapturedJob, value as never, "page");
+    fill(job, provenance, key as keyof CapturedJob, value as never, "structured");
   }
 
-  // Open Graph only. The raw <title> is deliberately NOT used here: it almost
+  // 2. Open Graph. The raw <title> is deliberately NOT used here: it almost
   // always carries the company and often the job board too ("Applied AI
   // Engineer at Bjak", "Job Application for X at Y"), so taking it verbatim
   // stores a role nobody advertised AND blocks the heuristic pass from
@@ -154,36 +184,92 @@ export function structureDeterministically(page: CapturedPage): {
   fill(job, provenance, "title", page.meta?.ogTitle ?? null, "page");
   fill(job, provenance, "company", page.meta?.ogSiteName ?? null, "page");
 
-  return { job, provenance };
+  // 3. Label/value pairs the DOM itself asserted (<dl>, two-column rows).
+  // Markup saying "this is a label and that is its value" is page evidence, not
+  // a pattern inferred from adjacent lines.
+  const labelled = fieldsFromLabels(page.labels ?? []);
+  fill(job, provenance, "company", labelled.company ?? null, "page");
+  fill(job, provenance, "location", labelled.location ?? null, "page");
+  fill(job, provenance, "location_type", labelled.location_type ?? null, "page");
+  fill(job, provenance, "employment_type", labelled.employment_type ?? null, "page");
+  fill(job, provenance, "seniority", labelled.seniority ?? null, "page");
+  if (labelled.salary) {
+    fill(job, provenance, "salary_min", labelled.salary.min, "page");
+    fill(job, provenance, "salary_max", labelled.salary.max, "page");
+    fill(job, provenance, "salary_currency", labelled.salary.currency, "page");
+  }
+
+  // 4. The job description, assembled from the employer's own sections with the
+  // board's editorial excluded. `page` rather than `heuristic`: this is the
+  // page's text verbatim, only selected — nothing about it is inferred.
+  // The role name is passed in so a section headed with it is recognised as the
+  // posting's opening rather than as an unknown heading.
+  const assembled = assembleJobDescription(page.sections ?? [], job.title ?? page.h1 ?? null);
+  fill(job, provenance, "job_description", assembled.description, "page");
+
+  // 5. Pattern extraction over the title and the prose, for everything still
+  // empty. Inferred rather than read, so it is marked `heuristic` — but it is
+  // still deterministic, which is why it belongs in this function and not
+  // alongside the model. `structureDeterministically` is the complete
+  // no-provider pipeline, and callers rely on that.
+  applyHeuristics(job, provenance, {
+    title: page.title,
+    h1: page.h1 ?? null,
+    // Metadata sections are excluded from the description but are exactly where
+    // a summary card's labels live, so the text parser still gets to see them.
+    text: [page.selection?.trim() || page.text || "", assembled.metadataText].filter(Boolean).join("\n"),
+  });
+
+  return { job, provenance, assembled };
 }
 
 /**
- * Full structuring. Runs the deterministic pass, then the model for the rest.
+ * Full structuring: every deterministic layer, then the model for what is left.
  *
- * Never throws for AI reasons. A refused, disabled, budget-exhausted or failing
- * provider degrades to the deterministic result with a notice — a capture that
- * returns the URL, the title and the page text is still far faster than typing,
- * and losing it because the model was unavailable would be the wrong trade.
+ * The model NEVER runs before the deterministic passes and never overwrites
+ * them. `fill()` refuses a non-empty slot, so ordering alone enforces the
+ * precedence — there is no separate rule to keep in sync.
+ *
+ * Never throws for AI reasons. Disabled, refused, over budget, timed out,
+ * malformed: each costs the gaps the model would have filled, and nothing else.
+ * Everything the page stated has already been captured by the time the provider
+ * is called at all.
  */
 export async function structureCapture(
   supabase: SupabaseClient,
   ownerId: string,
   page: CapturedPage,
 ): Promise<Omit<CaptureResult, "duplicate">> {
-  const { job, provenance } = structureDeterministically(page);
+  const { job, provenance, assembled } = structureDeterministically(page);
 
-  const text = (page.selection?.trim() || page.text || "").slice(0, MAX_TEXT_CHARS);
-  const truncated = (page.selection?.trim() || page.text || "").length > MAX_TEXT_CHARS;
+  const rawText = (page.selection?.trim() || page.text || "").trim();
+
+  /** Everything captured so far, with a notice explaining what the model added or did not. */
+  const withoutAi = (notice: string): Omit<CaptureResult, "duplicate"> => ({
+    job,
+    provenance,
+    deterministicOnly: true,
+    notice: [notice, partialNotice(job, null)].filter(Boolean).join(" "),
+  });
+
+  // The assembled description is denser signal per token than raw page text —
+  // the board's editorial is already gone — so the model reads it when there is
+  // enough of it. When section detection came back thin, the raw text is the
+  // better input: a sparse assembly must not shrink what the model can see.
+  const source =
+    assembled.description && assembled.description.length >= 200 ? assembled.description : rawText;
+  const modelText = source.slice(0, MAX_TEXT_CHARS);
+  const truncated = source.length > MAX_TEXT_CHARS;
 
   if (!featureEnabled("FEATURE_AI") || !featureEnabled("FEATURE_RESUME_AI")) {
-    return degraded(job, provenance, "AI structuring is off — fields below were read from the page or inferred from it.", page);
+    return withoutAi("AI structuring is off — everything below was read from the page or inferred from it.");
   }
-  if (text.length < 200) {
-    return degraded(job, provenance, "This page had too little readable text to structure.", page);
+  if (modelText.length < 200) {
+    return withoutAi("This page had too little readable text for the model to add anything.");
   }
 
   // Telling the model what is already known stops it re-deriving fields the
-  // employer already stated, and stops it contradicting them.
+  // page stated and stops it contradicting them.
   const known = Object.keys(provenance).filter((k) => k !== "job_url" && k !== "source");
   const knownNote = known.length
     ? `The page already provided these fields, do not contradict them: ${known.join(", ")}.`
@@ -193,7 +279,7 @@ export async function structureCapture(
     const gateway = new AiGateway({ provider: getAiProvider(), client: supabase });
     const completion = await gateway.complete<AiJobOutput>({
       templateId: "job_capture",
-      variables: { url: page.url, title: page.title ?? "", text, knownNote },
+      variables: { url: page.url, title: page.title ?? "", text: modelText, knownNote },
       ownerId,
       actor: "user",
       action: "job_capture",
@@ -202,16 +288,15 @@ export async function structureCapture(
     });
 
     if (completion.stopReason === "refused") {
-      return degraded(job, provenance, "The model declined to read this page.", page);
+      return withoutAi("The model declined to read this page.");
     }
 
     const parsed = completion.parsed;
-    if (!parsed) {
-      return degraded(job, provenance, "Structuring returned nothing usable.", page);
+    if (!parsed || typeof parsed !== "object") {
+      return withoutAi("The model returned nothing usable.");
     }
 
     if (parsed.is_job_posting === false) {
-      applyHeuristics(job, provenance, page);
       return {
         job,
         provenance,
@@ -221,6 +306,8 @@ export async function structureCapture(
       };
     }
 
+    // Gaps only. Every one of these slots is empty at this point, or `fill`
+    // leaves it alone.
     for (const key of [
       "title", "company", "location", "location_type", "employment_type", "seniority",
       "salary_min", "salary_max", "salary_currency", "job_description", "experience",
@@ -232,37 +319,20 @@ export async function structureCapture(
       fill(job, provenance, "skills", parsed.skills.filter((s) => typeof s === "string").slice(0, 30), "ai");
     }
 
-    // Last, so a regex can never displace something the employer published or
-    // the model actually read.
-    applyHeuristics(job, provenance, page);
-
     return {
       job,
       provenance,
       deterministicOnly: false,
-      notice: partialNotice(job, truncated ? "The page was long, so only the first part was read." : null),
+      notice: partialNotice(job, truncated ? "The page was long, so the model only read the first part." : null),
     };
   } catch (error) {
-    // Budget exhausted, rate limited, provider down, misconfigured — all the
-    // same from here: keep what the page gave us and say why the rest is empty.
+    // Budget exhausted, rate limited, provider down, misconfigured, timed out —
+    // all the same from here. Keep everything already captured and say why the
+    // remaining gaps are gaps.
     const reason = error instanceof AiError ? error.code : "error";
     console.error("[capture] AI structuring failed:", error);
-    return degraded(job, provenance, `AI structuring was unavailable (${reason}).`, page);
+    return withoutAi(`AI structuring was unavailable (${reason}).`);
   }
-}
-
-/**
- * The no-AI path. Heuristics run here, which is the whole point: this is what a
- * page with no structured data used to return, and it returned almost nothing.
- */
-function degraded(
-  job: CapturedJob,
-  provenance: CaptureProvenance,
-  notice: string,
-  page: CapturedPage,
-): Omit<CaptureResult, "duplicate"> {
-  applyHeuristics(job, provenance, page);
-  return { job, provenance, deterministicOnly: true, notice: `${notice} ${partialNotice(job, null) ?? ""}`.trim() };
 }
 
 /** Names the core fields nobody found, so "partial" is specific rather than vague. */

@@ -126,14 +126,43 @@ const BARE_ARRANGEMENT: [RegExp, "remote" | "hybrid" | "onsite"][] = [
   [/\b(on-?site|in-?office)\b/i, "onsite"],
 ];
 
-/** Phrases that only occur when the arrangement is actually being stated. */
+/**
+ * Phrases that only occur when the arrangement is actually being stated.
+ *
+ * Every gap here is `[ \t]+`, never `\s+`. `\s` matches newlines, and a pattern
+ * allowed to span them stitches together words from two unrelated blocks: the
+ * live page carries the byline "Written by Surely Remote" immediately above the
+ * heading "Job Summary", and `remote\s+job` matched straight across the break —
+ * reporting a remote role from two lines that each say nothing of the sort.
+ * A stated phrase is a phrase, and a phrase does not span a paragraph boundary.
+ */
+const GAP = "[ \\t]+";
 const STATED_ARRANGEMENT: [RegExp, "remote" | "hybrid" | "onsite"][] = [
-  [/\bhybrid\s+(role|position|job|work|working|model|setup)\b|\b(role|position|job)\s+is\s+hybrid\b/i, "hybrid"],
   [
-    /\b(fully|100%|entirely)\s+remote\b|\bremote[- ]first\b|\bwork\s+from\s+home\b|\bremote\s+(role|position|job|work|working|opportunity)\b|\b(role|position|job)\s+is\s+remote\b/i,
+    new RegExp(`\\bhybrid${GAP}(role|position|job|work|working|model|setup)\\b|\\b(role|position|job)${GAP}is${GAP}hybrid\\b`, "i"),
+    "hybrid",
+  ],
+  [
+    new RegExp(
+      `\\b(fully|100%|entirely)${GAP}remote\\b` +
+        `|\\bremote[- ]first\\b` +
+        `|\\bwork${GAP}from${GAP}home\\b` +
+        `|\\bwork${GAP}remotely\\b` +
+        `|\\bremote${GAP}(role|position|job|work|working|opportunity)\\b` +
+        `|\\b(role|position|job)${GAP}is${GAP}remote\\b`,
+      "i",
+    ),
     "remote",
   ],
-  [/\b(on-?site|in-?office|in person)\s+(role|position|job|work|working)\b|\bbased\s+in\s+our\s+\w+\s+office\b|\bwork\s+(on-?site|in-?office)\b/i, "onsite"],
+  [
+    new RegExp(
+      `\\b(on-?site|in-?office|in person)${GAP}(role|position|job|work|working)\\b` +
+        `|\\bbased${GAP}in${GAP}our${GAP}\\w+${GAP}office\\b` +
+        `|\\bwork${GAP}(on-?site|in-?office)\\b`,
+      "i",
+    ),
+    "onsite",
+  ],
 ];
 
 export function guessLocationType(
@@ -320,52 +349,83 @@ export interface LabelledFields {
   salary?: { min: string; max: string | null; currency: string };
 }
 
+/**
+ * Map one label/value pair onto a field.
+ *
+ * Shared by both label readers: the DOM one, which is handed real <dl>/<table>
+ * pairs, and the text one, which recovers the same shapes after flattening.
+ * They differ only in how much the pairing can be trusted — the mapping itself
+ * is identical, and having one copy means the two can never disagree about what
+ * "Employment: Full-time" means.
+ */
+export function recordLabelValue(found: LabelledFields, rawLabel: string, rawValue: string): void {
+  const label = clean(rawLabel)?.replace(/[:\s]+$/, "");
+  const value = clean(rawValue);
+  if (!label || !value || EMPTY_VALUES.test(value) || value.length > 200) return;
+
+  const kind = FIELD_LABELS.find(([pattern]) => pattern.test(label))?.[1];
+  if (!kind) return;
+
+  switch (kind) {
+    case "company":
+      found.company ??= value;
+      break;
+    case "location":
+      // "Remote" under a Location label is a work arrangement, not a place.
+      if (/^(remote|hybrid|on-?site)$/i.test(value)) {
+        found.location_type ??= guessLocationType(value, "") ?? undefined;
+      } else {
+        found.location ??= value;
+      }
+      break;
+    case "employment_type": {
+      const mapped = guessEmploymentType(value, "");
+      if (mapped) found.employment_type ??= mapped;
+      break;
+    }
+    case "seniority":
+      for (const [pattern, mapped] of SENIORITY_VALUES) {
+        if (pattern.test(value)) {
+          found.seniority ??= mapped;
+          break;
+        }
+      }
+      break;
+    case "location_type": {
+      const mapped = guessLocationType(value, "");
+      if (mapped) found.location_type ??= mapped;
+      break;
+    }
+    case "salary": {
+      const parsed = guessSalary(value);
+      if (parsed) found.salary ??= parsed;
+      break;
+    }
+  }
+}
+
+/**
+ * Fields from label/value pairs the DOM itself asserted.
+ *
+ * Higher confidence than the text parser below: a <dl> or a two-column row is
+ * markup saying "this is a label and that is its value", not a pattern inferred
+ * from two adjacent lines. Callers record these as `page` rather than
+ * `heuristic` for exactly that reason.
+ */
+export function fieldsFromLabels(labels: { label: string; value: string }[]): LabelledFields {
+  const found: LabelledFields = {};
+  for (const { label, value } of labels) recordLabelValue(found, label, value);
+  return found;
+}
+
 export function parseLabelledFields(text: string): LabelledFields {
   const found: LabelledFields = {};
   if (!text) return found;
 
   const lines = text.split("\n").map((line) => line.trim());
 
-  const record = (kind: LabelledFields extends never ? never : string, raw: string | null) => {
-    const value = clean(raw);
-    if (!value || EMPTY_VALUES.test(value) || value.length > 120) return;
-
-    switch (kind) {
-      case "company":
-        found.company ??= value;
-        break;
-      case "location":
-        // "Remote" under a Location label is a work arrangement, not a place.
-        if (/^(remote|hybrid|on-?site)$/i.test(value)) {
-          found.location_type ??= guessLocationType(null, value) ?? undefined;
-        } else {
-          found.location ??= value;
-        }
-        break;
-      case "employment_type": {
-        const mapped = guessEmploymentType(value, "");
-        if (mapped) found.employment_type ??= mapped;
-        break;
-      }
-      case "seniority":
-        for (const [pattern, mapped] of SENIORITY_VALUES) {
-          if (pattern.test(value)) {
-            found.seniority ??= mapped;
-            break;
-          }
-        }
-        break;
-      case "location_type": {
-        const mapped = guessLocationType(value, "");
-        if (mapped) found.location_type ??= mapped;
-        break;
-      }
-      case "salary": {
-        const parsed = guessSalary(value);
-        if (parsed) found.salary ??= parsed;
-        break;
-      }
-    }
+  const record = (label: string, raw: string | null) => {
+    if (raw) recordLabelValue(found, label, raw);
   };
 
   for (let i = 0; i < lines.length; i += 1) {
@@ -375,32 +435,23 @@ export function parseLabelledFields(text: string): LabelledFields {
     // "Label: Value" on one line.
     const inline = line.match(/^([A-Za-z][A-Za-z /]{2,30})\s*[:\-–]\s*(.+)$/);
     if (inline) {
-      for (const [pattern, kind] of FIELD_LABELS) {
-        if (pattern.test(inline[1].trim())) {
-          record(kind, inline[2]);
-          break;
-        }
-      }
+      record(inline[1].trim(), inline[2]);
       continue;
     }
 
     // A bare label whose value is the next non-empty line — how a table or a
     // definition list flattens into innerText.
-    for (const [pattern, kind] of FIELD_LABELS) {
-      if (!pattern.test(line)) continue;
-      let next = "";
-      for (let j = i + 1; j < lines.length && j <= i + 3; j += 1) {
-        if (lines[j]) {
-          next = lines[j];
-          break;
-        }
+    if (!FIELD_LABELS.some(([pattern]) => pattern.test(line))) continue;
+    let next = "";
+    for (let j = i + 1; j < lines.length && j <= i + 3; j += 1) {
+      if (lines[j]) {
+        next = lines[j];
+        break;
       }
-      // Guard against two labels in a row, which would file "Experience" as the
-      // company name.
-      const nextIsLabel = FIELD_LABELS.some(([p]) => p.test(next));
-      if (next && !nextIsLabel) record(kind, next);
-      break;
     }
+    // Guard against two labels in a row, which would file "Experience" as the
+    // company name.
+    if (next && !FIELD_LABELS.some(([p]) => p.test(next))) record(line, next);
   }
 
   return found;

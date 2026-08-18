@@ -110,6 +110,17 @@ describe("guessLocationType and guessEmploymentType", () => {
     expect(guessLocationType("Engineer", "Hybrid role with remote days.")).toBe("hybrid");
   });
 
+  it("does not stitch a stated phrase across a line break", () => {
+    // The live page puts the byline "Written by Surely Remote" immediately
+    // above the heading "Job Summary". With `\s+` between the words, the
+    // pattern `remote job` matched straight across the paragraph boundary and
+    // reported a remote role from two lines that each say nothing of the sort.
+    expect(guessLocationType(null, "Written by Surely Remote\n\nJob Summary\nCompany\nBjak")).toBeNull();
+    expect(guessLocationType(null, "Contact Remote\nWork with us")).toBeNull();
+    // The same phrase on ONE line is still evidence.
+    expect(guessLocationType(null, "This is a remote role based anywhere in India.")).toBe("remote");
+  });
+
   it("does not treat a byline containing 'Remote' as a remote role", () => {
     // The page this was built against carries "Written by Surely Remote" in its
     // body. A bare-word search reports every posting on that site as remote.

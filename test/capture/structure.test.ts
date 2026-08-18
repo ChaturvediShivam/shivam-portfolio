@@ -45,7 +45,9 @@ describe("structureDeterministically", () => {
     // carries the role alone, which is what belongs in `title`.
     expect(job.title).toBe("Senior AI Engineer");
     expect(job.company).toBe("Acme Corp");
-    expect(provenance.title).toBe("page");
+    // schema.org data is the strongest evidence available and is labelled as
+    // such, above an Open Graph tag or anything read out of prose.
+    expect(provenance.title).toBe("structured");
   });
 
   it("falls back to og:title and the document title when there is no structured data", () => {

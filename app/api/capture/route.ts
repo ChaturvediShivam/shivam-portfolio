@@ -52,6 +52,30 @@ function asPage(body: unknown): CapturedPage | null {
     url,
     title: typeof b.title === "string" ? b.title.slice(0, 500) : "",
     h1: typeof b.h1 === "string" ? b.h1.slice(0, 200) : null,
+    canonicalUrl: typeof b.canonicalUrl === "string" ? b.canonicalUrl.slice(0, 2000) : null,
+    // Bounded on both count and size: this is a payload assembled on a page
+    // whose contents nobody controls, and an unbounded array of unbounded
+    // strings reaching the model is an unbounded bill.
+    sections: Array.isArray(b.sections)
+      ? b.sections
+          .slice(0, 80)
+          .filter((raw): raw is Record<string, unknown> => typeof raw === "object" && raw !== null)
+          .map((raw) => ({
+            heading: typeof raw.heading === "string" ? raw.heading.slice(0, 200) : null,
+            level: typeof raw.level === "number" && Number.isFinite(raw.level) ? raw.level : 0,
+            text: typeof raw.text === "string" ? raw.text.slice(0, 20_000) : "",
+          }))
+      : [],
+    labels: Array.isArray(b.labels)
+      ? b.labels
+          .slice(0, 60)
+          .filter((raw): raw is Record<string, unknown> => typeof raw === "object" && raw !== null)
+          .filter((raw) => typeof raw.label === "string" && typeof raw.value === "string")
+          .map((raw) => ({
+            label: String(raw.label).slice(0, 80),
+            value: String(raw.value).slice(0, 300),
+          }))
+      : [],
     text: text.slice(0, MAX_BODY_CHARS),
     meta,
     jsonLd: Array.isArray(b.jsonLd) ? b.jsonLd.slice(0, 20) : [],

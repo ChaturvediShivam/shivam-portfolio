@@ -59,5 +59,93 @@
     },
     "jsonLd": [],
     "text": "BJAK\n\nApplied AI Engineer\n\nThis role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency. You will work closely with product and engineering teams to deploy reliable AI solutions that handle real-world constraints like latency, security, and compliance. The position requires hands-on engineering experience with LLMs, RAG systems, and production-grade software development.\n\nResponsibilities\nBuild AI agents, workflows, tools, and automations to solve customer and operational problems.\nShip production features with appropriate evaluation and monitoring.\n\nRequirements\nFull-time. Remote.\nExperience with LLMs and RAG systems.\n\nWritten by Surely Remote\n\nGrowth Opportunities\n\nJob Summary\nCompany\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago\nIndustry\nInformation Technology (IT), Banking & Financial Services\n"
+  },
+  "surelyremote_sections": {
+    "note": "jobs.surelyremote.com/job/view/SR285910 \u2014 captured live with extension/extractor.js on 2026-08-19. No JobPosting, no Open Graph, no <dl>/<table> labels: sections are the only structure. The employer's posting and the board's editorial sit side by side, which is what makes this the regression case.",
+    "url": "https://jobs.surelyremote.com/job/view/SR285910",
+    "canonicalUrl": null,
+    "title": "Applied AI Engineer at Bjak",
+    "h1": "Applied AI Engineer",
+    "meta": {
+      "description": null,
+      "ogTitle": null,
+      "ogSiteName": null,
+      "ogDescription": null
+    },
+    "jsonLd": [],
+    "labels": [],
+    "text": "BJAK\n\nApplied AI Engineer\n\nThis role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency.\n\nWritten by Surely Remote\n\nJob Summary\nCompany\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago",
+    "sections": [
+      {
+        "heading": null,
+        "level": 0,
+        "text": "BJAK"
+      },
+      {
+        "heading": "Applied AI Engineer",
+        "level": 1,
+        "text": "This role focuses on building practical AI agents, workflows, and automations to improve financial products and operational efficiency. You will work closely with product and engineering teams to deploy reliable AI solutions that handle real-world constraints like latency, security, and compliance. The position requires hands-on engineering experience with LLMs, RAG systems, and production-grade software development. You will be responsible for the full lifecycle of AI features, from identifying opportunities to maintaining them in production."
+      },
+      {
+        "heading": "Responsibilities",
+        "level": 3,
+        "text": "\u2022 Build AI agents, workflows, tools, and automations to solve customer and operational problems.\n\u2022 Apply LLMs, retrieval, tool calling, and guardrails to practical financial workflows.\n\u2022 Create AI-assisted experiences for onboarding, KYC, risk review, and CRM.\n\u2022 Collaborate with product and engineering teams to identify and build high-impact features.\n\u2022 Design systems with a focus on accuracy, latency and security."
+      },
+      {
+        "heading": "Skills & Requirements",
+        "level": 3,
+        "text": ""
+      },
+      {
+        "heading": "Required Skills:",
+        "level": 4,
+        "text": "\u2022 Python\n\u2022 TypeScript\n\u2022 JavaScript\n\u2022 LLM application development\n\u2022 RAG systems\n\u2022 AI agent design\n\u2022 Production-grade software engineering"
+      },
+      {
+        "heading": "Nice-to-Have Skills:",
+        "level": 4,
+        "text": "\u2022 Fintech experience\n\u2022 Banking domain knowledge\n\u2022 Support automation\n\u2022 Fraud detection\n\u2022 KYC/Risk management"
+      },
+      {
+        "heading": "About the Company",
+        "level": 3,
+        "text": "Bjak is a leading Southeast Asian insurance and financial platform founded in 2019 with a mission to help people plan, save, and grow their money. The company operates globally with a remote-first engineering culture."
+      },
+      {
+        "heading": "Editorial Analysis",
+        "level": 2,
+        "text": "The Job in a Nutshell:\nThis is a hands-on engineering role focused on shipping AI features rather than research. Candidates moving from prototyping into production will find this a natural step."
+      },
+      {
+        "heading": "Growth Opportunities",
+        "level": 2,
+        "text": "Skills You'll Develop:\nYou will gain deep expertise in AI-native product engineering, evaluation harnesses, and the operational side of running LLM features at scale."
+      },
+      {
+        "heading": "Application Guide",
+        "level": 2,
+        "text": "Tailor your CV to highlight production LLM work. Mention specific systems you have shipped and the constraints you worked under."
+      },
+      {
+        "heading": "Remote Readiness Overview",
+        "level": 2,
+        "text": "This employer has a remote-first culture and distributed teams across several time zones."
+      },
+      {
+        "heading": "Job Summary",
+        "level": 2,
+        "text": "Company\nBjak\nExperience\nMid-Level\nEmployment\nFull-time\nPosted\n1 month ago"
+      },
+      {
+        "heading": "Our Commitment to Your Safety",
+        "level": 2,
+        "text": "We verify employers where possible, but you should always apply care when sharing personal information with any company."
+      },
+      {
+        "heading": "Your Safety Checklist:",
+        "level": 3,
+        "text": "\u2022 Never pay to apply\n\u2022 Verify the company domain\n\u2022 Do not share bank details during interviews"
+      }
+    ]
   }
 }
