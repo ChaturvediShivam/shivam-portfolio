@@ -13,14 +13,6 @@
  * metadata, structured-data blocks, and visible text.
  */
 function captureCurrentPage() {
-  /** Elements that are chrome, not content. Removed before reading text. */
-  const CHROME_SELECTORS = [
-    "script", "style", "noscript", "svg", "canvas", "iframe",
-    "nav", "header", "footer", "aside",
-    '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
-    '[aria-hidden="true"]',
-  ];
-
   const MAX_TEXT = 60000;
 
   function meta(selector, attribute) {
@@ -52,23 +44,51 @@ function captureCurrentPage() {
   }
 
   /**
-   * Visible text with the furniture stripped.
+   * Visible text, read from the narrowest element that still holds the posting.
    *
-   * Works on a detached clone so the live page is never mutated. `innerText`
-   * rather than `textContent` because it respects CSS visibility and line
-   * breaks — it returns roughly what a person sees, which is what the model is
-   * being asked to read.
+   * This used to strip navigation out of a DETACHED CLONE of <body>, which
+   * quietly broke it: `innerText` is layout-dependent, and an element outside
+   * the document has no layout, so it silently degrades to textContent-like
+   * behaviour. The result pulled in hidden elements and lost the paragraph
+   * breaks that make a posting readable — measured on a live page, the
+   * "cleaned" clone came back LONGER (8,199 chars) than the real rendered text
+   * (4,688), which is the tell.
+   *
+   * Reading a live container instead keeps `innerText` doing its job — CSS
+   * visibility respected, real line breaks — and still mutates nothing, because
+   * nothing is removed from anything. `<main>` and `<article>` already exclude
+   * the site chrome the removal pass was trying to delete.
    */
   function visibleText() {
-    let root;
-    try {
-      root = document.body.cloneNode(true);
-      for (const el of root.querySelectorAll(CHROME_SELECTORS.join(","))) el.remove();
-    } catch {
-      root = document.body;
+    const containers = ["main", '[role="main"]', "article", "#content", "#main"];
+    for (const selector of containers) {
+      const node = document.querySelector(selector);
+      const scoped = node && node.innerText ? node.innerText.trim() : "";
+      // A container holding almost nothing is a layout wrapper, not the
+      // posting; fall through rather than capture an empty shell.
+      if (scoped.length >= 200) return normalize(scoped);
     }
-    const text = (root.innerText || root.textContent || "");
-    return text.replace(/[ \t ]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_TEXT);
+    return normalize((document.body && document.body.innerText) || "");
+  }
+
+  /** Collapse runs of spaces (including nbsp) and blank lines; cap the length. */
+  function normalize(text) {
+    return text
+      .replace(/[^\S\n]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .slice(0, MAX_TEXT);
+  }
+
+  /**
+   * The first heading. On a page with no structured data this is the single
+   * most reliable statement of the role: the document title normally appends
+   * the company and the job board, the heading usually does not.
+   */
+  function heading() {
+    const h1 = document.querySelector("h1");
+    const text = h1 && h1.innerText ? h1.innerText.trim() : "";
+    return text && text.length <= 200 ? text : null;
   }
 
   /**
@@ -84,6 +104,7 @@ function captureCurrentPage() {
   return {
     url: location.href,
     title: (document.title || "").trim().slice(0, 500),
+    h1: heading(),
     text: visibleText(),
     selection: selection(),
     jsonLd: jsonLd(),

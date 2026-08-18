@@ -51,6 +51,7 @@ function asPage(body: unknown): CapturedPage | null {
   return {
     url,
     title: typeof b.title === "string" ? b.title.slice(0, 500) : "",
+    h1: typeof b.h1 === "string" ? b.h1.slice(0, 200) : null,
     text: text.slice(0, MAX_BODY_CHARS),
     meta,
     jsonLd: Array.isArray(b.jsonLd) ? b.jsonLd.slice(0, 20) : [],

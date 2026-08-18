@@ -5,6 +5,7 @@ import { AiGateway } from "@/lib/ai/gateway";
 import { getAiProvider } from "@/lib/ai/providers";
 import { AiError } from "@/lib/ai/errors";
 import { fromJsonLd } from "@/lib/capture/jsonld";
+import { applyHeuristics } from "@/lib/capture/heuristics";
 import { normalizeJobUrl } from "@/lib/opportunities";
 import {
   CORE_CAPTURE_FIELDS,
@@ -142,10 +143,15 @@ export function structureDeterministically(page: CapturedPage): {
     fill(job, provenance, key as keyof CapturedJob, value as never, "page");
   }
 
-  // Open Graph, then the document title. `og:site_name` is the company on most
-  // company-hosted career pages and is wrong on aggregators — which is why it
-  // only ever fills a slot JobPosting left empty.
-  fill(job, provenance, "title", page.meta?.ogTitle ?? page.title ?? null, "page");
+  // Open Graph only. The raw <title> is deliberately NOT used here: it almost
+  // always carries the company and often the job board too ("Applied AI
+  // Engineer at Bjak", "Job Application for X at Y"), so taking it verbatim
+  // stores a role nobody advertised AND blocks the heuristic pass from
+  // splitting it into a clean role and an employer. It is handled there.
+  //
+  // `og:site_name` is the company on most company-hosted career pages and is
+  // wrong on aggregators, which is why it only fills a slot JobPosting left empty.
+  fill(job, provenance, "title", page.meta?.ogTitle ?? null, "page");
   fill(job, provenance, "company", page.meta?.ogSiteName ?? null, "page");
 
   return { job, provenance };
@@ -170,10 +176,10 @@ export async function structureCapture(
   const truncated = (page.selection?.trim() || page.text || "").length > MAX_TEXT_CHARS;
 
   if (!featureEnabled("FEATURE_AI") || !featureEnabled("FEATURE_RESUME_AI")) {
-    return degraded(job, provenance, "AI structuring is off. Fields come from the page's own metadata only.");
+    return degraded(job, provenance, "AI structuring is off — fields below were read from the page or inferred from it.", page);
   }
   if (text.length < 200) {
-    return degraded(job, provenance, "This page had too little readable text to structure. Fill the fields in by hand.");
+    return degraded(job, provenance, "This page had too little readable text to structure.", page);
   }
 
   // Telling the model what is already known stops it re-deriving fields the
@@ -196,15 +202,16 @@ export async function structureCapture(
     });
 
     if (completion.stopReason === "refused") {
-      return degraded(job, provenance, "The model declined to read this page. Fill the fields in by hand.");
+      return degraded(job, provenance, "The model declined to read this page.", page);
     }
 
     const parsed = completion.parsed;
     if (!parsed) {
-      return degraded(job, provenance, "Structuring returned nothing usable. Fill the fields in by hand.");
+      return degraded(job, provenance, "Structuring returned nothing usable.", page);
     }
 
     if (parsed.is_job_posting === false) {
+      applyHeuristics(job, provenance, page);
       return {
         job,
         provenance,
@@ -225,6 +232,10 @@ export async function structureCapture(
       fill(job, provenance, "skills", parsed.skills.filter((s) => typeof s === "string").slice(0, 30), "ai");
     }
 
+    // Last, so a regex can never displace something the employer published or
+    // the model actually read.
+    applyHeuristics(job, provenance, page);
+
     return {
       job,
       provenance,
@@ -236,12 +247,22 @@ export async function structureCapture(
     // same from here: keep what the page gave us and say why the rest is empty.
     const reason = error instanceof AiError ? error.code : "error";
     console.error("[capture] AI structuring failed:", error);
-    return degraded(job, provenance, `AI structuring was unavailable (${reason}). Fields come from the page only.`);
+    return degraded(job, provenance, `AI structuring was unavailable (${reason}).`, page);
   }
 }
 
-function degraded(job: CapturedJob, provenance: CaptureProvenance, notice: string): Omit<CaptureResult, "duplicate"> {
-  return { job, provenance, deterministicOnly: true, notice };
+/**
+ * The no-AI path. Heuristics run here, which is the whole point: this is what a
+ * page with no structured data used to return, and it returned almost nothing.
+ */
+function degraded(
+  job: CapturedJob,
+  provenance: CaptureProvenance,
+  notice: string,
+  page: CapturedPage,
+): Omit<CaptureResult, "duplicate"> {
+  applyHeuristics(job, provenance, page);
+  return { job, provenance, deterministicOnly: true, notice: `${notice} ${partialNotice(job, null) ?? ""}`.trim() };
 }
 
 /** Names the core fields nobody found, so "partial" is specific rather than vague. */

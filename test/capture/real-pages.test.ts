@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { structureDeterministically, sourceFor } from "@/lib/capture/structure";
+import { applyHeuristics } from "@/lib/capture/heuristics";
 import type { CapturedPage } from "@/types/capture";
 
 /**
@@ -117,5 +118,93 @@ describe("every fixture", () => {
         expect(Boolean(value), `${name}.${field}`).toBe(Boolean(provenance[field as never]));
       }
     }
+  });
+});
+
+describe("SurelyRemote (no JobPosting, no Open Graph at all)", () => {
+  /**
+   * The regression this file exists for.
+   *
+   * This page publishes no structured data and no og: tags. Before heuristics,
+   * capture returned `title` (the raw document title, company and all),
+   * `job_url` and `source` — and nothing else. Every field the review form
+   * shows was blank, on a page that plainly stated the role, the employer, the
+   * work arrangement and several paragraphs of description.
+   */
+  const fixture = FIXTURES.surelyremote;
+  const { job, provenance } = (() => {
+    const base = structureDeterministically(asPage(fixture));
+    applyHeuristics(base.job, base.provenance, {
+      title: fixture.title,
+      h1: fixture.h1 ?? null,
+      text: fixture.text ?? "",
+    });
+    return base;
+  })();
+
+  it("recovers the role without the company appended", () => {
+    expect(job.title).toBe("Applied AI Engineer");
+  });
+
+  it("recovers the employer from the document title", () => {
+    expect(job.company).toBe("Bjak");
+  });
+
+  it("recovers the work arrangement and employment type", () => {
+    expect(job.location_type).toBe("remote");
+    expect(job.employment_type).toBe("full_time");
+  });
+
+  it("keeps the posting body instead of discarding it", () => {
+    expect(job.job_description).toContain("practical AI agents");
+    expect(job.job_description).toContain("Responsibilities");
+  });
+
+  it("still invents no salary, because the page states none", () => {
+    expect(job.salary_min).toBeNull();
+    expect(job.salary_max).toBeNull();
+  });
+
+  it("labels every recovered field as a guess, not as published data", () => {
+    for (const field of ["title", "company", "location_type", "employment_type", "job_description"] as const) {
+      expect(provenance[field], field).toBe("heuristic");
+    }
+  });
+});
+
+describe("SurelyRemote labelled summary block", () => {
+  /**
+   * The page ends with a `Label\nValue` summary — a shape a great many boards
+   * emit. Reading it is what turns a mostly-empty capture into a usable one
+   * without a model, and it is also what keeps a stray word in the body from
+   * being mistaken for a field.
+   */
+  const fixture = FIXTURES.surelyremote;
+  const { job, provenance } = (() => {
+    const base = structureDeterministically(asPage(fixture));
+    applyHeuristics(base.job, base.provenance, {
+      title: fixture.title,
+      h1: fixture.h1 ?? null,
+      text: fixture.text ?? "",
+    });
+    return base;
+  })();
+
+  it("reads employment type and seniority from the labelled block", () => {
+    expect(job.employment_type).toBe("full_time");
+    expect(job.seniority).toBe("mid");
+  });
+
+  it("decides the arrangement from the posting, not from the site byline", () => {
+    // "Written by Surely Remote" is the site's own byline. It must not be the
+    // thing that decides this. The arrangement comes from the posting's own
+    // "Full-time. Remote." line instead — a line made only of job attributes.
+    expect(fixture.text).toContain("Written by Surely Remote");
+    expect(job.location_type).toBe("remote");
+  });
+
+  it("does not file the next label as the company name", () => {
+    expect(job.company).toBe("Bjak");
+    expect(job.company).not.toBe("Experience");
   });
 });

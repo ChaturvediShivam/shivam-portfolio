@@ -5,8 +5,17 @@
  * Not server-only: the extension's popup renders against these shapes.
  */
 
-/** Where a field's value came from. Displayed, never guessed. */
-export type CaptureSource = "page" | "ai";
+/**
+ * Where a field's value came from. Shown to the person reviewing, so the three
+ * are genuinely different claims:
+ *
+ *   page      — the site published it (schema.org JobPosting, Open Graph).
+ *   ai        — a model read the page text and extracted it.
+ *   heuristic — inferred by pattern from the title or the text. A guess, and
+ *               labelled as one, because these fill in when AI is unavailable
+ *               and a guess presented as a reading is how wrong data gets saved.
+ */
+export type CaptureSource = "page" | "ai" | "heuristic";
 
 /**
  * Raw material lifted from the tab, before any interpretation.
@@ -35,6 +44,12 @@ export interface CapturedPage {
   jsonLd?: unknown[];
   /** Text the user had selected, if any. Treated as a strong hint. */
   selection?: string | null;
+  /**
+   * The page's first heading. Usually the role on its own, where the document
+   * title also carries the company and the job board, so it is the better
+   * source when no structured data exists.
+   */
+  h1?: string | null;
 }
 
 /**
