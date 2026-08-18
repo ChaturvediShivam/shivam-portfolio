@@ -2,6 +2,7 @@
 
 import Hero from "@/components/sections/Hero";
 import About from "@/components/sections/About";
+import Projects from "@/components/sections/Projects";
 import CaseStudies from "@/components/sections/CaseStudies";
 import Ebook from "@/components/sections/Ebook";
 import Skills from "@/components/sections/Skills";
@@ -14,6 +15,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       <Hero />
+      <Projects />
       <AIResearch />
       <About />
       <CaseStudies />

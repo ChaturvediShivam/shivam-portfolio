@@ -27,6 +27,114 @@ const DEFAULT_PAGE_SIZE = 25;
 const SELECT =
   "*, company:companies(id, name), primary_contact:contacts(id, full_name, title)";
 
+/**
+ * Query parameters that identify *how someone arrived*, never *which posting
+ * this is*. Stripped before comparison so the same job shared from a LinkedIn
+ * feed, an email alert and a recruiter's link resolves to one opportunity.
+ *
+ * This is deliberately a denylist rather than an allowlist. Job boards carry
+ * meaningful identifiers in the query string — Indeed's `vjk`, Greenhouse's
+ * `gh_jid`, LinkedIn's `currentJobId` — and dropping an unrecognised parameter
+ * would silently merge two different roles into one. An unknown parameter is
+ * therefore kept, which at worst leaves a duplicate to notice rather than a
+ * posting that was never saved.
+ *
+ * Compared lowercase; `utm_*` is matched by prefix.
+ */
+const TRACKING_PARAMS = new Set([
+  "ref", "refid", "trk", "trkinfo", "trackingid", "src", "source", "from",
+  "origin", "originalsubdomain", "position", "pagenum", "savedsearchid",
+  "recommendedflavor", "gh_src", "lever-source", "lever-origin",
+  "fbclid", "gclid", "msclkid", "mc_cid", "mc_eid", "_ga", "_gl",
+]);
+
+/**
+ * Canonical form of a job posting URL, for duplicate detection.
+ *
+ * The same posting reaches you spelled several ways — with and without `www.`,
+ * with a trailing slash, with a `#section` fragment, and above all with a
+ * different tracking parameter every time it is shared. Comparing raw strings
+ * treats all of those as distinct postings, which is how a pipeline fills up
+ * with four copies of one job.
+ *
+ * The result stays a working link: only the fragment and known tracking
+ * parameters are removed, so it can be stored in `job_url` directly rather than
+ * shadowed in a second column that can drift out of step with the first.
+ *
+ * Returns null for blank input, and the trimmed original for anything that does
+ * not parse as a URL — a value that cannot be normalized must still be storable,
+ * because refusing to save a job over a malformed link would be worse than not
+ * deduplicating it.
+ */
+export function normalizeJobUrl(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return trimmed;
+  }
+
+  // Only web URLs are normalized. Anything else (mailto:, javascript:, file:)
+  // is returned as-is rather than being rewritten into something it is not.
+  if (url.protocol !== "http:" && url.protocol !== "https:") return trimmed;
+
+  url.hash = "";
+  url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+
+  for (const key of [...url.searchParams.keys()]) {
+    const lower = key.toLowerCase();
+    if (lower.startsWith("utm_") || TRACKING_PARAMS.has(lower)) {
+      url.searchParams.delete(key);
+    }
+  }
+  // Order is not meaning: ?a=1&b=2 and ?b=2&a=1 are the same page.
+  url.searchParams.sort();
+
+  // A trailing slash is a spelling, not a different page — except at the root,
+  // where removing it produces a URL with no path at all.
+  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    url.pathname = url.pathname.replace(/\/+$/, "");
+  }
+
+  return url.toString();
+}
+
+/**
+ * An existing opportunity for this posting, if there is one.
+ *
+ * Matches on the normalized URL *and* on the raw string. The second is what
+ * catches rows saved before normalization existed: those hold whatever URL was
+ * pasted, tracking parameters and all, so a normalized-only comparison would
+ * miss them.
+ *
+ * Archived opportunities are included on purpose. "You already tracked this and
+ * archived it" is the answer the person needs; silently creating a second row
+ * would hide the decision they already made about this role.
+ */
+export async function findOpportunityByJobUrl(
+  supabase: SupabaseClient,
+  jobUrl: string,
+  excludeId?: string,
+): Promise<{ id: string; title: string; stage: OpportunityStage; archived_at: string | null } | null> {
+  const normalized = normalizeJobUrl(jobUrl);
+  if (!normalized) return null;
+
+  const candidates = [...new Set([normalized, jobUrl.trim()])];
+
+  let query = supabase
+    .from("opportunities")
+    .select("id, title, stage, archived_at")
+    .in("job_url", candidates);
+  if (excludeId) query = query.neq("id", excludeId);
+
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) throw error;
+  return (data as { id: string; title: string; stage: OpportunityStage; archived_at: string | null }) ?? null;
+}
+
 function clean(value?: string | null): string | null {
   if (value == null) return null;
   const t = value.trim();
@@ -82,7 +190,7 @@ function mapInput(input: OpportunityInput): Record<string, unknown> {
     company_id: input.company_id || null,
     primary_contact_id: input.primary_contact_id || null,
     source: clean(input.source),
-    job_url: clean(input.job_url),
+    job_url: normalizeJobUrl(input.job_url),
     location: clean(input.location),
     location_type: input.location_type || null,
     employment_type: input.employment_type || null,
@@ -94,6 +202,7 @@ function mapInput(input: OpportunityInput): Record<string, unknown> {
     salary_currency: clean(input.salary_currency) ?? "USD",
     applied_at: clean(input.applied_at),
     next_action_at: clean(input.next_action_at),
+    job_description: clean(input.job_description),
     deadline_at: clean(input.deadline_at),
     priority: validPriority(input.priority),
     offer_at: clean(input.offer_at),

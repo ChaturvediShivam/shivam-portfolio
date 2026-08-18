@@ -23,9 +23,22 @@ const SQL = readFileSync(join(MIGRATIONS_DIR, FILENAME), "utf8");
 const sql = SQL.toLowerCase();
 
 describe("demo_usage migration", () => {
-  it("is timestamp-ordered after every existing migration", () => {
+  /**
+   * The invariant is that this migration applies AFTER the ones it depends on —
+   * it references set_updated_at() and the RLS posture established earlier — not
+   * that it is permanently the newest file in the directory. Asserting the
+   * latter made every future migration, on any unrelated table, fail this suite.
+   */
+  it("is timestamp-ordered after the migrations it depends on", () => {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    expect(files[files.length - 1]).toBe(FILENAME);
+    const index = files.indexOf(FILENAME);
+    expect(index, `${FILENAME} is missing from ${MIGRATIONS_DIR}`).toBeGreaterThan(-1);
+
+    // Everything that existed when this migration was written must sort before
+    // it. Later migrations may legitimately sort after.
+    const dependencies = files.filter((f) => f < FILENAME);
+    expect(dependencies.length).toBe(index);
+    expect(dependencies).toContain("20260726183601_career_crm_foundation.sql");
   });
 
   it("creates the table idempotently", () => {

@@ -11,6 +11,7 @@ import {
 import { validate, required, optional, maxLength, url, oneOf, type Schema, type Validator } from "@/lib/validation";
 import {
   createOpportunity,
+  findOpportunityByJobUrl,
   updateOpportunity,
   changeStage,
   setOpportunityArchived,
@@ -24,6 +25,7 @@ import {
   EMPLOYMENT_TYPES,
   LOCATION_TYPES,
   OPPORTUNITY_STAGES,
+  humanize,
   type OpportunityInput,
   type OpportunityStage,
 } from "@/types/opportunity";
@@ -49,12 +51,44 @@ const opportunitySchema: Schema<OpportunityInput> = {
   salary_min: [numericIfPresent],
   salary_max: [numericIfPresent],
   salary_currency: [optional(maxLength(8))],
+  // Generous, because a real posting can be long and a truncated description is
+  // worse than none — but bounded, because this text is pasted in by a browser
+  // extension and an unbounded field reachable from a page is an unbounded row.
+  job_description: [optional(maxLength(60_000))],
 };
+
+/**
+ * The message shown when a posting is already tracked.
+ *
+ * Names the existing opportunity and its stage, because "this is a duplicate"
+ * is not actionable on its own — what the person needs to know is which record
+ * to go and look at, and whether they have already applied to it.
+ */
+function duplicateJobUrlMessage(existing: {
+  title: string;
+  stage: OpportunityStage;
+  archived_at: string | null;
+}): string {
+  const where = existing.archived_at ? "archived" : humanize(existing.stage).toLowerCase();
+  return `Already tracked as "${existing.title}" (${where}). Open that opportunity instead of creating a second one.`;
+}
 
 export async function createOpportunityAction(input: OpportunityInput): Promise<ActionResult<{ id: string }>> {
   return withAdminAction(async ({ supabase, userId }) => {
     const result = validate(input, opportunitySchema);
     if (!result.ok) return actionError({ fieldErrors: result.fieldErrors as Record<string, string> });
+
+    // Checked before the insert rather than relied on afterwards: there is no
+    // unique index on job_url, because re-applying to the same role in a later
+    // cycle is legitimate and a database constraint could not tell the two
+    // apart. This is the layer that can.
+    if (input.job_url) {
+      const existing = await findOpportunityByJobUrl(supabase, input.job_url);
+      if (existing) {
+        return actionError({ fieldErrors: { job_url: duplicateJobUrlMessage(existing) } });
+      }
+    }
+
     const created = await createOpportunity(supabase, userId, input);
     revalidatePath("/admin/opportunities");
     return actionSuccess({ id: created.id });
@@ -65,6 +99,16 @@ export async function updateOpportunityAction(id: string, input: OpportunityInpu
   return withAdminAction(async ({ supabase }) => {
     const result = validate(input, opportunitySchema);
     if (!result.ok) return actionError({ fieldErrors: result.fieldErrors as Record<string, string> });
+
+    // `undefined` means the edit did not touch job_url at all, which must not
+    // be read as "clear it" and must not trigger a self-collision check.
+    if (input.job_url) {
+      const existing = await findOpportunityByJobUrl(supabase, input.job_url, id);
+      if (existing) {
+        return actionError({ fieldErrors: { job_url: duplicateJobUrlMessage(existing) } });
+      }
+    }
+
     await updateOpportunity(supabase, id, input);
     revalidatePath("/admin/opportunities");
     revalidatePath(`/admin/opportunities/${id}`);

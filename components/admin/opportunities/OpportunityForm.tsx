@@ -7,12 +7,14 @@ import {
   FormField,
   TextInput,
   Select,
+  Textarea,
   Button,
   buttonClasses,
   EntityPicker,
   useToast,
   type EntityOption,
 } from "@/components/admin/ui";
+import { TASK_PRIORITIES } from "@/types/task";
 import {
   EMPLOYMENT_TYPES,
   LOCATION_TYPES,
@@ -44,7 +46,10 @@ type TextField =
   | "salary_max"
   | "salary_currency"
   | "applied_at"
-  | "next_action_at";
+  | "next_action_at"
+  | "deadline_at"
+  | "priority"
+  | "job_description";
 
 type Values = Record<TextField, string>;
 
@@ -64,6 +69,9 @@ const EMPTY: Values = {
   salary_currency: "USD",
   applied_at: "",
   next_action_at: "",
+  deadline_at: "",
+  priority: "",
+  job_description: "",
 };
 
 const dateOnly = (v: string | null) => (v ? v.slice(0, 10) : "");
@@ -85,6 +93,9 @@ function fromOpportunity(o: Opportunity): Values {
     salary_currency: o.salary_currency ?? "USD",
     applied_at: dateOnly(o.applied_at),
     next_action_at: dateOnly(o.next_action_at),
+    deadline_at: dateOnly(o.deadline_at),
+    priority: o.priority ?? "",
+    job_description: o.job_description ?? "",
   };
 }
 
@@ -231,7 +242,13 @@ export function OpportunityForm({ mode, opportunity }: OpportunityFormProps) {
           <TextInput name="seniority" value={values.seniority} onChange={(e) => set("seniority", e.target.value)} placeholder="Senior" />
         </FormField>
 
-        <FormField label="Job URL" htmlFor="job_url" error={errors.job_url} className="sm:col-span-2">
+        <FormField
+          label="Job URL"
+          htmlFor="job_url"
+          error={errors.job_url}
+          hint="Used to detect duplicates. Tracking parameters are stripped, so the same posting shared from different places counts once."
+          className="sm:col-span-2"
+        >
           <TextInput name="job_url" type="url" value={values.job_url} onChange={(e) => set("job_url", e.target.value)} placeholder="https://…" />
         </FormField>
 
@@ -265,6 +282,40 @@ export function OpportunityForm({ mode, opportunity }: OpportunityFormProps) {
 
         <FormField label="Next action" htmlFor="next_action_at" error={errors.next_action_at}>
           <TextInput name="next_action_at" type="date" value={values.next_action_at} onChange={(e) => set("next_action_at", e.target.value)} />
+        </FormField>
+
+        <FormField label="Deadline" htmlFor="deadline_at" error={errors.deadline_at}>
+          <TextInput name="deadline_at" type="date" value={values.deadline_at} onChange={(e) => set("deadline_at", e.target.value)} />
+        </FormField>
+
+        <FormField label="Priority" htmlFor="priority" error={errors.priority}>
+          <Select
+            name="priority"
+            value={values.priority}
+            onChange={(e) => set("priority", e.target.value)}
+            placeholder="—"
+            options={TASK_PRIORITIES.map((p) => ({ value: p, label: humanize(p) }))}
+          />
+        </FormField>
+
+        {/* The posting itself. Last in the form because it is the longest field
+            and, when captured by the extension, the one already filled in.
+            `hint` earns its place here: the reason to paste this is not obvious
+            until the posting is taken down and it is too late. */}
+        <FormField
+          label="Job description"
+          htmlFor="job_description"
+          error={errors.job_description}
+          hint="Stored verbatim. Postings get taken down between applying and interviewing — this is what interview prep reads."
+          className="sm:col-span-2"
+        >
+          <Textarea
+            name="job_description"
+            rows={10}
+            value={values.job_description}
+            onChange={(e) => set("job_description", e.target.value)}
+            placeholder="Paste the job posting…"
+          />
         </FormField>
       </div>
 

@@ -16,7 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export interface StubFilter {
-  op: "eq" | "is" | "in" | "gte" | "lte" | "lt" | "not";
+  op: "eq" | "neq" | "is" | "in" | "gte" | "lte" | "lt" | "not";
   column: string;
   value: unknown;
 }
@@ -96,6 +96,23 @@ class Query implements PromiseLike<{ data: unknown; error: StubError | null }> {
 
   eq(column: string, value: unknown): this {
     this.operation.filters.push({ op: "eq", column, value });
+    return this;
+  }
+
+  /**
+   * PostgREST's negated filter: `.not(column, operator, value)`. Recorded as a
+   * single filter whose value keeps both halves, so a test can assert on the
+   * operator as well as the operand — `not("stage", "in", "(a,b)")` and
+   * `not("stage", "is", null)` are different predicates and must not compare
+   * equal.
+   */
+  not(column: string, operator: string, value: unknown): this {
+    this.operation.filters.push({ op: "not", column, value: { operator, value } });
+    return this;
+  }
+
+  neq(column: string, value: unknown): this {
+    this.operation.filters.push({ op: "neq", column, value });
     return this;
   }
 

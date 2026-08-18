@@ -144,6 +144,8 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
           <Field label="Work authorization">{opportunity.work_authorization ?? dash}</Field>
           <Field label="Applied on">{formatDate(opportunity.applied_at) ?? dash}</Field>
           <Field label="Next action">{formatDate(opportunity.next_action_at) ?? dash}</Field>
+          <Field label="Deadline">{formatDate(opportunity.deadline_at) ?? dash}</Field>
+          <Field label="Priority">{opportunity.priority ? humanize(opportunity.priority) : dash}</Field>
           <Field label="Job posting">
             {opportunity.job_url ? (
               <a
@@ -160,6 +162,25 @@ export default async function OpportunityDetailPage({ params }: PageProps) {
             )}
           </Field>
         </dl>
+
+        {opportunity.job_description && (
+          <details className="mt-5 border-t border-white/[0.06] pt-4">
+            <summary className="cursor-pointer text-sm font-semibold text-white marker:text-slate-500">
+              Job description
+              <span className="ml-2 font-normal text-slate-500">
+                {opportunity.job_description.length.toLocaleString()} characters
+              </span>
+            </summary>
+            {/* `whitespace-pre-wrap` preserves the posting's own paragraphing
+                and bullet layout, which is most of what makes a description
+                readable. Text is rendered as text, never as markup — this
+                content arrives from arbitrary web pages via the capture
+                extension. */}
+            <p className="mt-3 max-h-[32rem] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+              {opportunity.job_description}
+            </p>
+          </details>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

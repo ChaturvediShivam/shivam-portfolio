@@ -2,6 +2,16 @@ const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * The CV moved from /resume.pdf to /shivam-chaturvedi-cv.pdf (June file
+   * retired, filename de-spaced). That old path has been handed out on
+   * applications and profiles, so it redirects permanently rather than 404ing
+   * on someone who is deciding whether to reply.
+   */
+  redirects: async () => [
+    { source: "/resume.pdf", destination: "/shivam-chaturvedi-cv.pdf", permanent: true },
+  ],
+
   headers: async () => [
     {
       source: "/(.*)",

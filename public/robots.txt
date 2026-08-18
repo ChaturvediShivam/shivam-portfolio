@@ -3,4 +3,4 @@ Allow: /
 Disallow: /_next/
 Disallow: /api/
 
-Sitemap: https://shivamchaturvedi.com/sitemap.xml
+Sitemap: https://www.shivamchaturvedi.com/sitemap.xml
