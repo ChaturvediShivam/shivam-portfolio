@@ -141,6 +141,38 @@ describe("browser → API → popup → save", () => {
     expect(window.document.getElementById("desc-count").textContent).toMatch(/^[\d,]+ chars$/);
   });
 
+  /**
+   * The values a person actually reads off the screen, asserted as strings.
+   *
+   * Worth stating separately from the API assertions above because a field can
+   * be present in the response and still render blank — which is exactly what a
+   * stale deployment looked like from the outside, and what a `<select>` whose
+   * options do not carry the enum's own spelling would do silently: assigning
+   * an unknown value to a select leaves it on the placeholder and throws
+   * nothing. `selectedIndex` is checked for that reason.
+   */
+  it("shows the role, company and card fields the page states", () => {
+    const value = (id: string) => (window.document.getElementById(id) as HTMLInputElement).value;
+
+    expect(value("f-title")).toBe("Applied AI Engineer");
+    expect(value("f-company")).toBe("Bjak");
+    expect(value("f-seniority")).toBe("mid");
+
+    // The role is the role. A title carrying the employer ("... at Bjak") means
+    // the company was left inside it instead of being extracted into its own
+    // field, and the Company box would be empty.
+    expect(value("f-title")).not.toMatch(/\bat\b/i);
+
+    const employment = window.document.getElementById("f-employment") as HTMLSelectElement;
+    expect(employment.value).toBe("full_time");
+    expect(employment.selectedIndex).toBeGreaterThan(0);
+    expect(employment.options[employment.selectedIndex].textContent).toBe("Full time");
+
+    // The posting states neither, so both stay empty rather than being guessed.
+    expect(value("f-location")).toBe("");
+    expect(value("f-location-type")).toBe("");
+  });
+
   it("the save payload carries it, unmodified", async () => {
     window.document.getElementById("save").click();
     await new Promise((resolve) => setTimeout(resolve, 10));
