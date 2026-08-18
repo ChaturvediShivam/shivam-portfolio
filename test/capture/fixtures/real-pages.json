@@ -1,0 +1,21 @@
+{
+  "lever": {
+    "note": "jobs.lever.co — captured live 2026-08-18. Publishes JobPosting with explicit nulls inside PostalAddress.",
+    "url": "https://jobs.lever.co/leverdemo/c559265a-55ec-4f75-ac56-78290081f6e7",
+    "title": "Lever Demo 2 - Account Executive",
+    "meta": { "ogTitle": "Lever Demo 2 - Account Executive", "ogSiteName": null, "description": null },
+    "jsonLd": [{"@context":"http://schema.org","@type":"JobPosting","title":"Account Executive","hiringOrganization":{"@type":"Organization","name":"Lever Demo 2","logo":"https://lever-client-logos.s3.amazonaws.com/x.png"},"jobLocation":{"@type":"Place","address":{"@type":"PostalAddress","addressLocality":"Amsterdam, Netherlands","addressRegion":null,"addressCountry":null,"postalCode":null}},"employmentType":null,"datePosted":"2019-11-25","description":"<p>aegaegdagdag</p>\n<p></p><p><br></p><ul>\n<li>1</li>\n<li>2</li>\n<li>3</li>\n<li>&nbsp;</li>\n</ul><p><br></p><p></p>\n<div>$10,000 - $125,000 a year</div><small><div>afaf</div></small>\n<p>afafeafd</p>"}]
+  },
+  "greenhouse": {
+    "note": "job-boards.greenhouse.io — captured live 2026-08-18. Publishes NO JobPosting; og:title carries the role, og:description carries the locations.",
+    "url": "https://job-boards.greenhouse.io/anthropic/jobs/5023394008",
+    "title": "Job Application for Anthropic Fellows Program at Anthropic",
+    "meta": {
+      "ogTitle": "Anthropic Fellows Program",
+      "ogSiteName": null,
+      "ogDescription": "London, UK; Ontario, CAN; Remote-Friendly, United States; San Francisco, CA",
+      "description": null
+    },
+    "jsonLd": []
+  }
+}
