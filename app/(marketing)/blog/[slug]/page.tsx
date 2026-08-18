@@ -1,8 +1,21 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { RESEARCH_NOTES } from "@/constants";
 
 export default async function ResearchNote(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
+
+  // `RESEARCH_NOTES` is the only definition of which notes exist, and the only
+  // thing /blog ever links to. Without this check the route answered 200 for
+  // any string at all, so every mistyped or invented URL became an indexable
+  // page claiming a note was "in development" — an unbounded supply of soft
+  // 404s. A note that is defined but unwritten still renders below; one that
+  // was never defined is simply not a page.
+  const note = RESEARCH_NOTES.find((entry) => entry.slug === params.slug);
+  if (!note) notFound();
+
   return (
     <div className="section-container py-24 max-w-4xl mx-auto px-6">
       <Link href="/blog" className="flex items-center gap-2 text-sm font-medium text-consulting-slate dark:text-[#CBD5E1] hover:text-consulting-royal transition-colors mb-12">

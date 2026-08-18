@@ -8,26 +8,49 @@ import Footer from "@/components/layout/Footer";
 import BackToTop from "@/components/ui/BackToTop";
 import AuthFragmentRescue from "@/components/auth/AuthFragmentRescue";
 import { Analytics } from "@vercel/analytics/next";
-import { SITE_CONFIG } from "@/constants";
+import { SITE_CONFIG, KNOWS_ABOUT } from "@/constants";
 
 const inter = Inter({ subsets: ["latin"] });
 
+/**
+ * The social share card.
+ *
+ * A committed static PNG rather than a generated one: every scraper that
+ * matters (LinkedIn, Slack, WhatsApp, iMessage, X) simply fetches this URL, so
+ * a fixed file at a fixed path is the most reliable thing that can sit behind
+ * it — nothing to render, nothing to cache-bust, no build step that can fail
+ * and leave the card blank. 1200x630 is the size all of them crop from.
+ *
+ * The URL is absolute on purpose. WhatsApp and several older scrapers do not
+ * resolve relative og:image paths against the page URL, so the tag has to
+ * carry a full origin even though `metadataBase` would otherwise supply one.
+ */
+const OG_IMAGE = {
+  url: `${SITE_CONFIG.url}/og-image.png`,
+  width: 1200,
+  height: 630,
+  alt: `${SITE_CONFIG.name} — AI Application Engineer`,
+  type: "image/png",
+};
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://shivamchaturvedi.com"),
+  metadataBase: new URL(SITE_CONFIG.url),
   title: SITE_CONFIG.title,
   description: SITE_CONFIG.description,
   openGraph: {
     title: SITE_CONFIG.title,
     description: SITE_CONFIG.description,
-    url: "https://shivamchaturvedi.com",
+    url: SITE_CONFIG.url,
     siteName: SITE_CONFIG.name,
     locale: "en_US",
     type: "website",
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_CONFIG.title,
     description: SITE_CONFIG.description,
+    images: [OG_IMAGE],
   },
 };
 
@@ -35,35 +58,13 @@ const personSchema = {
   "@context": "https://schema.org",
   "@type": "Person",
   name: SITE_CONFIG.name,
-  jobTitle: "Strategic Research Consultant",
+  jobTitle: "AI Application Engineer",
   description: SITE_CONFIG.description,
-  url: "https://shivamchaturvedi.com",
+  url: SITE_CONFIG.url,
   sameAs: [SITE_CONFIG.linkedin],
+  knowsAbout: KNOWS_ABOUT,
 };
 
-const serviceSchema = {
-  "@context": "https://schema.org",
-  "@type": "ProfessionalService",
-  name: `${SITE_CONFIG.name} — Strategic Research Services`,
-  description: SITE_CONFIG.description,
-  url: "https://shivamchaturvedi.com",
-  provider: {
-    "@type": "Person",
-    name: SITE_CONFIG.name,
-  },
-  areaServed: {
-    "@type": "Place",
-    name: "Global",
-  },
-  serviceType: [
-    "Strategic Intelligence",
-    "Competitive Intelligence",
-    "Market Intelligence",
-    "Due Diligence",
-    "Risk Intelligence",
-    "AI-Assisted Research",
-  ],
-};
 
 export default function MarketingLayout({
   children,
@@ -76,7 +77,7 @@ export default function MarketingLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify([personSchema, serviceSchema]),
+            __html: JSON.stringify(personSchema),
           }}
         />
       </head>

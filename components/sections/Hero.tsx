@@ -5,12 +5,13 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { HERO_CONTENT } from "@/constants";
 import { EASE_CALM } from "@/lib/motion";
-import { LayoutDashboard, MessageSquare } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Download } from "lucide-react";
 import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 
 const ctaIconMap: Record<string, React.ElementType<{ size?: number | string; className?: string }>> = {
   LayoutDashboard,
   MessageSquare,
+  Download,
   Linkedin: LinkedinIcon,
 };
 
@@ -51,11 +52,11 @@ export default function Hero() {
         show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } },
       };
 
+  // This section deliberately carries no `id`. It once had `id="about"`, which
+  // made the About nav link resolve to the top of the page and left the real
+  // About section unreachable by anchor. The id now lives on that section.
   return (
-    <section
-      id="about"
-      className="relative min-h-[90vh] flex items-center overflow-hidden bg-white dark:bg-[#0B1120]"
-    >
+    <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-white dark:bg-[#0B1120]">
       {/* One faint overhead radial — functional lighting that draws the eye up to the headline. */}
       <div
         aria-hidden
@@ -106,13 +107,11 @@ export default function Hero() {
               variants={fadeUp}
               className="mt-10 text-[1.875rem] sm:text-[2.25rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold tracking-[-0.02em] leading-[1.15] text-consulting-navy dark:text-[#F9FAFB] max-w-[42rem] lg:max-w-none text-balance"
             >
-              Turning fragmented information{" "}
+              Building <span className="text-consulting-royal">AI-powered applications</span>{" "}
               <br className="hidden md:block" />
-              into <span className="text-consulting-royal">strategic intelligence</span>,{" "}
+              through research, product thinking,{" "}
               <br className="hidden md:block" />
-              competitive insight, and{" "}
-              <br className="hidden md:block" />
-              <span className="text-consulting-royal">risk-backed business decisions</span>.
+              and <span className="text-consulting-royal">modern full-stack technologies</span>.
             </motion.h1>
 
             {/* Subheadline — reduced weight to sharpen headline dominance. */}
@@ -144,6 +143,7 @@ export default function Hero() {
                     variant={cta.primary ? "primary" : "outline"}
                     size="lg"
                     external={cta.external}
+                    download={cta.download}
                     className={`${baseClass} ${cta.primary ? primaryClass : outlineClass}`}
                   >
                     {Icon && <Icon size={16} className="mr-2 transition-transform duration-200 group-hover:translate-x-0.5" />}
@@ -190,8 +190,14 @@ export default function Hero() {
               />
               <div className="relative w-full h-full overflow-hidden">
                 <Image
-                  src="/profile.jpg"
-                  alt="Shivam Chaturvedi — Strategic Research Consultant"
+                  // Derived from /public/profile.jpg — the original stays in
+                  // place, untouched. The derivative is cropped to the 4:5 this
+                  // container expects (so nothing is re-cropped at render), and
+                  // the office glazing behind is optically softened rather than
+                  // masked out: a blurred, desaturated copy of the same frame,
+                  // revealed only away from the subject. No cutout, no matte.
+                  src="/assets/profile-hero.jpg"
+                  alt="Shivam Chaturvedi — AI Application Engineer"
                   fill
                   sizes="(min-width: 1024px) 487px, (min-width: 640px) 448px, 90vw"
                   priority

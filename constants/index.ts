@@ -1,38 +1,89 @@
 export const SITE_CONFIG = {
   name: "Shivam Chaturvedi",
-  title: "Strategic Research Consultant | Competitive & Market Intelligence | Due Diligence",
+  // Title and description track the CV verbatim in positioning: the person a
+  // recruiter finds here must be the person the CV describes, or the two
+  // documents argue with each other in front of the hiring manager.
+  title: "AI Application Engineer | Next.js, TypeScript & LLM Applications",
   description:
-    "Authority-first portfolio of Shivam Chaturvedi — strategic intelligence, competitive analysis, market intelligence, due diligence, and AI-assisted research for high-stakes decisions.",
+    "Shivam Chaturvedi — AI Application Engineer building production AI-powered applications with Next.js, React, TypeScript, Supabase and the Anthropic API, on a foundation of 4+ years in market and competitive intelligence.",
+  // The single canonical production origin. `www` is what the deployment
+  // actually serves — the apex 308-redirects to it — so every canonical signal
+  // (metadataBase, og:url, JSON-LD, sitemap, robots) has to name this exact
+  // host. Held here once rather than repeated per call site, which is how the
+  // apex and www drifted apart to begin with. No trailing slash: callers
+  // append their own path.
+  url: "https://www.shivamchaturvedi.com",
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
-  resumeUrl: "/resume.pdf",
+  // The live CV. Hyphenated, lowercase, no spaces: a filename with spaces
+  // becomes %20 in every link, every share and every recruiter's address bar.
+  // `/resume.pdf` (the June file) is gone; next.config.js permanently redirects
+  // that path here so any link already sent out still resolves.
+  resumeUrl: "/shivam-chaturvedi-cv.pdf",
   ebookPdfUrl: "/ebook.pdf",
 };
 
+/**
+ * schema.org `knowsAbout` for the Person block in the marketing layout.
+ *
+ * Mirrors the CV's Technical Skills section in the vocabulary a recruiter or an
+ * aggregator actually searches for. Held here rather than inline in the layout
+ * because it is site copy — and because the vendor-neutrality test guards
+ * app/ against vendor names, which is a rule about the AI layer, not about
+ * whether a CV may list the APIs it uses.
+ */
+export const KNOWS_ABOUT = [
+  "AI Application Development",
+  "Large Language Model Applications",
+  "Anthropic API",
+  "Prompt Engineering",
+  "Next.js",
+  "React",
+  "TypeScript",
+  "Supabase",
+  "PostgreSQL",
+  "Vercel",
+  "Competitive Intelligence",
+  "Market Research",
+];
+
+// Both the desktop and mobile navs render from this one array, so an entry
+// removed here disappears from both.
+//
+// "Research Notes" (/blog) is deliberately absent while all three notes are
+// still unwritten — a primary nav item leading to three "Upcoming" cards reads
+// as an unfinished site. The route, the page and RESEARCH_NOTES below are all
+// left intact; restoring the section is putting this line back:
+//   { name: "Research Notes", href: "/blog" },
+// and re-adding the footer quick link plus the /blog entry in sitemap.xml.
 export const NAV_LINKS = [
+  { name: "Projects", href: "/#projects" },
   { name: "About", href: "/#about" },
-  { name: "Case Studies", href: "/#portfolio" },
-  { name: "Research Notes", href: "/blog" },
+  { name: "Research", href: "/#portfolio" },
   { name: "Contact", href: "/#contact" },
 ];
 
 export const HERO_CONTENT = {
-  badge: "Strategic Research Consultant",
+  badge: "AI Application Engineer",
   headline:
-    "Turning fragmented information into strategic intelligence, competitive insight, and risk-backed business decisions.",
+    "Building AI-powered applications through research, product thinking, and modern full-stack technologies.",
   subheadline:
-    "I support leadership and advisory teams with due diligence, competitive intelligence, market mapping, and AI-assisted research — converting scattered signals into structured, decision-ready insight.",
+    "I build production AI applications with Next.js, TypeScript, Supabase and the Anthropic API — bringing 4+ years of market and competitive intelligence to the part most engineers skip: understanding the problem before building for it.",
   ctas: [
     {
-      text: "View Case Studies",
-      href: "#portfolio",
+      text: "View Projects",
+      href: "#projects",
       primary: true,
       icon: "LayoutDashboard",
     },
+    // `download` makes the browser save the PDF instead of navigating into a
+    // viewer, and names the saved file — a recruiter ends up with
+    // "Shivam-Chaturvedi-CV.pdf" in Downloads rather than a stray "cv.pdf".
     {
-      text: "Request a Consultation",
-      href: "#contact",
+      text: "Download CV",
+      href: SITE_CONFIG.resumeUrl,
       primary: false,
-      icon: "MessageSquare",
+      icon: "Download",
+      download: "Shivam-Chaturvedi-CV.pdf",
     },
     {
       text: "Connect on LinkedIn",
@@ -42,11 +93,14 @@ export const HERO_CONTENT = {
       external: true,
     },
   ],
+  // Every figure here is the CV's figure. They diverged once (the site claimed
+  // "100+ Research Engagements" where the CV says 40+ engagements and 100+
+  // reports) and a recruiter reading both would have caught it.
   metrics: [
-    { value: "100+", label: "Research Engagements" },
-    { value: "25+", label: "Countries Covered" },
-    { value: "4", label: "Years Experience" },
-    { value: "Multi-Industry", label: "Expertise" },
+    { value: "4+", label: "Years Experience" },
+    { value: "40+", label: "Research Engagements" },
+    { value: "100+", label: "Intelligence Reports" },
+    { value: "30+", label: "Countries Covered" },
   ],
 };
 
@@ -56,7 +110,7 @@ export const ABOUT_CONTENT = {
     {
       era: "Foundation in Risk & Verification",
       role: "ZIGRAM",
-      text: "Built political exposure and risk profiles across 25+ countries. This established the core discipline: verify before asserting, triangulate before trusting, and maintain judgment under incomplete data.",
+      text: "Built political exposure and risk profiles across 30+ countries. This established the core discipline: verify before asserting, triangulate before trusting, and maintain judgment under incomplete data.",
     },
     {
       era: "Expansion into Market Intelligence",
@@ -451,12 +505,12 @@ export const EBOOK_DATA = {
 
 export const CONTACT_INFO = {
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
-  location: "Global Engagements — Remote or On-site",
-  availability: "Open to strategic research and advisory engagements",
+  location: "India-based — working remotely with US and global teams",
+  availability: "Open to AI application engineering roles",
   preferredRoles:
-    "Strategic Research Consultant, Competitive Intelligence Consultant, Market Intelligence Consultant, Decision Intelligence Consultant, AI-Assisted Research Advisory",
+    "AI Application Engineer, AI Engineer, Full-Stack Engineer (AI Products), Product Engineer, Forward-Deployed Engineer",
   preferredIndustries:
-    "Technology, AI, SaaS, Financial Services, Consulting, Industrial B2B",
+    "AI, Developer Tools, SaaS, Technology, Financial Services",
 };
 
 export const RESEARCH_NOTES = [
@@ -485,3 +539,198 @@ export const RESEARCH_NOTES = [
     status: "Upcoming",
   },
 ];
+
+/**
+ * Engineering projects — the portfolio's primary evidence for the AI Application
+ * Engineer positioning.
+ *
+ * Every claim below is drawn from the project source itself (this repository for
+ * CareerCRM, ~/Clients/Aviora for Aviora Estates) or from the CV. Nothing here is
+ * an estimate, a projection, or a rounded-up number: these pages are read by
+ * people who will ask follow-up questions in an interview, and a figure that
+ * cannot survive "how did you measure that?" is worse than no figure.
+ *
+ * `PROJECTS[].slug` drives /projects/[slug]; the homepage grid renders the same
+ * array, so a project added here appears in both without touching a component.
+ */
+export const PROJECTS = [
+  {
+    slug: "careercrm",
+    name: "CareerCRM",
+    tagline: "Personal AI-powered career and job-search operating system",
+    period: "2026 — Present",
+    role: "Sole designer and engineer",
+    status: "In active personal use",
+    featured: true,
+    liveUrl: "/demo",
+    liveLabel: "Try the Resume AI demo",
+    repoUrl: null,
+    stack: [
+      "Next.js 15 (App Router)",
+      "React 19",
+      "TypeScript",
+      "Tailwind CSS",
+      "Supabase / PostgreSQL 17",
+      "Anthropic API",
+      "Vercel",
+      "Sentry",
+      "Vitest",
+      "Playwright",
+    ],
+    problem:
+      "A serious job search generates more state than a spreadsheet can hold: roles across a dozen boards, recruiters whose names blur together, which CV went to which company, what was said in a screening call three weeks ago, and which follow-up is now overdue. The information is not hard to find — it is hard to keep, and it decays fastest exactly when the search is most active.",
+    solution:
+      "A single private application that owns the whole pipeline: opportunities, companies, contacts, tasks, messages, calendar, documents and resume workflows, with an AI layer that summarises, drafts and answers questions over that data rather than over a blank page.",
+    built: [
+      "A full application pipeline with 19 stages from draft through offer, negotiation and acceptance, rendered as both a table and a kanban board.",
+      "Opportunities, companies, contacts, tasks, messages, calendar and documents modules, each with a typed server-only data layer and validated Server Actions.",
+      "A Resume AI workflow: deterministic ATS scoring, then AI review, section rewriting, cover-letter drafting, interview-question generation and LinkedIn optimisation.",
+      "A public, anonymous demo of the resume analyser, throttled per visitor and bounded by its own token budget so a stranger can try the product without an account.",
+      "A durable background job system for summarisation, sync and notification work.",
+    ],
+    architecture:
+      "Next.js App Router with Server Components reading Postgres directly and Server Actions for every mutation, over a Supabase database where Row Level Security — not application code — is the authorization boundary. Every AI call is funnelled through a single gateway; every asynchronous task goes through a Postgres-backed queue. Migrations are additive-only and idempotent, so a schema change is safe to re-run against a live database.",
+    aiImplementation:
+      "One gateway is the only path to a model provider, so no caller can obtain a completion that skipped policy. A request passes through a feature flag, a burst rate limit, a versioned prompt registry, secret and PII redaction, an atomic token-budget reservation, the provider call, structured-output validation, consequence-classed tool authorization, and an audit row — in that order. The gateway depends on an AiProvider interface and never on a vendor SDK, which is verified by a test suite that exercises the whole file against a provider that has never heard of Anthropic.",
+    decisions: [
+      {
+        title: "Provider-agnostic by construction, not by intention",
+        detail:
+          "The gateway is written against an interface, and the neutrality test runs it end to end against a fake provider. That converts 'we could swap models later' from a claim into something CI fails on if it stops being true.",
+      },
+      {
+        title: "Token budget as one atomic SQL statement",
+        detail:
+          "Deriving a daily spend total by aggregating an audit log is racy — two concurrent calls both read the pre-spend total and both proceed — and gets slower with every call ever made. Budget enforcement is instead a single conditional INSERT … ON CONFLICT DO UPDATE against a counter row: correct under concurrency, constant time, and safe under a transaction-mode connection pooler.",
+      },
+      {
+        title: "Fail closed on money, fail open on convenience",
+        detail:
+          "If the budget ledger cannot be read, the AI call is refused — an outage must never become unbounded spend. If the burst rate limiter cannot be read, the call is allowed, because the budget still bounds it underneath and refusing everything would turn a degraded database into a total outage.",
+      },
+      {
+        title: "An append-only AI decision log enforced by trigger, not policy",
+        detail:
+          "Row Level Security is bypassed by the service-role key that server code holds, so RLS alone cannot make a table immutable. A BEFORE UPDATE OR DELETE trigger can — triggers are not bypassed by service_role — so the record of why the system did something cannot be rewritten by the system.",
+      },
+      {
+        title: "Additive-only, idempotent migrations",
+        detail:
+          "Every migration guards each statement and never alters or drops an existing object, so it is safe to re-run and a partially applied migration is recoverable by running it again rather than by restoring a backup.",
+      },
+    ],
+    challenges: [
+      {
+        title: "Billing accuracy for cached prompt tokens",
+        detail:
+          "The first budget implementation counted only input and output tokens. Providers also bill cache writes and cache reads, so the daily ceiling could be overspent by the size of the cached prefix on every single call. The fix was to make the budget count every token class the provider charges for, locked in by a token-accounting test suite.",
+      },
+      {
+        title: "Claiming queued work safely behind a connection pooler",
+        detail:
+          "Supabase's transaction-mode pooler makes it unsafe to hold a transaction open across an HTTP round trip, which rules out the usual select-then-update claim. Jobs are leased in one statement using FOR UPDATE SKIP LOCKED, which also reclaims stale leases from workers that died mid-task.",
+      },
+      {
+        title: "Stopping work, not just hiding it",
+        detail:
+          "Cancelling a streamed AI answer originally stopped the display while the provider call — and the billing — ran to completion. Breaking out of the stream now unwinds the gateway's cleanup path so the budget is reconciled against what was actually spent.",
+      },
+      {
+        title: "Authentication is not authorization",
+        detail:
+          "The admin allowlist was originally enforced only at signup. Supabase's auth endpoint is reachable directly with the public anon key, so an account could be created without that route ever running. The allowlist was moved to every access point — middleware, API routes and Server Actions — and a regression suite now asserts that an authenticated non-admin is refused at each one.",
+      },
+    ],
+    outcome:
+      "The system is in daily personal use for a live job search. It ships with 1,025 unit tests across 66 files, twelve architecture decision records, and a CI pipeline that enforces lint, typecheck, tests and a production build on every pull request.",
+    talkingPoints: [
+      "Why the AI gateway is a chokepoint rather than a helper library — and what that buys you when a second AI feature is added.",
+      "Why the token budget is a single SQL statement instead of a read-then-write in application code.",
+      "How fail-closed and fail-open were chosen deliberately per control, rather than applied uniformly.",
+      "Why Row Level Security is the authorization boundary when the database is reachable over PostgREST and the web app is not the only client.",
+      "How a durable Postgres queue replaced the need for external queue infrastructure at this scale.",
+      "What an append-only audit table actually requires once server code holds a key that bypasses RLS.",
+    ],
+  },
+  {
+    slug: "aviora-estates",
+    name: "Aviora Estates",
+    tagline: "Design-led booking site for an owner-managed luxury villa",
+    period: "2026",
+    role: "Client project — design and build",
+    status: "Live in production",
+    featured: true,
+    liveUrl: "https://avioraestates.com",
+    liveLabel: "avioraestates.com",
+    repoUrl: null,
+    stack: [
+      "Next.js 15 (App Router, static generation)",
+      "React 19",
+      "TypeScript 5.7 (strict)",
+      "Tailwind CSS",
+      "Framer Motion",
+      "GSAP",
+      "react-day-picker",
+      "next-themes",
+      "Vercel",
+    ],
+    problem:
+      "An owner-managed luxury villa near Noida needed a public presence that could take genuine booking enquiries without becoming a booking platform. The owner reviews every stay personally, so an instant-confirmation checkout would have made a promise the business does not keep.",
+    solution:
+      "A statically generated marketing site that presents the estate properly and routes every stay request through WhatsApp to the owner, carrying the dates and guest count already selected. The site collects the intent; a person makes the decision.",
+    built: [
+      "A responsive multi-page marketing site with a property detail page covering gallery, amenities, pricing and nearby locations.",
+      "A booking request flow with a client-side date-range picker and guest count that hands off to WhatsApp with the selection preserved.",
+      "A contact enquiry form and a waitlist modal for properties not yet released.",
+      "Dark mode, plus SEO metadata, sitemap, robots and structured data.",
+      "Trust-first content covering owner review, refund policy, ID verification and the security deposit.",
+    ],
+    architecture:
+      "Statically generated Next.js on Vercel with no backend and no database in the delivered scope. Every page is prerendered; the only dynamic behaviour is client-side date selection, which composes a WhatsApp deep link rather than posting anywhere.",
+    aiImplementation: null,
+    decisions: [
+      {
+        title: "No payment processing, deliberately",
+        detail:
+          "Instant online payment would have implied instant confirmation, which the owner-review model does not offer. Keeping money out of the flow kept the site honest about how booking actually works, and removed PCI scope entirely.",
+      },
+      {
+        title: "No guest data stored on a backend",
+        detail:
+          "Requests hand off to WhatsApp instead of being persisted. For a single-property site this removed the entire class of obligations that come with holding personal data, and removed the backend that would have needed maintaining after handover.",
+      },
+      {
+        title: "Static generation over server rendering",
+        detail:
+          "The content changes rarely and the traffic is marketing traffic. Prerendering everything gave the fastest possible page loads and a site that cannot break at request time.",
+      },
+      {
+        title: "Documented handover",
+        detail:
+          "The project ships with deployment, DNS and SSL notes plus a separated brand asset folder, so the client is not dependent on the original developer to redeploy or hand the site to someone else.",
+      },
+    ],
+    challenges: [
+      {
+        title: "Communicating trust without a transaction",
+        detail:
+          "A luxury stay booked over WhatsApp needs to feel more credible than one booked through a payment form, not less. The answer was content rather than code: stating the owner-review process, refund policy, ID verification and deposit explicitly on the page instead of burying them in terms.",
+      },
+      {
+        title: "Preserving selection across the handoff",
+        detail:
+          "The date range and guest count are chosen on the site but the conversation continues in WhatsApp. The request is composed into the deep link so the guest never re-types what they just selected and the owner receives a structured enquiry rather than 'is it available?'.",
+      },
+    ],
+    outcome:
+      "Live in production at avioraestates.com with the booking enquiry flow, contact form and waitlist in use, handed over with deployment and DNS documentation.",
+    talkingPoints: [
+      "When the right architecture is the one with no backend — and how to tell.",
+      "Designing a conversion flow around a human approval step rather than around a checkout.",
+      "Scoping a client project so the deliverable stays maintainable after handover.",
+      "Why deferred features (iCal availability sync) were left as documented roadmap rather than half-built.",
+    ],
+  },
+] as const;
+
+export type Project = (typeof PROJECTS)[number];

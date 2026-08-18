@@ -8,7 +8,7 @@ export default function About() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="py-24 md:py-32 bg-[#FBF8F2] dark:bg-[#111827] overflow-hidden">
+    <section id="about" className="py-24 md:py-32 bg-[#FBF8F2] dark:bg-[#111827] overflow-hidden">
       <div className="max-w-4xl mx-auto px-6 text-center">
         {/* The manifesto — philosophy is the point, not the career chronology beneath it. */}
         <motion.div {...headingReveal(reduce)} className="space-y-6">

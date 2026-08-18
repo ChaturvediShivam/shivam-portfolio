@@ -33,7 +33,9 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm text-consulting-slate dark:text-[#CBD5E1]">
               <li><Link href="/#about" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">About</Link></li>
               <li><Link href="/#portfolio" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Case Studies</Link></li>
-              <li><Link href="/blog" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Research Notes</Link></li>
+              {/* Research Notes (/blog) is withheld while its three notes are
+                  unwritten — see the note above NAV_LINKS in constants/index.ts.
+                  Restore by re-adding the <li> here. */}
               <li><Link href="/#contact" className="hover:text-consulting-royal transition-colors duration-200 ease-calm">Contact</Link></li>
             </ul>
           </div>
