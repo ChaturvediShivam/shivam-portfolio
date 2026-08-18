@@ -1,0 +1,119 @@
+/*
+ * Popup styling.
+ *
+ * Follows the CareerCRM admin surface it writes into — the same near-black
+ * ground, the same faint white borders, the same restrained accent — so the
+ * extension reads as part of the tool rather than as a third-party add-on.
+ * Deliberately no framework: this is one 380px panel.
+ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0b0e14;
+  --panel: rgba(255, 255, 255, 0.02);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --faint: #64748b;
+  --accent: #3b82f6;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --ok: #34d399;
+}
+
+body {
+  width: 380px;
+  max-height: 600px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0;
+  background: var(--bg); z-index: 2;
+}
+.brand { font-weight: 600; letter-spacing: -0.01em; }
+.icon-btn {
+  background: none; border: none; color: var(--faint); cursor: pointer;
+  font-size: 14px; padding: 2px 6px; border-radius: 6px;
+}
+.icon-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+
+.step { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.settings { padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+
+.eyebrow { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.page-title { font-size: 14px; font-weight: 600; line-height: 1.35; word-break: break-word; }
+.page-domain { font-size: 12px; color: var(--faint); word-break: break-all; }
+
+.label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.req { color: var(--danger); }
+.hint { font-size: 11px; color: var(--faint); margin-top: 4px; }
+.count { margin-left: auto; font-size: 10px; color: var(--faint); }
+
+.input {
+  width: 100%; padding: 7px 9px; font: inherit; color: var(--text);
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 6px;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.textarea { resize: vertical; min-height: 90px; font-size: 12px; line-height: 1.5; }
+select.input { appearance: none; }
+
+.form { display: flex; flex-direction: column; gap: 10px; }
+.field { display: flex; flex-direction: column; min-width: 0; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row.three { grid-template-columns: 1fr 1fr 0.7fr; }
+
+/*
+ * Provenance chip. The point of the whole review step: "the site published
+ * this" and "a model inferred this" must not look the same, or the review is
+ * theatre.
+ */
+.prov { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 5px; border-radius: 999px; }
+.prov[data-source="page"] { color: var(--ok); border: 1px solid rgba(52, 211, 153, 0.35); }
+.prov[data-source="ai"] { color: var(--accent); border: 1px solid rgba(59, 130, 246, 0.35); }
+
+.notice { font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); color: var(--muted); }
+.notice.warn { border-color: rgba(251, 191, 36, 0.35); color: var(--warn); }
+.notice.error { border-color: rgba(248, 113, 113, 0.35); color: var(--danger); }
+.link { color: var(--accent); font-size: 12px; display: inline-block; margin-top: 6px; }
+
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 12px; font: inherit; font-weight: 600; border-radius: 6px;
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; width: 100%;
+}
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary:hover { background: #2563eb; }
+.btn.ghost { background: none; border-color: var(--line-strong); color: var(--muted); }
+.btn.ghost:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255, 255, 255, 0.04); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.actions { display: grid; grid-template-columns: auto 1fr; gap: 8px;
+  position: sticky; bottom: 0; background: var(--bg); padding-top: 10px; border-top: 1px solid var(--line); }
+.actions .ghost { width: auto; padding-inline: 14px; }
+
+.spinner {
+  width: 20px; height: 20px; border-radius: 50%; margin: 8px auto 0;
+  border: 2px solid var(--line-strong); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+.busy-label { text-align: center; color: var(--muted); font-size: 12px; }
+
+.done-mark { text-align: center; font-size: 28px; color: var(--ok); }
+.done-title { text-align: center; font-weight: 600; }
+.error-text { color: var(--danger); font-size: 12px; line-height: 1.5; }
+
+.extras { border-top: 1px solid var(--line); padding-top: 8px; }
+.extras summary { font-size: 11px; color: var(--faint); cursor: pointer; }
+.extras-list { margin-top: 8px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; }
+.extras-list dt { color: var(--faint); }
+.extras-list dd { color: var(--text); word-break: break-word; }

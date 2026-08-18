@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>CareerCRM Capture</title>
+  </head>
+  <body>
+    <header class="bar">
+      <span class="brand">CareerCRM</span>
+      <button id="settings-toggle" class="icon-btn" type="button" aria-label="Settings" aria-expanded="false">⚙</button>
+    </header>
+
+    <section id="settings" class="settings" hidden>
+      <label class="label" for="base-url">CareerCRM URL</label>
+      <input id="base-url" class="input" type="url" spellcheck="false" />
+      <p class="hint">Must also be listed in the extension's host_permissions.</p>
+    </section>
+
+    <!-- Step 1 — what we are looking at. -->
+    <section id="step-idle" class="step">
+      <p class="eyebrow">Current page</p>
+      <p id="page-title" class="page-title">Reading tab…</p>
+      <p id="page-domain" class="page-domain"></p>
+      <button id="capture" class="btn primary" type="button">Capture page</button>
+    </section>
+
+    <!-- Step 2 — working. -->
+    <section id="step-busy" class="step" hidden>
+      <div class="spinner" role="status" aria-live="polite"></div>
+      <p id="busy-label" class="busy-label">Reading the page…</p>
+    </section>
+
+    <!-- Step 3 — review before anything is written. -->
+    <section id="step-review" class="step" hidden>
+      <div id="notice" class="notice" hidden></div>
+      <div id="duplicate" class="notice warn" hidden>
+        <p id="duplicate-text"></p>
+        <a id="duplicate-link" class="link" target="_blank" rel="noopener">Open the existing one</a>
+      </div>
+
+      <form id="review-form" class="form" novalidate>
+        <div class="field">
+          <label class="label" for="f-title">Role <span class="req">*</span><span class="prov" data-prov="title"></span></label>
+          <input id="f-title" name="title" class="input" required />
+        </div>
+        <div class="field">
+          <label class="label" for="f-company">Company<span class="prov" data-prov="company"></span></label>
+          <input id="f-company" name="company" class="input" />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="f-location">Location<span class="prov" data-prov="location"></span></label>
+            <input id="f-location" name="location" class="input" />
+          </div>
+          <div class="field">
+            <label class="label" for="f-location-type">Work type<span class="prov" data-prov="location_type"></span></label>
+            <select id="f-location-type" name="location_type" class="input">
+              <option value="">—</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="onsite">Onsite</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="f-employment">Employment<span class="prov" data-prov="employment_type"></span></label>
+            <select id="f-employment" name="employment_type" class="input">
+              <option value="">—</option>
+              <option value="full_time">Full time</option>
+              <option value="part_time">Part time</option>
+              <option value="contract">Contract</option>
+              <option value="internship">Internship</option>
+              <option value="temporary">Temporary</option>
+              <option value="freelance">Freelance</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="f-seniority">Seniority<span class="prov" data-prov="seniority"></span></label>
+            <input id="f-seniority" name="seniority" class="input" />
+          </div>
+        </div>
+        <div class="row three">
+          <div class="field">
+            <label class="label" for="f-salary-min">Salary min<span class="prov" data-prov="salary_min"></span></label>
+            <input id="f-salary-min" name="salary_min" class="input" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label class="label" for="f-salary-max">Max<span class="prov" data-prov="salary_max"></span></label>
+            <input id="f-salary-max" name="salary_max" class="input" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label class="label" for="f-currency">Cur.<span class="prov" data-prov="salary_currency"></span></label>
+            <input id="f-currency" name="salary_currency" class="input" maxlength="8" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="f-stage">Stage</label>
+            <select id="f-stage" name="stage" class="input">
+              <option value="lead">Saved</option>
+              <option value="applied">Applied</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="f-deadline">Deadline<span class="prov" data-prov="deadline_at"></span></label>
+            <input id="f-deadline" name="deadline_at" class="input" type="date" />
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="f-url">Job URL</label>
+          <input id="f-url" name="job_url" class="input" />
+        </div>
+        <div class="field">
+          <label class="label" for="f-description">
+            Job description<span class="prov" data-prov="job_description"></span>
+            <span id="desc-count" class="count"></span>
+          </label>
+          <textarea id="f-description" name="job_description" class="input textarea" rows="6"></textarea>
+        </div>
+        <details id="extras" class="extras" hidden>
+          <summary>Also found</summary>
+          <dl id="extras-list" class="extras-list"></dl>
+        </details>
+      </form>
+
+      <div id="form-error" class="notice error" hidden></div>
+
+      <div class="actions">
+        <button id="back" class="btn ghost" type="button">Back</button>
+        <button id="save" class="btn primary" type="button">Save to CareerCRM</button>
+      </div>
+    </section>
+
+    <!-- Step 4 — done. -->
+    <section id="step-done" class="step" hidden>
+      <p class="done-mark" aria-hidden="true">✓</p>
+      <p id="done-title" class="done-title">Saved to CareerCRM</p>
+      <a id="done-link" class="btn primary" target="_blank" rel="noopener">Open the opportunity</a>
+      <button id="capture-another" class="btn ghost" type="button">Capture another</button>
+    </section>
+
+    <!-- Recoverable failure. -->
+    <section id="step-error" class="step" hidden>
+      <p id="error-text" class="error-text"></p>
+      <a id="error-action" class="btn primary" target="_blank" rel="noopener" hidden>Sign in to CareerCRM</a>
+      <button id="retry" class="btn ghost" type="button">Try again</button>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

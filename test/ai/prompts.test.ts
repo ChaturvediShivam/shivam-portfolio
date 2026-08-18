@@ -28,6 +28,12 @@ const SAMPLE_VARIABLES: Record<string, Record<string, unknown>> = {
     question: "What should I follow up on this week?",
     today: "2026-08-01",
   },
+  job_capture: {
+    url: "https://boards.greenhouse.io/acme/jobs/123",
+    title: "Senior AI Engineer at Acme",
+    text: "We are hiring a Senior AI Engineer. Requirements: 5+ years, TypeScript, Postgres.",
+    knownNote: "",
+  },
   inbox_triage: {
     today: "2026-08-02",
     messages: "[ref 1]\nFrom: recruiter@example.com\nSubject: Interview\nReceived: 2026-08-01\nStatus: unread\nAre you free Thursday?",
