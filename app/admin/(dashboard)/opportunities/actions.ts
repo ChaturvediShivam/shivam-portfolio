@@ -49,6 +49,10 @@ const opportunitySchema: Schema<OpportunityInput> = {
   salary_min: [numericIfPresent],
   salary_max: [numericIfPresent],
   salary_currency: [optional(maxLength(8))],
+  // Generous, because a real posting can be long and a truncated description is
+  // worse than none — but bounded, because this text is pasted in by a browser
+  // extension and an unbounded field reachable from a page is an unbounded row.
+  job_description: [optional(maxLength(60_000))],
 };
 
 export async function createOpportunityAction(input: OpportunityInput): Promise<ActionResult<{ id: string }>> {

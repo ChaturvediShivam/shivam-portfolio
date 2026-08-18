@@ -128,6 +128,12 @@ export interface Opportunity {
   salary_currency: string | null;
   applied_at: string | null;
   next_action_at: string | null;
+  /**
+   * The job posting text as published, stored verbatim. Postings are routinely
+   * taken down between applying and interviewing, which is precisely when the
+   * text matters most.
+   */
+  job_description: string | null;
   /** Career Intelligence Phase 1 — pursuit planning and outcome dates. */
   deadline_at: string | null;
   priority: TaskPriority | null;
@@ -176,6 +182,7 @@ export interface OpportunityInput {
   salary_currency?: string | null;
   applied_at?: string | null;
   next_action_at?: string | null;
+  job_description?: string | null;
   deadline_at?: string | null;
   priority?: string | null;
   offer_at?: string | null;

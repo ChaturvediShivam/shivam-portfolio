@@ -94,6 +94,7 @@ function mapInput(input: OpportunityInput): Record<string, unknown> {
     salary_currency: clean(input.salary_currency) ?? "USD",
     applied_at: clean(input.applied_at),
     next_action_at: clean(input.next_action_at),
+    job_description: clean(input.job_description),
     deadline_at: clean(input.deadline_at),
     priority: validPriority(input.priority),
     offer_at: clean(input.offer_at),
