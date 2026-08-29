@@ -5,13 +5,14 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { HERO_CONTENT } from "@/constants";
 import { EASE_CALM } from "@/lib/motion";
-import { LayoutDashboard, MessageSquare, Download } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Download, Handshake } from "lucide-react";
 import { LinkedinIcon } from "@/components/ui/LinkedinIcon";
 
 const ctaIconMap: Record<string, React.ElementType<{ size?: number | string; className?: string }>> = {
   LayoutDashboard,
   MessageSquare,
   Download,
+  Handshake,
   Linkedin: LinkedinIcon,
 };
 
@@ -102,16 +103,16 @@ export default function Hero() {
               </span>
             </motion.div>
 
-            {/* Headline — copy unchanged; manually broken into 4 editorial lines (md+), two key phrases in brand accent. */}
+            {/* Headline — two editorial lines (md+). "Research & Intelligence"
+                carries the accent, not "AI": the accent marks the core identity,
+                and AI is the qualifier that follows it. */}
             <motion.h1
               variants={fadeUp}
               className="mt-10 text-[1.875rem] sm:text-[2.25rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold tracking-[-0.02em] leading-[1.15] text-consulting-navy dark:text-[#F9FAFB] max-w-[42rem] lg:max-w-none text-balance"
             >
-              Building <span className="text-consulting-royal">AI-powered applications</span>{" "}
+              Strategic <span className="text-consulting-royal">Research &amp; Intelligence</span>,{" "}
               <br className="hidden md:block" />
-              through research, product thinking,{" "}
-              <br className="hidden md:block" />
-              and <span className="text-consulting-royal">modern full-stack technologies</span>.
+              Powered by <span className="text-consulting-royal">AI</span>.
             </motion.h1>
 
             {/* Subheadline — reduced weight to sharpen headline dominance. */}
@@ -120,6 +121,15 @@ export default function Hero() {
               className="mt-6 text-sm md:text-base text-consulting-slate/80 dark:text-slate-300/80 max-w-xl leading-relaxed font-light text-pretty"
             >
               {HERO_CONTENT.subheadline}
+            </motion.p>
+
+            {/* Credibility line — the years of actual experience, stated before
+                any AI claim so the foundation reads first. */}
+            <motion.p
+              variants={fadeUp}
+              className="mt-4 text-sm md:text-base font-medium text-consulting-navy dark:text-slate-200"
+            >
+              {HERO_CONTENT.credibility}
             </motion.p>
 
             {/* Primary CTAs — one filled, one outlined; identical height, uniform spacing. */}
@@ -197,7 +207,7 @@ export default function Hero() {
                   // masked out: a blurred, desaturated copy of the same frame,
                   // revealed only away from the subject. No cutout, no matte.
                   src="/assets/profile-hero.jpg"
-                  alt="Shivam Chaturvedi — AI Application Engineer"
+                  alt="Shivam Chaturvedi — Strategic Research &amp; Intelligence, Powered by AI"
                   fill
                   sizes="(min-width: 1024px) 487px, (min-width: 640px) 448px, 90vw"
                   priority
@@ -216,17 +226,17 @@ export default function Hero() {
           className="mt-16 md:mt-24"
         >
           <div className="max-w-4xl mx-auto border-t border-b border-slate-200 dark:border-white/10 py-8">
-            <div className="grid grid-cols-2 md:grid-cols-4">
+            <div className="grid grid-cols-3">
               {HERO_CONTENT.metrics.map((metric, idx) => (
                 <motion.div
                   key={idx}
                   variants={metricIn}
-                  className="text-center px-4 md:border-l border-slate-200 dark:border-white/[0.08] md:first:border-l-0"
+                  className="text-center px-2 sm:px-4 md:border-l border-slate-200 dark:border-white/[0.08] md:first:border-l-0"
                 >
                   <p className="text-2xl md:text-[2.5rem] font-semibold text-consulting-navy dark:text-[#F9FAFB] tracking-tight tabular-nums leading-none">
                     {metric.value}
                   </p>
-                  <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-consulting-slate/70 dark:text-slate-400/70 font-medium">
+                  <p className="mt-4 text-[11px] uppercase tracking-[0.08em] sm:tracking-[0.18em] text-consulting-slate/70 dark:text-slate-400/70 font-medium">
                     {metric.label}
                   </p>
                 </motion.div>

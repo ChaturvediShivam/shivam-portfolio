@@ -2,10 +2,17 @@ export const SITE_CONFIG = {
   name: "Shivam Chaturvedi",
   // Title and description track the CV verbatim in positioning: the person a
   // recruiter finds here must be the person the CV describes, or the two
-  // documents argue with each other in front of the hiring manager.
-  title: "AI Application Engineer | Next.js, TypeScript & LLM Applications",
+  // documents argue with each other in front of the hiring manager. The CV's
+  // Research and intelligence are the identity; AI is the multiplier on top of
+  // them. Stated in that order deliberately — the experience happened in that
+  // order, and reversing it would describe a different person.
+  //
+  // NOTE: the CV PDF header still reads "AI Application Engineer | Strategic
+  // Research & AI" and states 4+ years. Site and CV disagree until one is
+  // updated — see the handover note.
+  title: "Shivam Chaturvedi | Strategic Research & Intelligence, Powered by AI",
   description:
-    "Shivam Chaturvedi — AI Application Engineer building production AI-powered applications with Next.js, React, TypeScript, Supabase and the Anthropic API, on a foundation of 4+ years in market and competitive intelligence.",
+    "Shivam Chaturvedi — strategic research and intelligence professional with 4+ years across market research, competitive intelligence, business analysis and AML/KYC research, now combining that foundation with AI, LLM applications, automation and practical product development.",
   // The single canonical production origin. `www` is what the deployment
   // actually serves — the apex 308-redirects to it — so every canonical signal
   // (metadataBase, og:url, JSON-LD, sitemap, robots) has to name this exact
@@ -32,18 +39,33 @@ export const SITE_CONFIG = {
  * whether a CV may list the APIs it uses.
  */
 export const KNOWS_ABOUT = [
-  "AI Application Development",
+  // Research and intelligence first — this array feeds Person JSON-LD, and the
+  // order is the order a search engine reads the specialisation in.
+  "Strategic Research",
+  "Market Research",
+  "Competitive Intelligence",
+  "Market Intelligence",
+  "Secondary Research",
+  "Market Sizing",
+  "Competitor Benchmarking",
+  "Business Analysis",
+  "Due Diligence",
+  "AML/KYC Research",
+  // AI as the differentiator on top of that foundation.
+  "AI-Assisted Research",
+  "Research Automation",
   "Large Language Model Applications",
-  "Anthropic API",
   "Prompt Engineering",
+  "AI Workflows",
+  // Technical proof, last.
+  "AI Application Development",
+  "Anthropic API",
   "Next.js",
   "React",
   "TypeScript",
   "Supabase",
   "PostgreSQL",
   "Vercel",
-  "Competitive Intelligence",
-  "Market Research",
 ];
 
 // Both the desktop and mobile navs render from this one array, so an entry
@@ -56,21 +78,28 @@ export const KNOWS_ABOUT = [
 //   { name: "Research Notes", href: "/blog" },
 // and re-adding the footer quick link plus the /blog entry in sitemap.xml.
 export const NAV_LINKS = [
-  { name: "Projects", href: "/#projects" },
+  { name: "Work", href: "/#projects" },
+  { name: "Capabilities", href: "/#services" },
+  { name: "AI Research", href: "/#ai-research" },
   { name: "About", href: "/#about" },
-  { name: "Research", href: "/#portfolio" },
   { name: "Contact", href: "/#contact" },
 ];
 
 export const HERO_CONTENT = {
-  badge: "AI Application Engineer",
-  headline:
-    "Building AI-powered applications through research, product thinking, and modern full-stack technologies.",
+  badge: "Strategic Research & Intelligence, Powered by AI",
+  headline: "Strategic Research & Intelligence, Powered by AI.",
   subheadline:
-    "I build production AI applications with Next.js, TypeScript, Supabase and the Anthropic API — bringing 4+ years of market and competitive intelligence to the part most engineers skip: understanding the problem before building for it.",
+    "I turn market, competitive, and business data into actionable insights using AI-assisted research, automation, and analytical workflows.",
+  /**
+   * The credibility line sits directly under the subheadline. Research is the
+   * foundation and AI is the multiplier — stated in that order, because that is
+   * the order the experience actually happened in.
+   */
+  credibility:
+    "4+ years across market research, competitive intelligence, business analysis and intelligence research — now combined with AI, automation and applied product development.",
   ctas: [
     {
-      text: "View Projects",
+      text: "View My Work",
       href: "#projects",
       primary: true,
       icon: "LayoutDashboard",
@@ -78,6 +107,12 @@ export const HERO_CONTENT = {
     // `download` makes the browser save the PDF instead of navigating into a
     // viewer, and names the saved file — a recruiter ends up with
     // "Shivam-Chaturvedi-CV.pdf" in Downloads rather than a stray "cv.pdf".
+    {
+      text: "Work With Me",
+      href: "#services",
+      primary: false,
+      icon: "Handshake",
+    },
     {
       text: "Download CV",
       href: SITE_CONFIG.resumeUrl,
@@ -93,14 +128,19 @@ export const HERO_CONTENT = {
       external: true,
     },
   ],
-  // Every figure here is the CV's figure. They diverged once (the site claimed
-  // "100+ Research Engagements" where the CV says 40+ engagements and 100+
-  // reports) and a recruiter reading both would have caught it.
+  // Every figure is the CV's own wording: "4+ years", "Delivered 40+ market
+  // intelligence engagements", "Produced 100+ intelligence reports". Presented
+  // as evidence rather than marketing — no figure appears here that a reader
+  // cannot also find in the CV.
+  // A fourth tile once read "30+ Countries Covered", which appears nowhere in the
+  // CV or on LinkedIn — a headline number a recruiter cannot find in the CV is
+  // worse than no number, and padding the row back to four would only repeat the
+  // mistake. Project-level figures live in PORTFOLIO_CASE_STUDIES, where each one
+  // is attached to the engagement that earned it.
   metrics: [
     { value: "4+", label: "Years Experience" },
     { value: "40+", label: "Research Engagements" },
     { value: "100+", label: "Intelligence Reports" },
-    { value: "30+", label: "Countries Covered" },
   ],
 };
 
@@ -110,7 +150,7 @@ export const ABOUT_CONTENT = {
     {
       era: "Foundation in Risk & Verification",
       role: "ZIGRAM",
-      text: "Built political exposure and risk profiles across 30+ countries. This established the core discipline: verify before asserting, triangulate before trusting, and maintain judgment under incomplete data.",
+      text: "Conducted AML/KYC research, due diligence and intelligence investigations across multiple jurisdictions. This established the core discipline: verify before asserting, triangulate before trusting, and maintain judgment under incomplete data.",
     },
     {
       era: "Expansion into Market Intelligence",
@@ -127,64 +167,87 @@ export const ABOUT_CONTENT = {
     "Clear research starts with good questions, careful verification, and honest judgment. — S.C.",
 };
 
+/**
+ * The research workflow, and where AI actually does the work.
+ *
+ * Each stage names the human judgement AND the AI assist, deliberately: a list
+ * of tools proves nothing, whereas showing which step AI accelerates — and
+ * which step a person still owns — is the actual claim being made.
+ */
 export const RESEARCH_OS = [
   {
     step: 1,
-    title: "Understanding the Core Problem",
-    desc: "Breaking the business question down into what really needs to be answered",
+    title: "Discover",
+    desc: "Frame the business question and map where the answer could credibly come from",
+    ai: "LLM-assisted scoping and source discovery",
   },
   {
     step: 2,
-    title: "Defining the Goal",
-    desc: "Setting clear, specific research objectives that guide the rest of the work",
+    title: "Collect",
+    desc: "Gather evidence from filings, registries, industry sources and public data",
+    ai: "Automated web research and multi-source API collection",
   },
   {
     step: 3,
-    title: "Building the Research Plan",
-    desc: "Creating a practical plan that covers sources, methods, and success criteria",
+    title: "Validate",
+    desc: "Cross-check every claim against an independent source before it counts",
+    ai: "Data extraction and structured validation",
   },
   {
     step: 4,
-    title: "Gathering Information",
-    desc: "Collecting data from public records, industry sources, and trusted databases",
+    title: "Analyze",
+    desc: "Compare, benchmark and find the pattern the raw data is hiding",
+    ai: "Competitive monitoring and comparison at scale",
   },
   {
     step: 5,
-    title: "Cross-Checking Information",
-    desc: "Verifying facts across multiple sources before using them in analysis",
+    title: "Synthesize",
+    desc: "Turn verified findings into a position a decision-maker can act on",
+    ai: "AI-powered synthesis, with human review at every step",
   },
   {
     step: 6,
-    title: "Resolving Data Gaps",
-    desc: "Addressing missing or conflicting information with targeted follow-up",
-  },
-  {
-    step: 7,
-    title: "Connecting the Dots",
-    desc: "Bringing findings together into a clear, structured picture",
-  },
-  {
-    step: 8,
-    title: "Final Review",
-    desc: "Checking that the output directly answers the original question and is ready to use",
+    title: "Deliver",
+    desc: "Answer the original question plainly, with the evidence attached",
+    ai: "Structured insight generation and reporting automation",
   },
 ];
 
+/**
+ * What I do, in the order a reader should absorb it: research capability first,
+ * AI and automation as the multiplier on top of it. Reversing that order would
+ * describe a different person than the experience supports.
+ */
 export const CORE_PILLARS = [
   {
-    title: "Investigative Research",
-    desc: "A foundation in global due diligence and risk profiling, with strong attention to accuracy and detail.",
+    title: "Strategic Research",
+    desc: "Market, industry and business research for strategic decision-making.",
     icon: "Search",
   },
   {
-    title: "Market & Competitive Intelligence",
-    desc: "Analyzing technology adoption patterns and company-level dynamics across AI, SaaS, and other B2B sectors.",
+    title: "Competitive Intelligence",
+    desc: "Competitor mapping, benchmarking, positioning and monitoring market movements.",
     icon: "BarChart",
   },
   {
     title: "AI-Assisted Research",
-    desc: "Using LLMs to speed up discovery and organization, with careful human review at every step.",
+    desc: "Using LLMs and AI tools to accelerate research, synthesis and analysis.",
     icon: "Cpu",
+  },
+  {
+    title: "Research Automation",
+    desc: "Automating data collection, validation, monitoring and reporting workflows.",
+    icon: "Workflow",
+  },
+  {
+    title: "Market Intelligence",
+    desc: "Market sizing, demand drivers and industry structure, tracked over time.",
+    icon: "Target",
+  },
+  {
+    title: "Business Analysis",
+    desc: "Turning fragmented information into structured insights and recommendations.",
+    icon: "Layers",
   },
 ];
 
@@ -301,7 +364,7 @@ export const SKILLS_EVIDENCE_MAP = {
       meaning:
         "Identifying politically exposed persons and mapping their networks, roles, and risk exposure for compliance purposes.",
       usage:
-        "Built profiles across 30+ countries as part of enhanced due diligence, helping compliance teams assess exposure.",
+        "Built profiles across multiple countries as part of enhanced due diligence, helping compliance teams assess exposure.",
     },
     {
       skill: "AML & KYC Research",
@@ -453,7 +516,7 @@ export const SKILLS_EVIDENCE_MAP = {
       meaning:
         "Government-published sources such as registries, gazettes, and official notices used to verify facts about people and companies.",
       usage:
-        "Primary source for ownership, directorship, and legal-history checks in due diligence across 30+ countries.",
+        "Primary source for ownership, directorship, and legal-history checks in due diligence across multiple countries.",
     },
     {
       tool: "Industry-Specific Indices",
@@ -489,6 +552,45 @@ export const WHO_I_HELP = [
   },
 ];
 
+/**
+ * Client-facing services.
+ *
+ * The same work the CV describes, named the way a buyer searches for it. This
+ * exists because a recruiter and a prospective client arrive with different
+ * questions — "what has he done?" versus "what can he do for me?" — and the
+ * site has to answer both without becoming an agency page.
+ */
+export const SERVICES = [
+  {
+    title: "Market & Industry Research",
+    desc: "Market sizing, demand drivers, industry structure and entry considerations.",
+  },
+  {
+    title: "Competitive Intelligence",
+    desc: "Competitor mapping, benchmarking, positioning gaps and ongoing monitoring.",
+  },
+  {
+    title: "Company & Competitor Analysis",
+    desc: "Company profiles built from filings, registries and verified public record.",
+  },
+  {
+    title: "Market Mapping",
+    desc: "Segment and player landscapes across categories, channels and geographies.",
+  },
+  {
+    title: "AI-Assisted Research",
+    desc: "LLM-accelerated discovery and synthesis, with human review at every step.",
+  },
+  {
+    title: "Research Automation",
+    desc: "Automated collection, validation, monitoring and reporting workflows.",
+  },
+  {
+    title: "Intelligence & Due Diligence",
+    desc: "AML/KYC research, risk profiling and adverse media screening.",
+  },
+];
+
 export const EBOOK_DATA = {
   title: "The Research Playbook",
   subtitle:
@@ -505,12 +607,12 @@ export const EBOOK_DATA = {
 
 export const CONTACT_INFO = {
   linkedin: "https://www.linkedin.com/in/shivamchaturvedi96/",
-  location: "India-based — working remotely with US and global teams",
-  availability: "Open to AI application engineering roles",
+  location: "Noida, India — working remotely with US and global teams",
+  availability: "Open to AI research, market intelligence and competitive intelligence roles",
   preferredRoles:
-    "AI Application Engineer, AI Engineer, Full-Stack Engineer (AI Products), Product Engineer, Forward-Deployed Engineer",
+    "AI Research Analyst, Strategic Research Analyst (AI/Technology), Competitive Intelligence Analyst, Market Intelligence Analyst, Technology Research Analyst, Research & Insights Analyst, Strategic Intelligence Analyst",
   preferredIndustries:
-    "AI, Developer Tools, SaaS, Technology, Financial Services",
+    "Market Research, Advisory & Consulting, Financial Services, SaaS & Technology, AI",
 };
 
 export const RESEARCH_NOTES = [
@@ -541,8 +643,8 @@ export const RESEARCH_NOTES = [
 ];
 
 /**
- * Engineering projects — the portfolio's primary evidence for the AI Application
- * Engineer positioning.
+ * Build projects — the portfolio's evidence for the AI and product-building
+ * capability that sits alongside the research work, not above it.
  *
  * Every claim below is drawn from the project source itself (this repository for
  * CareerCRM, ~/Clients/Aviora for Aviora Estates) or from the CV. Nothing here is
@@ -557,9 +659,9 @@ export const PROJECTS = [
   {
     slug: "careercrm",
     name: "CareerCRM",
-    tagline: "Personal AI-powered career and job-search operating system",
+    tagline: "AI-Powered Career Intelligence Platform",
     period: "2026 — Present",
-    role: "Sole designer and engineer",
+    role: "Personal project — sole designer and developer",
     status: "In active personal use",
     featured: true,
     liveUrl: "/demo",
@@ -642,7 +744,7 @@ export const PROJECTS = [
       },
     ],
     outcome:
-      "The system is in daily personal use for a live job search. It ships with 1,025 unit tests across 66 files, twelve architecture decision records, and a CI pipeline that enforces lint, typecheck, tests and a production build on every pull request.",
+      "The system is in daily personal use for a live job search. It ships with 1,241 unit tests across 78 files, twelve architecture decision records, and a CI pipeline that enforces lint, typecheck, tests and a production build on every pull request.",
     talkingPoints: [
       "Why the AI gateway is a chokepoint rather than a helper library — and what that buys you when a second AI feature is added.",
       "Why the token budget is a single SQL statement instead of a read-then-write in application code.",

@@ -49,7 +49,7 @@ export default function EbookSection() {
                 <div className="pt-6 border-t border-white/10">
                   <p className="text-sm font-semibold text-white">{SITE_CONFIG.name}</p>
                   <p className="text-xs text-white/50 font-mono uppercase tracking-wider mt-0.5">
-                    AI Application Engineer
+                    Research & Intelligence
                   </p>
                 </div>
               </div>

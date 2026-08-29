@@ -1,7 +1,9 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { WHO_I_HELP } from "@/constants";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { WHO_I_HELP, SERVICES } from "@/constants";
 import { itemReveal, gridDelay } from "@/lib/motion";
 import { Card } from "@/components/ui/Card";
 import { Building2, ShieldCheck, Target, Rocket } from "lucide-react";
@@ -17,17 +19,17 @@ export default function WhoIHelp() {
   const reduce = useReducedMotion();
 
   return (
-    <section id="who-i-help" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
+    <section id="services" className="py-24 md:py-32 bg-white dark:bg-[#0B1120]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="max-w-2xl mb-16 md:mb-24 space-y-4">
           <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
-            Audience
+            Work With Me
           </span>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-[-0.02em] leading-[1.1] text-consulting-navy dark:text-[#F9FAFB]">
-            Who I Help
+            Need research or intelligence support?
           </h2>
           <p className="text-base md:text-lg text-consulting-slate dark:text-slate-300 leading-relaxed">
-            Research support across strategy, intelligence, and risk-driven functions
+            Research and intelligence work, delivered as evidence you can act on
           </p>
         </div>
 
@@ -51,6 +53,37 @@ export default function WhoIHelp() {
               </Card>
             </motion.div>
           ))}
+        </div>
+
+        {/* What the engagement actually is. Named the way a buyer searches for
+            it, so the client question is answered on the same screen as the
+            audience question rather than a page away. */}
+        <div className="mt-20 md:mt-28">
+          <h3 className="text-[11px] font-mono uppercase tracking-[0.18em] text-consulting-royal dark:text-blue-400 font-semibold">
+            Services
+          </h3>
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
+            {SERVICES.map((service, idx) => (
+              <motion.div key={service.title} {...itemReveal(reduce, gridDelay(idx, 3))}>
+                <h4 className="text-base font-semibold tracking-[-0.01em] text-consulting-navy dark:text-[#F9FAFB]">
+                  {service.title}
+                </h4>
+                <p className="mt-2 text-sm leading-relaxed text-consulting-slate dark:text-slate-400">
+                  {service.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12">
+            <Link
+              href="/#contact"
+              className="inline-flex items-center gap-2 rounded-lg bg-consulting-navy dark:bg-white px-6 py-3 text-sm font-semibold text-white dark:text-consulting-navy transition-opacity hover:opacity-90"
+            >
+              Discuss a Research Project
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>

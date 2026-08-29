@@ -23,14 +23,15 @@ const OUT = fileURLToPath(new URL("../public/og-image.png", import.meta.url));
 // Kept in sync with HERO_CONTENT in constants/index.ts by hand. The constants
 // file is TypeScript with import aliases, so reading it from a plain Node
 // script would mean pulling in a transpiler for four strings.
-const KICKER = "AI APPLICATION ENGINEER";
+const KICKER = "STRATEGIC RESEARCH \u00B7 MARKET & COMPETITIVE INTELLIGENCE";
 const HEADLINE =
-  "Building AI-powered applications through research, product thinking, and modern full-stack technologies.";
+  "Strategic Research & Intelligence, Powered by AI. Market research, competitive intelligence and AI-assisted analysis.";
+// Three, matching HERO_CONTENT.metrics. A fourth once read "30+ COUNTRIES
+// COVERED" — a career statistic the CV does not make. See the note there.
 const METRICS = [
   ["4+", "YEARS EXPERIENCE"],
   ["40+", "RESEARCH ENGAGEMENTS"],
   ["100+", "INTELLIGENCE REPORTS"],
-  ["30+", "COUNTRIES COVERED"],
 ];
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
