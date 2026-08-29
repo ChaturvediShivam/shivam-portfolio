@@ -16,6 +16,8 @@ import {
   FileSearch,
   FileText,
   AppWindow,
+  Radar,
+  Telescope,
 } from "lucide-react";
 
 /**
@@ -74,6 +76,8 @@ export const adminNavigation: NavItem[] = [
   { id: "resume-ai", label: "Resume AI", href: "/admin/resume-ai", icon: FileSearch, enabled: true },
   { id: "documents", label: "Documents", href: "/admin/documents", icon: FileText, enabled: true },
   { id: "browser-inbox", label: "Browser Inbox", href: "/admin/browser-inbox", icon: AppWindow, enabled: true },
+  { id: "job-feed", label: "Job Feed", href: "/admin/job-feed", icon: Radar, enabled: true, flag: "FEATURE_AIDEVBOARD" },
+  { id: "research", label: "Research", href: "/admin/research", icon: Telescope, enabled: true, flag: "FEATURE_RESEARCH" },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];
