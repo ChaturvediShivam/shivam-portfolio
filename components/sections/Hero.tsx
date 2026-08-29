@@ -135,7 +135,7 @@ export default function Hero() {
             {/* Primary CTAs — one filled, one outlined; identical height, uniform spacing. */}
             <motion.div
               variants={fadeUp}
-              className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4"
+              className="mt-10 flex flex-col sm:flex-row sm:flex-wrap items-center justify-center lg:justify-start gap-4"
             >
               {HERO_CONTENT.ctas.filter((cta) => !cta.external).map((cta, idx) => {
                 const Icon = ctaIconMap[cta.icon];
