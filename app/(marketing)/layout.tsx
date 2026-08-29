@@ -29,7 +29,7 @@ const OG_IMAGE = {
   url: `${SITE_CONFIG.url}/og-image.png`,
   width: 1200,
   height: 630,
-  alt: `${SITE_CONFIG.name} — AI Application Engineer`,
+  alt: `${SITE_CONFIG.name} — Strategic Research & Intelligence, Powered by AI`,
   type: "image/png",
 };
 
@@ -58,7 +58,7 @@ const personSchema = {
   "@context": "https://schema.org",
   "@type": "Person",
   name: SITE_CONFIG.name,
-  jobTitle: "AI Application Engineer",
+  jobTitle: "Strategic Research & Intelligence Analyst",
   description: SITE_CONFIG.description,
   url: SITE_CONFIG.url,
   sameAs: [SITE_CONFIG.linkedin],

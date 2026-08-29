@@ -18,7 +18,7 @@ export default function Footer() {
               </p>
               <span aria-hidden="true" className="h-4 w-px bg-slate-300 dark:bg-slate-600" />
               <span className="text-xs font-mono uppercase tracking-widest text-consulting-slate dark:text-[#CBD5E1]">
-                Strategic Research
+                Research & Intelligence
               </span>
             </div>
             <p className="text-consulting-slate dark:text-[#CBD5E1] max-w-sm leading-relaxed">
@@ -45,20 +45,20 @@ export default function Footer() {
               Availability
             </p>
             <p className="text-sm text-consulting-slate dark:text-[#CBD5E1] leading-relaxed">
-              Open to strategic research, competitive intelligence, and advisory engagements.
+              Open to AI research, market intelligence and competitive intelligence roles, and to advisory engagements.
             </p>
           </div>
         </div>
 
         {/* Closing credentials — the same real figures Hero opens with, echoed quietly
             here rather than restated with new copy, so the page visibly bookends itself. */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-t border-slate-200 dark:border-white/10 mb-8">
+        <div className="grid grid-cols-3 gap-4 sm:gap-8 py-8 border-t border-slate-200 dark:border-white/10 mb-8">
           {HERO_CONTENT.metrics.map((metric, idx) => (
             <div key={idx}>
               <p className="text-lg font-semibold text-consulting-navy dark:text-[#F9FAFB] tracking-tight tabular-nums">
                 {metric.value}
               </p>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+              <p className="text-[11px] uppercase tracking-[0.08em] sm:tracking-[0.18em] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
                 {metric.label}
               </p>
             </div>

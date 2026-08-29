@@ -116,7 +116,7 @@ const Navbar = () => {
           </Link>
           <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-2 hidden sm:block" />
           <span className="hidden sm:block text-xs font-mono uppercase tracking-widest text-consulting-slate dark:text-[#CBD5E1]">
-            Strategic Research
+            Research & Intelligence
           </span>
         </motion.div>
 
