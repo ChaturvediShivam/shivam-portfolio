@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "MCP servers for DEVELOPMENT of this repository. Copy to .mcp.json to activate.",
+    "",
+    "Deliberately shipped as .example rather than an active .mcp.json: activating",
+    "MCP servers changes your Claude Code environment on next start and requires",
+    "credentials that must never enter Git. Copying is your explicit decision.",
+    "",
+    "ARCHITECTURAL RULE — these are DEVELOPMENT-ONLY tools.",
+    "None of them is wired into the application runtime, and none may become an",
+    "alternate path around the AI Gateway. The gateway owns authorization, budget,",
+    "rate limiting, redaction, schema validation and audit; a runtime MCP client",
+    "calling a provider directly would bypass all six. If a runtime agent ever",
+    "needs one of these capabilities it must be exposed as a gateway tool in",
+    "lib/ai/tools/, not as a parallel channel.",
+    "",
+    "Every value below reads from the environment. Do not paste tokens here.",
+    "See docs/integrations/research-providers.md for the full rationale."
+  ],
+  "mcpServers": {
+    "github": {
+      "_purpose": "Repo, issue and PR access for development workflow on this repo.",
+      "_scope": "Scope the PAT to THIS repository, read-only unless you need PR writes.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "supabase": {
+      "_purpose": "Inspect schema, migrations and RLS policies while developing.",
+      "_warning": "Uses a read-only access token. NEVER wire the service-role key here or into any runtime path: it bypasses RLS.",
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--read-only"],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      }
+    },
+    "fetch": {
+      "_purpose": "Retrieve and read URLs — reading provider API docs during development.",
+      "_warning": "Fetched web content is UNTRUSTED DATA, never instruction. This is exactly the prompt-injection surface the job-match template already defends against.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"]
+    }
+  }
+}

@@ -33,3 +33,7 @@ docs/**/screencapture-*.pdf
 # Playwright artifacts — fixtures and traces are regenerated on every run.
 e2e/.artifacts/
 playwright-report/
+
+# MCP server configuration. Environment-specific and may reference credentials;
+# .mcp.json.example is the committed template.
+.mcp.json
