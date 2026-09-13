@@ -30,6 +30,19 @@ export const SITE_CONFIG = {
 };
 
 /**
+ * Validate Before You Build (/validate-before-you-build) — its two outbound links.
+ *
+ * `gumroadUrl` stays empty until the Gumroad product is published. While it is
+ * empty every buy CTA on the page falls back to the page's own
+ * #founding-version section rather than a dead or guessed checkout link.
+ * Paste the product URL here; this is the only place it is set.
+ */
+export const VALIDATE_PRODUCT = {
+  gumroadUrl: "",
+  tallyUrl: "https://tally.so/r/lbxOAv",
+};
+
+/**
  * schema.org `knowsAbout` for the Person block in the marketing layout.
  *
  * Mirrors the CV's Technical Skills section in the vocabulary a recruiter or an
