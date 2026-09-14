@@ -158,6 +158,7 @@ export interface LinkableOrder {
   id: string;
   label: string;
   hasSubmission: boolean;
+  email: string | null;
 }
 
 /** Orders a submission can be linked to by hand. Refunded orders are excluded. */
@@ -183,6 +184,7 @@ export async function listLinkableOrders(db: SupabaseClient): Promise<LinkableOr
       id: String(r.id),
       label: `${who} · ${date}${r.is_test ? " · test" : ""}${hasSubmission ? " · has submission" : ""}`,
       hasSubmission,
+      email: customer?.email ?? null,
     };
   });
 }

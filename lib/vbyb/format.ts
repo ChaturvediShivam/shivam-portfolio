@@ -81,6 +81,12 @@ export function formatDateTime(value: string | null | undefined): string {
   return new Date(value).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Progress against a launch experiment threshold — an internal target, not a benchmark. */
+export function thresholdStatus(threshold: number | null, value: number): string {
+  if (threshold == null) return "not set";
+  return value >= threshold ? `reached (${value} of ${threshold})` : `not reached (${value} of ${threshold})`;
+}
+
 export function formatHours(hours: number): string {
   if (hours < 1) return `${Math.round(hours * 60)} min`;
   if (hours < 72) return `${hours.toFixed(1)} h`;

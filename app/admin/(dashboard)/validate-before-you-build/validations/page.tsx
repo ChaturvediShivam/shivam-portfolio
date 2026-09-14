@@ -11,7 +11,7 @@ import {
   type ValidationListRow,
 } from "@/lib/vbyb/validations";
 import { dueAt, isOverdue } from "@/lib/vbyb/workflow";
-import { DECISION_LABELS, VALIDATION_STATUS_LABELS, validationStatusVariant } from "@/types/vbyb";
+import { DECISION_LABELS, IDEA_FIELDS, VALIDATION_STATUS_LABELS, validationStatusVariant } from "@/types/vbyb";
 
 export const metadata = { title: "Validations · Validate Before You Build" };
 export const dynamic = "force-dynamic";
@@ -90,8 +90,25 @@ export default async function VbybValidationsPage() {
                     {s.ref ? " · has a ref that matched no order" : " · no ref"}
                   </p>
                   {s.fields?.idea_what && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{s.fields.idea_what}</p>}
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-200">Inspect submission</summary>
+                    <dl className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {IDEA_FIELDS.map((f) => (
+                        <div key={f.key} className="min-w-0">
+                          <dt className="text-xs text-slate-500">{f.label}</dt>
+                          <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-200">{s.fields?.[f.key] || "—"}</dd>
+                        </div>
+                      ))}
+                      {(s.fields?.unmapped ?? []).map((u, i) => (
+                        <div key={`unmapped-${i}`} className="min-w-0">
+                          <dt className="text-xs text-slate-500">{u.label} (unmapped question)</dt>
+                          <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-200">{u.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </details>
                 </div>
-                <LinkSubmissionControl submissionId={s.id} orders={linkableOrders} />
+                <LinkSubmissionControl submissionId={s.id} submissionEmail={s.email} orders={linkableOrders} />
               </li>
             ))}
           </ul>

@@ -6,6 +6,7 @@ import { currencyMinorDigits, formatDate, formatMoney } from "@/lib/vbyb/format"
 import { getLaunch } from "@/lib/vbyb/launch";
 import { listOrders, type OrderRow } from "@/lib/vbyb/orders";
 import {
+  DECISION_LABELS,
   VALIDATION_STATUS_LABELS,
   humanize,
   paymentStatusVariant,
@@ -68,8 +69,24 @@ export default async function VbybOrdersPage() {
           <span className="text-slate-600">—</span>
         ),
     },
+    {
+      key: "submission",
+      header: "Submission",
+      render: (o) =>
+        o.validation?.submission_id ? (
+          <Badge variant="info">Received</Badge>
+        ) : (
+          <span className="text-xs text-slate-500">Not yet</span>
+        ),
+    },
+    {
+      key: "decision",
+      header: "Decision",
+      render: (o) => (o.validation?.decision ? DECISION_LABELS[o.validation.decision] : <span className="text-slate-600">—</span>),
+    },
     { key: "source", header: "Source", render: (o) => humanize(o.provider) },
     { key: "purchased", header: "Purchased", render: (o) => formatDate(o.purchased_at) },
+    { key: "updated", header: "Updated", render: (o) => formatDate(o.updated_at) },
   ];
 
   return (

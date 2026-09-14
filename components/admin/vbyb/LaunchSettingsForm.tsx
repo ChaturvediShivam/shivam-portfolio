@@ -101,9 +101,9 @@ export function LaunchSettingsForm({ launch }: { launch: VbybLaunch }) {
       </div>
 
       <div className="rounded-md border border-white/[0.06] p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Internal experiment criteria</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Launch experiment thresholds</p>
         <p className="mt-1 text-xs text-slate-500">
-          Thresholds you set for this experiment. They are internal decision criteria, not industry benchmarks.
+          Internal targets for this experiment — not industry benchmarks. Stored on the launch record.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="Minimum paid pre-orders from strangers" htmlFor="launch-min" error={errors.criteria_min_preorders}>

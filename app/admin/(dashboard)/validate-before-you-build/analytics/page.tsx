@@ -4,7 +4,7 @@ import { MetricTile, MetricValueTile } from "@/components/admin/vbyb/MetricTile"
 import { Section } from "@/components/admin/vbyb/Section";
 import { VBYB_BASE_PATH } from "@/lib/vbyb/config";
 import { requireVbybAdminPage } from "@/lib/vbyb/db";
-import { formatMoney } from "@/lib/vbyb/format";
+import { formatMoney, thresholdStatus } from "@/lib/vbyb/format";
 import { getLaunch } from "@/lib/vbyb/launch";
 import {
   NOT_TRACKED,
@@ -17,11 +17,6 @@ import { DECISIONS, DECISION_LABELS } from "@/types/vbyb";
 
 export const metadata = { title: "Analytics · Validate Before You Build" };
 export const dynamic = "force-dynamic";
-
-function criterionStatus(threshold: number | null, strangers: number): string | undefined {
-  if (threshold == null) return "Not set";
-  return strangers >= threshold ? `Reached (${strangers} of ${threshold})` : `Not reached (${strangers} of ${threshold})`;
-}
 
 export default async function VbybAnalyticsPage() {
   const { db } = await requireVbybAdminPage();
@@ -38,7 +33,7 @@ export default async function VbybAnalyticsPage() {
     <div className="space-y-6">
       <Section
         title="Launch experiment"
-        description="Validate Before You Build — Founding Version. Thresholds shown here are internal experiment criteria, not industry benchmarks."
+        description={`${launch.name}. Launch experiment thresholds are internal targets you set — not industry benchmarks. Visitor and conversation counts are not tracked by this site.`}
         actions={
           <Link href={`${VBYB_BASE_PATH}/settings`} className={buttonClasses("secondary", "sm")}>
             Edit experiment
@@ -58,13 +53,13 @@ export default async function VbybAnalyticsPage() {
             }
           />
           <MetricTile
-            label="Internal criteria"
-            value={launch.criteria_min_preorders == null && launch.criteria_strong_preorders == null ? "Not set" : "Set"}
+            label="Launch experiment thresholds"
+            value={launch.criteria_min_preorders == null && launch.criteria_strong_preorders == null ? "Not set" : `${launch.criteria_min_preorders ?? "—"} / ${launch.criteria_strong_preorders ?? "—"}`}
             tone={launch.criteria_min_preorders == null && launch.criteria_strong_preorders == null ? "muted" : "default"}
             detail={
               launch.criteria_min_preorders == null && launch.criteria_strong_preorders == null
-                ? "Add thresholds in Settings"
-                : `Minimum: ${criterionStatus(launch.criteria_min_preorders, strangers)} · Strong: ${criterionStatus(launch.criteria_strong_preorders, strangers)}`
+                ? "Add minimum / strong thresholds in Settings"
+                : `Minimum ${thresholdStatus(launch.criteria_min_preorders, strangers)} · strong ${thresholdStatus(launch.criteria_strong_preorders, strangers)}`
             }
           />
         </div>

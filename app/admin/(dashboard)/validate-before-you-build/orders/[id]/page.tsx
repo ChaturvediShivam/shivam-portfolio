@@ -11,6 +11,8 @@ import {
   ResyncButton,
 } from "@/components/admin/vbyb/OrderPanels";
 import { Field, Section, dash } from "@/components/admin/vbyb/Section";
+import { ValidationSummary } from "@/components/admin/vbyb/ValidationSummary";
+import { getValidationWorkspace } from "@/lib/vbyb/validations";
 import { VBYB_BASE_PATH } from "@/lib/vbyb/config";
 import { requireVbybAdminPage } from "@/lib/vbyb/db";
 import { listEvents } from "@/lib/vbyb/events";
@@ -36,9 +38,10 @@ export default async function VbybOrderPage({ params }: PageProps) {
   const order = await getOrder(db, id);
   if (!order) notFound();
 
-  const [events, submissions] = await Promise.all([
+  const [events, submissions, workspace] = await Promise.all([
     listEvents(db, { orderId: order.id, limit: 50 }),
     listOrderSubmissions(db, order.id),
+    order.validation ? getValidationWorkspace(db, order.validation.id) : Promise.resolve(null),
   ]);
 
   const customerLabel = order.customer?.name || order.customer?.email || "Order";
@@ -99,8 +102,19 @@ export default async function VbybOrderPage({ params }: PageProps) {
                 {order.external_order_id ? <code className="text-xs">{order.external_order_id}</code> : dash}
               </Field>
               <Field label="Test order">{order.is_test ? <Badge variant="special">Test</Badge> : "No"}</Field>
+              <Field label="Gumroad purchaser id">
+                {order.external_purchaser_id ? <code className="text-xs">{order.external_purchaser_id}</code> : dash}
+              </Field>
+              <Field label="Product">{order.product_name ?? dash}</Field>
+              <Field label="Refunded">
+                {order.refunded_at
+                  ? `${formatDateTime(order.refunded_at)} · ${formatMoney(order.refund_amount_cents, order.currency)}`
+                  : dash}
+              </Field>
             </dl>
           </Section>
+
+          {workspace && <ValidationSummary workspace={workspace} />}
 
           <Section
             title="Personal submission link"

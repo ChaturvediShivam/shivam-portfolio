@@ -272,7 +272,7 @@ export default async function VbybValidationWorkspacePage({ params }: PageProps)
 
       <Section
         title="Decision"
-        description="BUILD, TEST MORE, PARK or KILL. A decision, its date and a rationale are required before delivery."
+        description="BUILD, TEST MORE, PARK or KILL — a conclusion drawn from the evidence ledger above, not evidence itself. A decision, its date and a rationale are required before delivery."
       >
         <SectionForm
           validationId={v.id}

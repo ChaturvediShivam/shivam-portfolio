@@ -6,15 +6,22 @@ import { Section } from "@/components/admin/vbyb/Section";
 import { VBYB_BASE_PATH } from "@/lib/vbyb/config";
 import { requireVbybAdminPage } from "@/lib/vbyb/db";
 import { listEvents } from "@/lib/vbyb/events";
-import { formatMoney } from "@/lib/vbyb/format";
+import { formatMoney, thresholdStatus } from "@/lib/vbyb/format";
 import { getLaunch } from "@/lib/vbyb/launch";
-import { averageDeliveryMetric, getLaunchMetrics } from "@/lib/vbyb/metrics";
+import { averageDeliveryMetric, getLaunchMetrics, medianDeliveryMetric, rateMetric } from "@/lib/vbyb/metrics";
 import { listValidations } from "@/lib/vbyb/validations";
 import { dueAt, isOverdue } from "@/lib/vbyb/workflow";
 import { DECISIONS, DECISION_LABELS } from "@/types/vbyb";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * "How is the first founding launch performing?"
+ *
+ * Every number is read from vbyb_launch_metrics / vbyb_launches. Launch
+ * configuration (price, currency, capacity, primary metric, thresholds) comes
+ * from the launch row, never from code.
+ */
 export default async function ValidateBeforeYouBuildOverviewPage() {
   const { db } = await requireVbybAdminPage();
 
@@ -38,11 +45,43 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
   const now = new Date();
   const overdue = validations.filter((v) => isOverdue(v, now));
 
+  const strangers = metrics.relationships.stranger;
+  const unclassified = metrics.relationships.unknown;
+  const decided = DECISIONS.reduce((sum, d) => sum + metrics.decisions[d], 0);
+  const undecided = Math.max(metrics.totalOrders - decided, 0);
+  const thresholdsSet = launch.criteria_min_preorders != null || launch.criteria_strong_preorders != null;
+
   return (
     <div className="space-y-6">
+      <section aria-labelledby="vbyb-primary-metric" className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-lg border border-white/15 bg-white/[0.04] p-5 md:col-span-2">
+          <p id="vbyb-primary-metric" className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Primary metric · {launch.primary_metric ?? "Not set"}
+          </p>
+          <p className="mt-2 text-4xl font-semibold tabular-nums text-white">{strangers}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Customers marked as strangers with a paid (or later refunded) non-test order.
+            {unclassified > 0
+              ? ` ${unclassified} customer${unclassified === 1 ? " is" : "s are"} not yet classified — set the relationship on each order.`
+              : ""}
+          </p>
+        </div>
+        <MetricTile
+          label="Launch experiment thresholds"
+          value={thresholdsSet ? `${launch.criteria_min_preorders ?? "—"} / ${launch.criteria_strong_preorders ?? "—"}` : "Not set"}
+          detail={
+            thresholdsSet
+              ? `Minimum ${thresholdStatus(launch.criteria_min_preorders, strangers)} · strong ${thresholdStatus(launch.criteria_strong_preorders, strangers)}. Internal thresholds, not benchmarks.`
+              : "Set internal minimum / strong thresholds in Settings."
+          }
+          tone={thresholdsSet ? "default" : "muted"}
+          href={`${VBYB_BASE_PATH}/settings`}
+        />
+      </section>
+
       <Section
         title="Founding launch"
-        description={`${formatMoney(launch.price_cents, launch.currency)} · ${launch.capacity} founding slots · every number below is computed from the database.`}
+        description={`${launch.name} · ${formatMoney(launch.price_cents, launch.currency)} · capacity ${launch.capacity}. Test orders are excluded from every figure.`}
       >
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <MetricTile
@@ -52,13 +91,13 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
             tone={metrics.overCapacityOrders > 0 ? "alert" : "default"}
             href={`${VBYB_BASE_PATH}/orders`}
           />
-          <MetricTile label="Remaining slots" value={String(metrics.remainingSlots)} />
+          <MetricTile label="Remaining capacity" value={String(metrics.remainingSlots)} />
           <MetricTile
             label="Revenue"
             value={formatMoney(metrics.grossRevenueCents, currency)}
             detail={`Net ${formatMoney(metrics.netRevenueCents, currency)}`}
           />
-          <MetricTile label="Submissions" value={String(metrics.submissionsReceived)} href={`${VBYB_BASE_PATH}/validations`} />
+          <MetricTile label="Submissions received" value={String(metrics.submissionsReceived)} href={`${VBYB_BASE_PATH}/validations`} />
           <MetricTile
             label="In progress"
             value={String(metrics.inProgress)}
@@ -66,7 +105,7 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
           />
           <MetricTile label="Delivered" value={String(metrics.delivered)} />
           <MetricTile
-            label="Refunds"
+            label="Refunded"
             value={String(metrics.refundedOrders)}
             detail={
               metrics.refundRequestsOpen > 0
@@ -75,9 +114,14 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
             }
             tone={metrics.refundRequestsOpen > 0 ? "alert" : "default"}
           />
-          <MetricValueTile label="Average delivery time" metric={averageDeliveryMetric(metrics)} />
-          <MetricTile label="Pending submissions" value={String(metrics.pendingSubmissions)} detail="Paid, no submission yet" />
+          <MetricTile label="Awaiting submission" value={String(metrics.pendingSubmissions)} detail="Paid, no submission yet" />
           <MetricTile label="Overdue" value={String(metrics.overdue)} detail="Past the 48-hour window" tone={metrics.overdue > 0 ? "alert" : "default"} />
+          <MetricTile
+            label="Unmatched submissions"
+            value={String(metrics.unmatchedSubmissions)}
+            tone={metrics.unmatchedSubmissions > 0 ? "alert" : "default"}
+            href={`${VBYB_BASE_PATH}/validations`}
+          />
         </div>
         {(metrics.testOrders > 0 || metrics.currencies.length > 1) && (
           <p className="mt-4 text-xs text-slate-500">
@@ -87,8 +131,30 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
         )}
       </Section>
 
+      <Section
+        title="Funnel"
+        description="Paid and submitted are separate states: an order counts as submitted only once its Tally submission is linked. Rates need at least 5 observations."
+      >
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <MetricTile label="Paid" value={String(metrics.totalOrders)} detail="Including later refunds" />
+          <MetricTile label="Submission received" value={String(metrics.submissionsReceived)} />
+          <MetricTile label="Validation in progress" value={String(metrics.inProgress)} />
+          <MetricTile label="Delivered" value={String(metrics.delivered)} />
+          <MetricTile label="Refunded" value={String(metrics.refundedOrders)} />
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <MetricValueTile label="Paid → submission" metric={rateMetric(metrics.submissionsReceived, metrics.totalOrders)} />
+          <MetricValueTile label="Submission → delivered" metric={rateMetric(metrics.delivered, metrics.submissionsReceived)} />
+          <MetricValueTile label="Average delivery time" metric={averageDeliveryMetric(metrics)} />
+          <MetricValueTile label="Median delivery time" metric={medianDeliveryMetric(metrics)} />
+        </div>
+      </Section>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Section title="Decisions" description="Recorded decisions on real (non-test) orders.">
+        <Section
+          title="Decisions"
+          description="Conclusions recorded from each evidence ledger — the evidence remains the source of truth."
+        >
           <dl className="grid grid-cols-2 gap-3">
             {DECISIONS.map((decision) => (
               <div key={decision} className="rounded-md border border-white/[0.06] px-3 py-2">
@@ -96,6 +162,10 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
                 <dd className="mt-1 text-xl font-semibold tabular-nums text-white">{metrics.decisions[decision]}</dd>
               </div>
             ))}
+            <div className="col-span-2 rounded-md border border-dashed border-white/10 px-3 py-2">
+              <dt className="text-xs font-semibold tracking-wide text-slate-500">UNDECIDED</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums text-slate-300">{undecided}</dd>
+            </div>
           </dl>
         </Section>
 
@@ -106,7 +176,9 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
                 <Link href={`${VBYB_BASE_PATH}/validations/${v.id}`} className="text-slate-200 hover:underline">
                   {v.customer?.name || v.customer?.email || "Validation"}
                 </Link>
-                <Badge variant="danger">Overdue since {dueAt(v.submitted_at)?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</Badge>
+                <Badge variant="danger">
+                  Overdue since {dueAt(v.submitted_at)?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                </Badge>
               </li>
             ))}
             {metrics.unmatchedSubmissions > 0 && (
@@ -133,16 +205,25 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
                 <Badge variant="danger">{metrics.overCapacityOrders}</Badge>
               </li>
             )}
+            {unclassified > 0 && (
+              <li className="flex flex-wrap items-center justify-between gap-2">
+                <Link href={`${VBYB_BASE_PATH}/customers`} className="text-slate-200 hover:underline">
+                  Customers not yet classified as stranger or known
+                </Link>
+                <Badge variant="neutral">{unclassified}</Badge>
+              </li>
+            )}
             {overdue.length === 0 &&
               metrics.unmatchedSubmissions === 0 &&
               metrics.refundRequestsOpen === 0 &&
-              metrics.overCapacityOrders === 0 && <li className="text-slate-500">Nothing needs attention.</li>}
+              metrics.overCapacityOrders === 0 &&
+              unclassified === 0 && <li className="text-slate-500">Nothing needs attention.</li>}
           </ul>
         </Section>
       </div>
 
       <Section title="Recent activity">
-        <ActivityFeed events={events} />
+        <ActivityFeed events={events} emptyText="No activity yet. Orders, submissions and status changes will appear here." />
       </Section>
     </div>
   );
