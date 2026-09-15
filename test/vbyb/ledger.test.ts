@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { buildAssumptionRow, buildEvidenceRow, buildSectionPatch } from "@/lib/vbyb/validations";
-import { buildLaunchPatch } from "@/lib/vbyb/launch";
+import { buildLaunchPatch, countFailedDeliveries } from "@/lib/vbyb/launch";
+import { createSupabaseStub } from "@/test/stubs/supabase";
+
+describe("countFailedDeliveries", () => {
+  it("counts only deliveries whose processing failed", async () => {
+    const stub = createSupabaseStub({ count: { vbyb_webhook_deliveries: 2 } });
+    expect(await countFailedDeliveries(stub.client)).toBe(2);
+    const [op] = stub.opsFor("vbyb_webhook_deliveries");
+    expect(op.countOnly).toBe(true);
+    expect(stub.hasFilter(op, "eq", "status", "failed")).toBe(true);
+  });
+});
 
 /**
  * Input rules for the Validation File workspace. The evidence rules carry the

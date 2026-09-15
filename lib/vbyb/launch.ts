@@ -97,6 +97,19 @@ export async function updateLaunch(db: SupabaseClient, userId: string, input: Re
   });
 }
 
+/**
+ * Webhook deliveries whose processing failed. A later successful retry of the
+ * same delivery updates its row to `processed`, so this counts open failures.
+ */
+export async function countFailedDeliveries(db: SupabaseClient): Promise<number> {
+  const { count, error } = await db
+    .from("vbyb_webhook_deliveries")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "failed");
+  throwIfError(error, "count failed webhook deliveries");
+  return count ?? 0;
+}
+
 export async function listDeliveries(db: SupabaseClient, limit = 25): Promise<VbybWebhookDelivery[]> {
   const { data, error } = await db
     .from("vbyb_webhook_deliveries")

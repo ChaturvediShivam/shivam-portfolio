@@ -7,7 +7,7 @@ import { VBYB_BASE_PATH } from "@/lib/vbyb/config";
 import { requireVbybAdminPage } from "@/lib/vbyb/db";
 import { listEvents } from "@/lib/vbyb/events";
 import { formatMoney, thresholdStatus } from "@/lib/vbyb/format";
-import { getLaunch } from "@/lib/vbyb/launch";
+import { countFailedDeliveries, getLaunch } from "@/lib/vbyb/launch";
 import { averageDeliveryMetric, getLaunchMetrics, medianDeliveryMetric, rateMetric } from "@/lib/vbyb/metrics";
 import { listValidations } from "@/lib/vbyb/validations";
 import { dueAt, isOverdue } from "@/lib/vbyb/workflow";
@@ -25,11 +25,12 @@ export const dynamic = "force-dynamic";
 export default async function ValidateBeforeYouBuildOverviewPage() {
   const { db } = await requireVbybAdminPage();
 
-  const [metrics, launch, events, validations] = await Promise.all([
+  const [metrics, launch, events, validations, failedDeliveries] = await Promise.all([
     getLaunchMetrics(db),
     getLaunch(db),
     listEvents(db, { limit: 15 }),
     listValidations(db),
+    countFailedDeliveries(db),
   ]);
 
   if (!metrics || !launch) {
@@ -213,11 +214,20 @@ export default async function ValidateBeforeYouBuildOverviewPage() {
                 <Badge variant="neutral">{unclassified}</Badge>
               </li>
             )}
+            {failedDeliveries > 0 && (
+              <li className="flex flex-wrap items-center justify-between gap-2">
+                <Link href={`${VBYB_BASE_PATH}/settings`} className="text-slate-200 hover:underline">
+                  Webhook deliveries that failed processing
+                </Link>
+                <Badge variant="danger">{failedDeliveries}</Badge>
+              </li>
+            )}
             {overdue.length === 0 &&
               metrics.unmatchedSubmissions === 0 &&
               metrics.refundRequestsOpen === 0 &&
               metrics.overCapacityOrders === 0 &&
-              unclassified === 0 && <li className="text-slate-500">Nothing needs attention.</li>}
+              unclassified === 0 &&
+              failedDeliveries === 0 && <li className="text-slate-500">Nothing needs attention.</li>}
           </ul>
         </Section>
       </div>
