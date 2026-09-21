@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
 import { createSupabaseStub } from "@/test/stubs/supabase";
-import { ingestTallySubmission, normalizeLabel, parseTallySubmission, verifyTallySignature } from "@/lib/vbyb/tally";
+import {
+  ingestTallySubmission,
+  normalizeConfiguredFormId,
+  normalizeLabel,
+  parseTallySubmission,
+  readTallyConfig,
+  verifyTallySignature,
+} from "@/lib/vbyb/tally";
 import { decideMatch } from "@/lib/vbyb/matching";
 
 /**
@@ -43,6 +50,45 @@ const PAYLOAD = {
 };
 
 const sign = (body: string, secret = SECRET) => createHmac("sha256", secret).update(body).digest("base64");
+
+describe("readTallyConfig / normalizeConfiguredFormId", () => {
+  const secretEnv = { TALLY_SIGNING_SECRET: "s3cret-value" };
+
+  it("accepts the bare form id", () => {
+    expect(normalizeConfiguredFormId("lbx0Av")).toBe("lbx0Av");
+    expect(normalizeConfiguredFormId("  lbx0Av  ")).toBe("lbx0Av");
+  });
+
+  it("accepts a pasted share link or path instead of the id", () => {
+    for (const value of [
+      "https://tally.so/r/lbx0Av",
+      "http://tally.so/r/lbx0Av",
+      "tally.so/r/lbx0Av",
+      "/r/lbx0Av",
+      "https://tally.so/r/lbx0Av?ref=abc#top",
+      "https://tally.so/r/lbx0Av/",
+    ]) {
+      expect(normalizeConfiguredFormId(value), value).toBe("lbx0Av");
+    }
+  });
+
+  it("never changes case: ids that differ only by 0 and O stay different", () => {
+    expect(normalizeConfiguredFormId("https://tally.so/r/lbxOAv")).toBe("lbxOAv");
+    expect(normalizeConfiguredFormId("lbx0Av")).not.toBe(normalizeConfiguredFormId("lbxOAv"));
+  });
+
+  it("exposes the normalized id through the config", () => {
+    const { config } = readTallyConfig({ ...secretEnv, TALLY_FORM_ID: "https://tally.so/r/lbx0Av" });
+    expect(config?.formId).toBe("lbx0Av");
+  });
+
+  it("fails closed when the form id is unset or normalizes to nothing", () => {
+    expect(readTallyConfig({ ...secretEnv }).missing).toEqual(["TALLY_FORM_ID"]);
+    expect(readTallyConfig({ ...secretEnv, TALLY_FORM_ID: "   " }).missing).toEqual(["TALLY_FORM_ID"]);
+    expect(readTallyConfig({ ...secretEnv, TALLY_FORM_ID: "https://tally.so/" }).missing).toEqual(["TALLY_FORM_ID"]);
+    expect(readTallyConfig({ TALLY_FORM_ID: "lbx0Av" }).missing).toEqual(["TALLY_SIGNING_SECRET"]);
+  });
+});
 
 describe("verifyTallySignature", () => {
   it("accepts a signature over the raw body", () => {

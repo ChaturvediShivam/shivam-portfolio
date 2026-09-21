@@ -22,6 +22,16 @@ export default async function VbybSettingsPage() {
     { key: "provider", header: "Provider", render: (d) => humanize(d.provider) },
     { key: "event", header: "Event", render: (d) => d.event_type ?? "—" },
     {
+      key: "reference",
+      header: "Reference",
+      render: (d) =>
+        d.external_id ? (
+          <code className="text-xs text-slate-300">{d.external_id}</code>
+        ) : (
+          <span className="text-slate-600">—</span>
+        ),
+    },
+    {
       key: "status",
       header: "Status",
       render: (d) => (
@@ -98,13 +108,46 @@ export default async function VbybSettingsPage() {
         </div>
       </Section>
 
-      <Section title="Recent webhook deliveries" description="Authenticated deliveries only. Rejected requests are logged server-side, not stored.">
+      <Section
+        title="Recent webhook deliveries"
+        description="Only deliveries that passed authentication are stored. A request with a wrong secret or an invalid signature is rejected with 401 and logged server-side, so it never appears here."
+      >
         <DataTable
           columns={deliveryColumns}
           rows={deliveries}
           getRowKey={(d) => d.id}
           emptyState={<EmptyState title="No deliveries yet" description="Send a test ping from Gumroad or a test submission from Tally." />}
         />
+        <dl className="mt-5 space-y-2 border-t border-white/[0.06] pt-4 text-xs text-slate-500">
+          <div>
+            <dt className="inline font-medium text-slate-400">Reference — </dt>
+            <dd className="inline">
+              the identifier the provider sent: Tally&apos;s <code>data.formId</code>, or the Gumroad sale id. When a delivery is
+              ignored, compare it with <code>TALLY_FORM_ID</code> or the sale&apos;s product against <code>GUMROAD_PRODUCT_ID</code>.
+            </dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-slate-400">Received — </dt>
+            <dd className="inline">authenticated and recorded, but processing has not finished.</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-slate-400">Processed — </dt>
+            <dd className="inline">accepted and written to the database.</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-slate-400">Ignored — </dt>
+            <dd className="inline">
+              deliberately skipped, with the reason under Detail (a different form, a different product, or an unhandled event type).
+              Nothing was written.
+            </dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-slate-400">Failed — </dt>
+            <dd className="inline">
+              processing error; the provider retries. Repeat deliveries increment Attempts instead of creating duplicate records.
+            </dd>
+          </div>
+        </dl>
       </Section>
     </div>
   );
