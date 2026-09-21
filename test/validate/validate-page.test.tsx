@@ -22,7 +22,10 @@ describe("/validate-before-you-build CTAs", () => {
 
     const tally = screen.getAllByRole("link", { name: /submit your idea/i });
     expect(tally).toHaveLength(2);
-    tally.forEach((link) => expect(link).toHaveAttribute("href", "https://tally.so/r/lbxOAv"));
+    // Asserted against the configured URL rather than a copy of it: the literal
+    // that used to be here kept passing while the live links pointed at a form
+    // id that 404s.
+    tally.forEach((link) => expect(link).toHaveAttribute("href", VALIDATE_PRODUCT.tallyUrl));
 
     expect(screen.getByRole("link", { name: /see how it works/i })).toHaveAttribute("href", "#method");
     expect(document.getElementById("method")).not.toBeNull();

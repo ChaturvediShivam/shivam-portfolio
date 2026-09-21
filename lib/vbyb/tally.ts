@@ -31,13 +31,42 @@ export interface TallyConfig {
 
 export const TALLY_ENV_VARS = ["TALLY_SIGNING_SECRET", "TALLY_FORM_ID"] as const;
 
+/**
+ * The bare form id out of whatever was configured.
+ *
+ * `TALLY_FORM_ID` must match `data.formId` exactly, and pasting the share link
+ * (`https://tally.so/r/<id>`) instead of the id is an easy mistake whose only
+ * symptom is every submission being ignored. So a URL or path is reduced to its
+ * last segment; anything else is used as-is.
+ *
+ * Only the *configured* value is normalized, and never its case: Tally ids are
+ * case-sensitive and differ by characters as easy to confuse as 0 and O.
+ */
+export function normalizeConfiguredFormId(value: string): string {
+  const withoutQuery = value.trim().split(/[?#]/)[0];
+  if (!withoutQuery) return "";
+  if (!withoutQuery.includes("/")) return withoutQuery;
+
+  const withoutScheme = withoutQuery.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  const segments = withoutScheme.split("/").filter(Boolean);
+  // A leading host is not a form id: "https://tally.so/" must normalize to
+  // nothing so the config fails closed rather than ignoring every submission.
+  const looksLikeHost = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(segments[0] ?? "");
+  const path = looksLikeHost ? segments.slice(1) : segments;
+  return path[path.length - 1] ?? "";
+}
+
 export function readTallyConfig(
   env: Record<string, string | undefined> = process.env,
 ): { config: TallyConfig; missing: null } | { config: null; missing: string[] } {
-  const missing = TALLY_ENV_VARS.filter((name) => !env[name]?.trim());
+  const missing: string[] = TALLY_ENV_VARS.filter((name) => !env[name]?.trim());
+  const formId = normalizeConfiguredFormId(env.TALLY_FORM_ID ?? "");
+  // A value that normalizes to nothing (for example a bare "https://tally.so/")
+  // is as unusable as an unset one, and fails closed the same way.
+  if (!formId && !missing.includes("TALLY_FORM_ID")) missing.push("TALLY_FORM_ID");
   if (missing.length > 0) return { config: null, missing: [...missing] };
   return {
-    config: { signingSecret: env.TALLY_SIGNING_SECRET!.trim(), formId: env.TALLY_FORM_ID!.trim() },
+    config: { signingSecret: env.TALLY_SIGNING_SECRET!.trim(), formId },
     missing: null,
   };
 }

@@ -39,7 +39,10 @@ export const SITE_CONFIG = {
  */
 export const VALIDATE_PRODUCT = {
   gumroadUrl: "",
-  tallyUrl: "https://tally.so/r/lbxOAv",
+  // The form id contains a DIGIT ZERO ("lbx0Av"), not a capital O. The letter-O
+  // spelling 404s, which silently breaks both the public submit links and the
+  // per-order ?ref= links built from this value in lib/vbyb/orders.ts.
+  tallyUrl: "https://tally.so/r/lbx0Av",
 };
 
 /**
