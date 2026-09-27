@@ -17,9 +17,36 @@ export class VbybUserError extends Error {
   }
 }
 
+/**
+ * An unexpected database failure. Carries the SQLSTATE so a caller can tell a
+ * rejection of the data itself from a failure worth retrying.
+ */
+export class VbybDbError extends Error {
+  readonly code?: string;
+
+  constructor(context: string, code?: string) {
+    super(`[vbyb] ${context} failed (code ${code ?? "unknown"})`);
+    this.name = "VbybDbError";
+    this.code = code;
+  }
+}
+
 export interface DbError {
   message: string;
   code?: string;
+}
+
+/**
+ * True when the database refused the data itself: SQLSTATE class 22 (data
+ * exception) or 23 (integrity constraint violation), or one of the SQL
+ * functions' own rejections.
+ *
+ * An identical retry is refused identically, so a webhook must not answer such
+ * a failure with a status that asks the provider to deliver it again.
+ */
+export function isPermanentDataError(err: unknown): boolean {
+  if (err instanceof VbybUserError) return true;
+  return err instanceof VbybDbError && /^(22|23)/.test(err.code ?? "");
 }
 
 /**
@@ -41,6 +68,6 @@ export function throwIfError(error: DbError | null | undefined, context: string)
     case "23503":
       throw new VbybUserError("A linked record could not be found. Reload and try again.");
     default:
-      throw new Error(`[vbyb] ${context} failed (code ${error.code ?? "unknown"})`);
+      throw new VbybDbError(context, error.code);
   }
 }

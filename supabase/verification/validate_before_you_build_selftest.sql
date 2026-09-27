@@ -16,6 +16,7 @@ declare
   v_b          record;
   v_c          record;
   v_d          record;
+  v_t          record;
   v_sub        uuid;
   v_sub_row    record;
   v_metrics    jsonb;
@@ -59,6 +60,16 @@ begin
     null, null, null, 0, 'USD', now(), true, null, null, 'user', null);
   assert (select capacity_status from vbyb_orders where customer_id = (select id from vbyb_customers where email = 'test@selftest.invalid')) = 'not_applicable',
     'test order does not take capacity';
+
+  -- 4b. The same for a test sale that carries an external order id, which is
+  -- what a Gumroad test ping sends. Case 4 passes it as null, so the duplicate
+  -- lookup is skipped; here the lookup runs, misses, and nulls its INTO targets
+  -- — the case that used to insert a null capacity_status and fail with 23502.
+  select * into v_t from vbyb_record_order(
+    'vbyb-selftest', 'gumroad', 'selftest-sale-test', 'ping@selftest.invalid', null,
+    null, 'prod', 'Product', 3900, 'USD', now(), true, '{}'::jsonb, null, 'webhook', null);
+  assert v_t.created and v_t.capacity_status = 'not_applicable' and v_t.slot_number is null,
+    'gumroad test sale is recorded and takes no capacity';
 
   -- 5. Refund frees slot 1 and is idempotent; data is kept.
   assert vbyb_record_refund(v_a.order_id, now(), null, 'self-test', 'user', null) = true, 'refund applies';
@@ -111,7 +122,7 @@ begin
   assert (v_metrics->>'over_capacity_orders')::int = 1, 'metrics over-capacity orders (c)';
   assert (v_metrics->>'paid_orders')::int = 3, 'metrics paid orders (b, c, d)';
   assert (v_metrics->>'refunded_orders')::int = 1, 'metrics refunded orders (a)';
-  assert (v_metrics->>'test_orders')::int = 1, 'metrics test orders';
+  assert (v_metrics->>'test_orders')::int = 2, 'metrics test orders (manual and gumroad)';
   assert (v_metrics->>'gross_revenue_cents')::int = 15600, 'metrics gross revenue';
   assert (v_metrics->>'refunded_cents')::int = 3900, 'metrics refunded amount';
   assert (v_metrics->>'net_revenue_cents')::int = 11700, 'metrics net revenue';

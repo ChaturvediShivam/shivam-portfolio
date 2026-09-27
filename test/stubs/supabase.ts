@@ -230,6 +230,10 @@ export function createSupabaseStub(config: SupabaseStubConfig = {}): SupabaseStu
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
+      // `error` is keyed by table for queries and by function name for an rpc,
+      // which is how a caller's handling of a rejected write is exercised.
+      const failure = config.error?.[name];
+      if (failure) return Promise.resolve({ data: null, error: failure });
       return Promise.resolve({ data: config.rpc?.[name] ?? null, error: null });
     },
     auth: {

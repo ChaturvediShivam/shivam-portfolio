@@ -67,6 +67,29 @@ function tallyRequest(payload: unknown, signature?: string | null) {
   return new NextRequest("https://www.example.com/api/webhooks/tally", { method: "POST", body, headers });
 }
 
+/** What the Gumroad API returns for the sale a ping refers to. */
+const API_SALE = {
+  id: "s1",
+  email: "buyer@example.com",
+  full_name: "Buyer Person",
+  price: 3900,
+  currency: "usd",
+  product_id: "prod-founding",
+  product_name: "Validate Before You Build",
+  refunded: false,
+  partially_refunded: false,
+  disputed: false,
+  created_at: "2026-09-26T16:46:06Z",
+  order_id: 213723481,
+  purchaser_id: "purchaser-1",
+};
+
+const saleResponse = () =>
+  new Response(JSON.stringify({ success: true, sale: API_SALE }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+
 const TALLY_PAYLOAD = {
   eventId: "evt-1",
   eventType: "FORM_RESPONSE",
@@ -124,6 +147,106 @@ describe("POST /api/webhooks/gumroad", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     const update = stub.opsFor("vbyb_webhook_deliveries").find((op) => op.type === "update")!;
     expect(update.values).toMatchObject({ status: "ignored" });
+  });
+
+  it("records a real sale from the API response and marks the delivery processed", async () => {
+    const stub = createSupabaseStub({
+      rpc: {
+        vbyb_register_delivery: [{ delivery_id: "d-4", status: "received", attempts: 1 }],
+        vbyb_record_order: [{ order_id: "o-1", created: true, capacity_status: "within_capacity", slot_number: 1 }],
+      },
+      select: { vbyb_orders: null, vbyb_customers: null, vbyb_submissions: null },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(stub.client as never);
+    fetchMock.mockResolvedValue(saleResponse());
+
+    const res = await gumroadPost(gumroadRequest("sale_id=s1&product_id=prod-founding&resource_name=sale"));
+
+    expect(res.status).toBe(200);
+    const order = stub.rpcCalls.find((c) => c.name === "vbyb_record_order")!;
+    expect(order.args).toMatchObject({
+      p_external_order_id: "s1",
+      p_amount_cents: 3900,
+      p_currency: "USD",
+      p_product_id: "prod-founding",
+      p_is_test: false,
+    });
+    const update = stub.opsFor("vbyb_webhook_deliveries").find((op) => op.type === "update")!;
+    expect(update.values).toMatchObject({ status: "processed" });
+  });
+
+  /**
+   * A test ping is the same sale with `test=true`. It reaches the same RPC and
+   * must succeed: the founding capacity is untouched because the order is
+   * flagged as a test, not because the webhook treats it as a special case.
+   */
+  it("records a test ping as a test order", async () => {
+    const stub = createSupabaseStub({
+      rpc: {
+        vbyb_register_delivery: [{ delivery_id: "d-5", status: "received", attempts: 1 }],
+        vbyb_record_order: [{ order_id: "o-test", created: true, capacity_status: "not_applicable", slot_number: null }],
+      },
+      select: { vbyb_orders: null, vbyb_customers: null, vbyb_submissions: null },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(stub.client as never);
+    fetchMock.mockResolvedValue(saleResponse());
+
+    const res = await gumroadPost(gumroadRequest("sale_id=s1&product_id=prod-founding&resource_name=sale&test=true"));
+
+    expect(res.status).toBe(200);
+    expect(stub.rpcCalls.find((c) => c.name === "vbyb_record_order")!.args).toMatchObject({ p_is_test: true });
+    const update = stub.opsFor("vbyb_webhook_deliveries").find((op) => op.type === "update")!;
+    expect(update.values).toMatchObject({ status: "processed" });
+  });
+
+  /**
+   * Gumroad retries on 5xx. A row the database refuses — a missing required
+   * value, a broken constraint — is refused identically every time, so the
+   * answer has to be a status that ends the delivery rather than one that asks
+   * for it again. The delivery is still recorded as failed, never processed.
+   */
+  it("does not ask Gumroad to retry a record the database refuses", async () => {
+    const stub = createSupabaseStub({
+      rpc: { vbyb_register_delivery: [{ delivery_id: "d-6", status: "received", attempts: 1 }] },
+      error: {
+        vbyb_record_order: {
+          code: "23502",
+          message: 'null value in column "capacity_status" of relation "vbyb_orders" violates not-null constraint',
+        },
+      },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(stub.client as never);
+    fetchMock.mockResolvedValue(saleResponse());
+
+    const res = await gumroadPost(gumroadRequest("sale_id=s1&product_id=prod-founding&test=true"));
+
+    expect(res.status).toBe(422);
+    const update = stub.opsFor("vbyb_webhook_deliveries").find((op) => op.type === "update")!;
+    expect(update.values).toMatchObject({ status: "failed" });
+    const detail = String(update.values!.error);
+    expect(detail).toContain("23502");
+    // The database's own message can echo row values, so it is never stored.
+    expect(detail).not.toContain("null value in column");
+  });
+
+  it("is idempotent when Gumroad re-delivers a sale that is already recorded", async () => {
+    const stub = createSupabaseStub({
+      rpc: {
+        vbyb_register_delivery: [{ delivery_id: "d-7", status: "failed", attempts: 2 }],
+        vbyb_record_order: [{ order_id: "o-1", created: false, capacity_status: "within_capacity", slot_number: 1 }],
+      },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(stub.client as never);
+    fetchMock.mockResolvedValue(saleResponse());
+
+    const res = await gumroadPost(gumroadRequest("sale_id=s1&product_id=prod-founding&resource_name=sale"));
+
+    expect(res.status).toBe(200);
+    // The RPC returns the existing order; nothing writes a second one.
+    expect(stub.rpcCalls.filter((c) => c.name === "vbyb_record_order")).toHaveLength(1);
+    expect(stub.opsFor("vbyb_orders")).toEqual([]);
+    const update = stub.opsFor("vbyb_webhook_deliveries").find((op) => op.type === "update")!;
+    expect(update.values).toMatchObject({ status: "processed" });
   });
 
   it("returns 503 so Gumroad retries when its API is unavailable", async () => {
