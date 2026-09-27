@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { featureEnabled } from "@/lib/featureFlags";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isPermanentDataError } from "@/lib/vbyb/errors";
 import {
   gumroadDedupeKey,
   isAuthorizedGumroadRequest,
@@ -105,13 +106,22 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     logWebhookFailure("gumroad", "processing", err);
+    // A record the database refuses is refused identically every time. Gumroad
+    // retries on 5xx, so answering 500 would loop for an hour and change
+    // nothing. The delivery still ends as `failed` with the reason visible in
+    // Settings — a sale is never quietly reported as processed.
+    const permanent = isPermanentDataError(err);
     if (deliveryId) {
       try {
-        await completeDelivery(db, deliveryId, "failed", "Processing failed; see server logs");
+        const reason = permanent
+          ? `Not retried: ${err instanceof Error ? err.message : "the database rejected this record"}`
+          : "Processing failed; see server logs";
+        await completeDelivery(db, deliveryId, "failed", reason);
       } catch (completeErr) {
         logWebhookFailure("gumroad", "mark delivery failed", completeErr);
       }
     }
+    if (permanent) return json({ error: "Rejected; not retryable." }, 422);
     return json({ error: "Processing failed." }, 500);
   }
 }
