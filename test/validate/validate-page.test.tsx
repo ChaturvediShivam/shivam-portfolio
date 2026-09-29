@@ -7,13 +7,15 @@ import { VALIDATE_PRODUCT } from "@/constants";
  * The page is static copy; what can silently break is where its money links go.
  */
 describe("/validate-before-you-build CTAs", () => {
-  it("points every $39 CTA at Gumroad, or at the on-page offer until a URL is set", () => {
+  it("points every $39 CTA at the live Gumroad product", () => {
     render(<ValidatePage />);
-    const expected = VALIDATE_PRODUCT.gumroadUrl || "#founding-version";
     const buy = screen.getAllByRole("link", { name: /\$39/ });
 
     expect(buy).toHaveLength(4);
-    buy.forEach((link) => expect(link).toHaveAttribute("href", expected));
+    buy.forEach((link) => expect(link).toHaveAttribute("href", VALIDATE_PRODUCT.gumroadUrl));
+    // Fails closed if the URL is ever blanked: the CTAs would silently fall back
+    // to the on-page section, which looks fine and sells nothing.
+    expect(VALIDATE_PRODUCT.gumroadUrl).toMatch(/^https:\/\/[a-z0-9-]+\.gumroad\.com\/l\/[a-z0-9-]+$/i);
     expect(document.getElementById("founding-version")).not.toBeNull();
   });
 
