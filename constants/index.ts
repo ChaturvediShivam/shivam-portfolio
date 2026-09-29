@@ -32,13 +32,13 @@ export const SITE_CONFIG = {
 /**
  * Validate Before You Build (/validate-before-you-build) — its two outbound links.
  *
- * `gumroadUrl` stays empty until the Gumroad product is published. While it is
- * empty every buy CTA on the page falls back to the page's own
- * #founding-version section rather than a dead or guessed checkout link.
- * Paste the product URL here; this is the only place it is set.
+ * `gumroadUrl` is the published product's Gumroad URL and the only place it is
+ * set: every $39 CTA on the page reads it. An empty value is not a neutral
+ * default — the CTAs then fall back to the page's own #founding-version section
+ * and nobody can actually buy, which is why the page test fails closed on it.
  */
 export const VALIDATE_PRODUCT = {
-  gumroadUrl: "",
+  gumroadUrl: "https://shivamverse84.gumroad.com/l/validate-before-you-build",
   // The form id contains a DIGIT ZERO ("lbx0Av"), not a capital O. The letter-O
   // spelling 404s, which silently breaks both the public submit links and the
   // per-order ?ref= links built from this value in lib/vbyb/orders.ts.
