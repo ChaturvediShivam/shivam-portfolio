@@ -42,10 +42,20 @@ export const metadata: Metadata = {
 const BUY_HREF = VALIDATE_PRODUCT.gumroadUrl || "#founding-version";
 const BUY_LABEL = "Get the Founding Version — $39";
 
-const BTN =
-  "group inline-flex items-center justify-center gap-2 px-6 py-3 min-h-12 text-center text-sm font-semibold rounded-lg transition-all duration-200 ease-calm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
-const BTN_PRIMARY = `${BTN} bg-consulting-navy hover:bg-consulting-navy-light text-white dark:bg-white dark:text-consulting-navy dark:hover:bg-slate-100 shadow-[0_8px_20px_-12px_rgba(10,25,47,0.50)] hover:shadow-[0_12px_28px_-12px_rgba(10,25,47,0.55)] hover:-translate-y-0.5 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120]`;
-const BTN_OUTLINE = `${BTN} border border-slate-300 dark:border-white/15 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal hover:-translate-y-0.5 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120]`;
+// Size classes are passed into the base rather than appended after it, so a
+// larger button never depends on Tailwind emitting px-8 after px-6.
+const btnBase = (size: string) =>
+  `group inline-flex items-center justify-center gap-2 ${size} text-center font-semibold rounded-lg transition-all duration-200 ease-calm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`;
+const BTN = btnBase("px-6 py-3 min-h-12 text-sm");
+const PRIMARY_TONE =
+  "bg-consulting-navy hover:bg-consulting-navy-light text-white dark:bg-white dark:text-consulting-navy dark:hover:bg-slate-100 shadow-[0_8px_20px_-12px_rgba(10,25,47,0.50)] hover:shadow-[0_12px_28px_-12px_rgba(10,25,47,0.55)] hover:-translate-y-0.5 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120]";
+const OUTLINE_TONE =
+  "border border-slate-300 dark:border-white/15 text-consulting-slate dark:text-[#CBD5E1] hover:border-consulting-royal hover:text-consulting-royal hover:-translate-y-0.5 focus-visible:ring-consulting-royal/60 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1120]";
+const BTN_PRIMARY = `${BTN} ${PRIMARY_TONE}`;
+const BTN_OUTLINE = `${BTN} ${OUTLINE_TONE}`;
+// Hero only: the purchase is one size up so it reads as the page's action.
+const BTN_HERO_PRIMARY = `${btnBase("px-8 py-4 min-h-14 text-base")} ${PRIMARY_TONE}`;
+const BTN_HERO_SECONDARY = `${btnBase("px-6 py-4 min-h-14 text-sm")} ${OUTLINE_TONE}`;
 const BTN_ON_NAVY = `${BTN} bg-white hover:bg-slate-100 text-consulting-navy shadow-[0_8px_20px_-12px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 focus-visible:ring-white/60 focus-visible:ring-offset-consulting-navy`;
 
 const H2 =
@@ -120,7 +130,7 @@ const DELIVERABLES = [
   },
   {
     title: "AI Challenger Prompts",
-    desc: "Use AI to challenge assumptions, process evidence and pressure-test decisions — without treating AI output as proof.",
+    desc: "Seven prompts, one per stage, for using a model as an adversary — attacking the idea, auditing your own evidence grades, tightening the falsifier. Each one says what to keep and what to throw away. None of them produce evidence.",
   },
 ];
 
@@ -158,6 +168,24 @@ const FILE_FOCUS = [
   "the current evidence-supported decision",
 ];
 
+// The founding-version mechanism in the order it happens. Rendered twice: as
+// the numbered list beside the price, and as the How it works cards.
+const DELIVERY_STEPS = [
+  {
+    title: "Pay $39",
+    desc: "One-time founding-version purchase. Not a subscription. You get the reusable validation system immediately, as a download.",
+  },
+  {
+    title: "Submit your idea",
+    desc: "Tell us what you're building, who it's for, what you've already done and what evidence you have.",
+  },
+  {
+    title: "I prepare your Validation File",
+    desc: "Prepared manually. The idea is structured around assumptions, evidence, risk, falsifiers and the cheapest useful test.",
+  },
+  { title: "Receive it within 48 hours", desc: "Delivered manually within 48 hours of your submission." },
+];
+
 const FAQS = [
   {
     q: "Is this an AI idea validator?",
@@ -169,7 +197,15 @@ const FAQS = [
   },
   {
     q: "What happens after I pay?",
-    a: "You submit your idea and existing evidence through the submission form. Your Validation File is then prepared manually and delivered within 48 hours.",
+    a: "You download the validation system straight away and can start on your idea immediately. To claim your personalized Validation File you submit your idea and existing evidence through the submission form; it is then prepared manually and delivered within 48 hours of that submission.",
+  },
+  {
+    q: "Do I get the system itself, or just the file you write?",
+    a: "Both. The system is a 62-file Markdown workspace that opens in Obsidian or any editor — the method, templates, five worked examples and a 7-day sprint. It is yours to keep and reuse on every future idea. The Validation File is one idea of yours run through that method by hand.",
+  },
+  {
+    q: "What if I never submit an idea?",
+    a: "You keep the system, which is the larger and more reusable half of what you bought. The Validation File only starts when you submit — nothing is triggered by the purchase alone.",
   },
   {
     q: "Is $39 a subscription?",
@@ -197,21 +233,28 @@ function Eyebrow({ children, onNavy = false }: { children: React.ReactNode; onNa
   );
 }
 
-function Verdict({ label, onNavy = false }: { label: VerdictLabel; onNavy?: boolean }) {
+// `large` is for the sample artifacts, where the badge sits in body-size text.
+const BADGE_SIZE = { small: "px-2 py-1 text-[10px]", large: "px-2.5 py-1 text-xs" };
+
+function Verdict({ label, onNavy = false, large = false }: { label: VerdictLabel; onNavy?: boolean; large?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded border px-2 py-1 text-[10px] font-mono font-semibold tracking-[0.14em] whitespace-nowrap ${
-        (onNavy ? VERDICT_TONE_ON_NAVY : VERDICT_TONE)[label]
-      }`}
+      className={`inline-flex items-center justify-center rounded border ${
+        large ? BADGE_SIZE.large : BADGE_SIZE.small
+      } font-mono font-semibold tracking-[0.14em] whitespace-nowrap ${(onNavy ? VERDICT_TONE_ON_NAVY : VERDICT_TONE)[label]}`}
     >
       {label}
     </span>
   );
 }
 
-function Unknown() {
+function Unknown({ large = false }: { large?: boolean }) {
   return (
-    <span className="inline-flex rounded border border-dashed border-amber-600/50 dark:border-amber-400/50 px-2 py-0.5 text-[10px] font-mono font-semibold tracking-[0.14em] text-amber-700 dark:text-amber-300">
+    <span
+      className={`inline-flex rounded border border-dashed border-amber-600/50 dark:border-amber-400/50 ${
+        large ? BADGE_SIZE.large : BADGE_SIZE.small
+      } font-mono font-semibold tracking-[0.14em] text-amber-700 dark:text-amber-300`}
+    >
       UNKNOWN
     </span>
   );
@@ -246,21 +289,23 @@ type ArtifactRow = { label: string; value: React.ReactNode };
 function Artifact({ kind, id, rows }: { kind: string; id: string; rows: ArtifactRow[] }) {
   return (
     <article className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] overflow-hidden shadow-[0_8px_30px_-18px_rgba(10,25,47,0.25)]">
-      <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-        <h3 className="text-[11px] font-mono uppercase tracking-[0.16em] font-semibold text-consulting-navy dark:text-[#F9FAFB]">
+      <header className="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
+        <h3 className="text-xs sm:text-[13px] font-mono uppercase tracking-[0.14em] font-semibold text-consulting-navy dark:text-[#F9FAFB]">
           {kind}
         </h3>
-        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-consulting-slate dark:text-slate-400">
+        <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-consulting-slate dark:text-slate-400">
           Example · {id}
         </span>
       </header>
       <dl className="divide-y divide-slate-100 dark:divide-white/[0.06]">
         {rows.map((row) => (
-          <div key={row.label} className="px-5 py-4">
-            <dt className="text-[10px] font-mono uppercase tracking-[0.16em] text-consulting-slate dark:text-slate-400">
+          <div key={row.label} className="px-6 py-4">
+            <dt className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.12em] text-consulting-slate dark:text-slate-400">
               {row.label}
             </dt>
-            <dd className="mt-1.5 text-sm leading-relaxed text-consulting-navy dark:text-slate-200">{row.value}</dd>
+            <dd className="mt-2 text-[15px] sm:text-base leading-relaxed text-consulting-navy dark:text-slate-200">
+              {row.value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -323,8 +368,8 @@ export default function ValidateBeforeYouBuildPage() {
                 PARK / KILL decision.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row sm:flex-wrap gap-4">
-                <BuyLink className={`${BTN_PRIMARY} w-full sm:w-auto`} />
-                <a href="#method" className={`${BTN_OUTLINE} w-full sm:w-auto`}>
+                <BuyLink className={`${BTN_HERO_PRIMARY} w-full sm:w-auto`} />
+                <a href="#method" className={`${BTN_HERO_SECONDARY} w-full sm:w-auto`}>
                   See How It Works
                 </a>
               </div>
@@ -464,6 +509,12 @@ export default function ValidateBeforeYouBuildPage() {
           <div className="max-w-2xl space-y-4">
             <Eyebrow>What you get</Eyebrow>
             <h2 className={H2}>What the founding version gives you</h2>
+            <p className={LEAD}>
+              Two things. The <strong className="font-semibold text-consulting-navy dark:text-slate-100">system</strong>{" "}
+              — a reusable workspace you keep and run on every future idea. And one{" "}
+              <strong className="font-semibold text-consulting-navy dark:text-slate-100">Validation File</strong> — one
+              of your ideas taken through that system by hand. These are the sections of that file.
+            </p>
           </div>
           <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-slate-200 dark:bg-white/10">
             {DELIVERABLES.map((item, idx) => {
@@ -486,6 +537,36 @@ export default function ValidateBeforeYouBuildPage() {
               );
             })}
           </div>
+
+          {/* The reusable system — the half of the offer that is not done-for-you. */}
+          <div className="mt-6 rounded-xl border border-consulting-royal/25 dark:border-blue-400/25 bg-[#FBF8F2] dark:bg-[#111827] p-7 md:p-9">
+            <p className="text-[11px] font-mono tracking-[0.18em] text-consulting-royal dark:text-blue-400">
+              And the system itself
+            </p>
+            <h3 className="mt-3 text-lg font-semibold tracking-[-0.01em] text-consulting-navy dark:text-[#F9FAFB]">
+              The reusable validation workspace — yours to keep
+            </h3>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
+              A 62-file Markdown workspace, downloaded at purchase. It opens as an Obsidian vault, or in any text
+              editor. The method itself, so you can run it again without me on every idea after this one.
+            </p>
+            <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-consulting-slate dark:text-slate-300">
+              {[
+                ["13 folders", "One per stage, from defining the idea to the decision"],
+                ["9 templates", "Blank, copyable versions of every artifact"],
+                ["5 worked examples", "One per decision, plus one full Validation File"],
+                ["7-day sprint", "A structured week, if you want a schedule"],
+              ].map(([label, desc]) => (
+                <li key={label} className="rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] p-4">
+                  <span className="block font-semibold text-consulting-navy dark:text-slate-100">{label}</span>
+                  <span className="mt-1 block text-[13px] leading-relaxed">{desc}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 text-[13px] leading-relaxed text-consulting-slate dark:text-slate-400">
+              No plugins, no accounts, no subscription. Several of the worked examples end in KILL.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -500,7 +581,7 @@ export default function ValidateBeforeYouBuildPage() {
               — the entries are illustrative, not market benchmarks.
             </p>
           </div>
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             <Artifact
               kind="Assumption Map"
               id="A-01"
@@ -509,7 +590,7 @@ export default function ValidateBeforeYouBuildPage() {
                   label: "Assumption",
                   value: "“Target users experience this problem often enough to seek a solution.”",
                 },
-                { label: "Evidence", value: <Unknown /> },
+                { label: "Evidence", value: <Unknown large /> },
                 { label: "Strength", value: "None yet" },
                 {
                   label: "Risk",
@@ -545,7 +626,7 @@ export default function ValidateBeforeYouBuildPage() {
                   value: "Problem described unprompted in several interviews. No paid commitment yet.",
                 },
                 { label: "Strength", value: "Moderate for the problem. None yet for payment." },
-                { label: "Decision", value: <Verdict label="TEST MORE" /> },
+                { label: "Decision", value: <Verdict label="TEST MORE" large /> },
                 {
                   label: "Next test",
                   value: "Offer a paid pilot to the users who raised the problem. Decide again on the replies.",
@@ -775,18 +856,29 @@ export default function ValidateBeforeYouBuildPage() {
                 <span className="text-5xl font-semibold tracking-tight tabular-nums text-consulting-navy dark:text-[#F9FAFB]">
                   $39
                 </span>
-                <span className="text-sm text-consulting-slate dark:text-slate-400">one-time</span>
+                <span className="text-sm text-consulting-slate dark:text-slate-400">one-time · one idea</span>
               </p>
-              <ul className="mt-6 space-y-3 text-sm text-consulting-navy dark:text-slate-200">
-                {["Manual Validation File for one idea", "Delivered within 48 hours of your submission", "Not a subscription"].map(
-                  (line) => (
-                    <li key={line} className="flex items-start gap-3">
-                      <Check size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-consulting-royal" />
-                      {line}
-                    </li>
-                  )
-                )}
-              </ul>
+              <p className="mt-6 text-[11px] font-mono uppercase tracking-[0.16em] text-consulting-slate dark:text-slate-400">
+                How it works
+              </p>
+              <ol className="mt-4">
+                {DELIVERY_STEPS.map((step, idx) => (
+                  <li key={step.title} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                    {idx < DELIVERY_STEPS.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-3 top-6 bottom-0 w-px bg-slate-200 dark:bg-white/10"
+                      />
+                    )}
+                    <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-consulting-royal/30 bg-white dark:bg-[#0B1120] text-[11px] font-mono font-semibold text-consulting-royal dark:text-blue-400">
+                      {idx + 1}
+                    </span>
+                    <span className="pt-0.5 text-sm font-medium text-consulting-navy dark:text-slate-200">
+                      {step.title}
+                    </span>
+                  </li>
+                ))}
+              </ol>
               <BuyLink className={`${BTN_PRIMARY} mt-8 w-full`} />
               <p className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10 text-sm leading-relaxed text-consulting-slate dark:text-slate-400">
                 <span className="font-semibold text-consulting-navy dark:text-slate-200">7-day refund</span> if the
@@ -803,42 +895,24 @@ export default function ValidateBeforeYouBuildPage() {
         <div className={CONTAINER}>
           <div className="max-w-2xl space-y-4">
             <Eyebrow>How it works</Eyebrow>
-            <h2 className={H2}>Three steps from idea to file.</h2>
+            <h2 className={H2}>Four steps from idea to file.</h2>
           </div>
-          <ol className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <li className="flex flex-col rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] p-7">
-              <p className="text-3xl font-semibold tabular-nums text-consulting-royal">01</p>
-              <h3 className="mt-4 text-lg font-semibold text-consulting-navy dark:text-[#F9FAFB]">Submit your idea</h3>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
-                Tell us what you&apos;re building, who it&apos;s for, what you&apos;ve already done and what evidence
-                you have.
-              </p>
-              <BuyLink className={`${BTN_PRIMARY} mt-6 w-full`}>Get Started — $39</BuyLink>
-            </li>
-            <li className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] p-7">
-              <p className="text-3xl font-semibold tabular-nums text-consulting-royal">02</p>
-              <h3 className="mt-4 text-lg font-semibold text-consulting-navy dark:text-[#F9FAFB]">
-                Your Validation File is prepared
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
-                The idea is structured around assumptions, evidence, risk, falsifiers and the cheapest useful test.
-              </p>
-            </li>
-            <li className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] p-7">
-              <p className="text-3xl font-semibold tabular-nums text-consulting-royal">03</p>
-              <h3 className="mt-4 text-lg font-semibold text-consulting-navy dark:text-[#F9FAFB]">Receive your file</h3>
-              <p className="mt-2 text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
-                Delivered manually within 48 hours of your submission.
-              </p>
-            </li>
+          <ol className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {DELIVERY_STEPS.map((step, idx) => (
+              <li
+                key={step.title}
+                className="flex flex-col rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120] p-7"
+              >
+                <p className="text-3xl font-semibold tabular-nums text-consulting-royal">0{idx + 1}</p>
+                <h3 className="mt-4 text-lg font-semibold text-consulting-navy dark:text-[#F9FAFB]">{step.title}</h3>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
+                  {step.desc}
+                </p>
+                {idx === 0 && <BuyLink className={`${BTN_PRIMARY} mt-6 w-full`}>Get Started — $39</BuyLink>}
+                {idx === 1 && <TallyLink className={`${BTN_OUTLINE} mt-6 w-full`} />}
+              </li>
+            ))}
           </ol>
-          <div className="mt-10 flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-dashed border-slate-300 dark:border-white/15 p-6">
-            <p className="flex-1 text-sm leading-relaxed text-consulting-slate dark:text-slate-300">
-              <span className="font-semibold text-consulting-navy dark:text-[#F9FAFB]">After purchase,</span> submit
-              your idea and the evidence you already have through the submission form.
-            </p>
-            <TallyLink className={`${BTN_OUTLINE} w-full sm:w-auto`} />
-          </div>
         </div>
       </section>
 

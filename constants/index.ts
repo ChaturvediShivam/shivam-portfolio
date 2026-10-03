@@ -38,8 +38,8 @@ export const SITE_CONFIG = {
  * Paste the product URL here; this is the only place it is set.
  */
 export const VALIDATE_PRODUCT = {
-  gumroadUrl: "",
-  tallyUrl: "https://tally.so/r/lbxOAv",
+  gumroadUrl: "https://shivamverse84.gumroad.com/l/validate-before-you-build",
+  tallyUrl: "https://tally.so/r/lbx0Av",
 };
 
 /**

@@ -22,7 +22,7 @@ describe("/validate-before-you-build CTAs", () => {
 
     const tally = screen.getAllByRole("link", { name: /submit your idea/i });
     expect(tally).toHaveLength(2);
-    tally.forEach((link) => expect(link).toHaveAttribute("href", "https://tally.so/r/lbxOAv"));
+    tally.forEach((link) => expect(link).toHaveAttribute("href", "https://tally.so/r/lbx0Av"));
 
     expect(screen.getByRole("link", { name: /see how it works/i })).toHaveAttribute("href", "#method");
     expect(document.getElementById("method")).not.toBeNull();
