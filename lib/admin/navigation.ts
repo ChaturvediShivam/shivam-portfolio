@@ -18,6 +18,7 @@ import {
   AppWindow,
   Radar,
   Telescope,
+  FlaskConical,
 } from "lucide-react";
 
 /**
@@ -78,6 +79,7 @@ export const adminNavigation: NavItem[] = [
   { id: "browser-inbox", label: "Browser Inbox", href: "/admin/browser-inbox", icon: AppWindow, enabled: true },
   { id: "job-feed", label: "Job Feed", href: "/admin/job-feed", icon: Radar, enabled: true, flag: "FEATURE_AIDEVBOARD" },
   { id: "research", label: "Research", href: "/admin/research", icon: Telescope, enabled: true, flag: "FEATURE_RESEARCH" },
+  { id: "vbyb", label: "Validate Before You Build", href: "/admin/validate-before-you-build", icon: FlaskConical, enabled: true, flag: "FEATURE_VBYB" },
   { id: "analytics", label: "Analytics", href: "/admin/analytics", icon: BarChart3, enabled: true },
   { id: "settings", label: "Settings", href: "/admin/settings", icon: Settings, enabled: true },
 ];

@@ -29,7 +29,9 @@ export type FeatureFlag =
   | "FEATURE_RESEARCH_NEWS"
   | "FEATURE_RESEARCH_MACRO"
   | "FEATURE_RESEARCH"
-  | "FEATURE_RESEARCH_SCHOLARLY";
+  | "FEATURE_RESEARCH_SCHOLARLY"
+  | "FEATURE_VBYB"
+  | "FEATURE_VBYB_WEBHOOKS";
 
 /** True only when the flag env var is exactly the string "true". */
 export function featureEnabled(flag: FeatureFlag): boolean {
