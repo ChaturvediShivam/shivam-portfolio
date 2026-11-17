@@ -10,8 +10,11 @@ import {
 } from "@/lib/actions";
 import { validate, required, optional, maxLength, url, oneOf, type Schema, type Validator } from "@/lib/validation";
 import {
-  createOpportunity,
+  createOpportunityChecked,
+  type CreateOpportunityFailure,
+  duplicateJobUrlMessage,
   findOpportunityByJobUrl,
+  opportunitySchema,
   updateOpportunity,
   changeStage,
   setOpportunityArchived,
@@ -35,63 +38,22 @@ import { getAiProvider } from "@/lib/ai/providers";
 import { AiError } from "@/lib/ai/errors";
 import { summarizeOpportunity, type SummarizeSkipReason } from "@/lib/ai/summarize";
 
-const numericIfPresent: Validator = (v) =>
-  v == null || v === "" || Number.isFinite(Number(v)) ? null : "Enter a number";
-
-const opportunitySchema: Schema<OpportunityInput> = {
-  title: [required("Title is required"), maxLength(200)],
-  job_url: [optional(url("Enter a valid URL (including https://)"))],
-  source: [optional(maxLength(40))],
-  location: [optional(maxLength(160))],
-  location_type: [optional(oneOf(LOCATION_TYPES, "Invalid location type"))],
-  employment_type: [optional(oneOf(EMPLOYMENT_TYPES, "Invalid employment type"))],
-  seniority: [optional(maxLength(80))],
-  work_authorization: [optional(maxLength(120))],
-  application_method: [optional(maxLength(80))],
-  salary_min: [numericIfPresent],
-  salary_max: [numericIfPresent],
-  salary_currency: [optional(maxLength(8))],
-  // Generous, because a real posting can be long and a truncated description is
-  // worse than none — but bounded, because this text is pasted in by a browser
-  // extension and an unbounded field reachable from a page is an unbounded row.
-  job_description: [optional(maxLength(60_000))],
-};
-
-/**
- * The message shown when a posting is already tracked.
- *
- * Names the existing opportunity and its stage, because "this is a duplicate"
- * is not actionable on its own — what the person needs to know is which record
- * to go and look at, and whether they have already applied to it.
- */
-function duplicateJobUrlMessage(existing: {
-  title: string;
-  stage: OpportunityStage;
-  archived_at: string | null;
-}): string {
-  const where = existing.archived_at ? "archived" : humanize(existing.stage).toLowerCase();
-  return `Already tracked as "${existing.title}" (${where}). Open that opportunity instead of creating a second one.`;
-}
-
 export async function createOpportunityAction(input: OpportunityInput): Promise<ActionResult<{ id: string }>> {
   return withAdminAction(async ({ supabase, userId }) => {
-    const result = validate(input, opportunitySchema);
-    if (!result.ok) return actionError({ fieldErrors: result.fieldErrors as Record<string, string> });
-
-    // Checked before the insert rather than relied on afterwards: there is no
-    // unique index on job_url, because re-applying to the same role in a later
-    // cycle is legitimate and a database constraint could not tell the two
-    // apart. This is the layer that can.
-    if (input.job_url) {
-      const existing = await findOpportunityByJobUrl(supabase, input.job_url);
-      if (existing) {
-        return actionError({ fieldErrors: { job_url: duplicateJobUrlMessage(existing) } });
-      }
+    // Validation and duplicate rejection live in lib/opportunities so the
+    // capture API cannot write rows this form would have refused.
+    const result = await createOpportunityChecked(supabase, userId, input);
+    if (result.ok) {
+      revalidatePath("/admin/opportunities");
+      return actionSuccess({ id: result.id });
     }
 
-    const created = await createOpportunity(supabase, userId, input);
-    revalidatePath("/admin/opportunities");
-    return actionSuccess({ id: created.id });
+    // See CreateOpportunityFailure: `ok` cannot narrow under `strict: false`.
+    const failure = result as CreateOpportunityFailure;
+    if (failure.reason === "duplicate") {
+      return actionError({ fieldErrors: { job_url: duplicateJobUrlMessage(failure.duplicate) } });
+    }
+    return actionError({ fieldErrors: failure.fieldErrors });
   });
 }
 

@@ -2,8 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emitAutomationEvent } from "@/lib/automation/emit";
 import {
+  EMPLOYMENT_TYPES,
+  LOCATION_TYPES,
   OPPORTUNITY_SORT_FIELDS,
   OPPORTUNITY_STAGES,
+  humanize,
   type Opportunity,
   type OpportunityContactLink,
   type OpportunityEvent,
@@ -14,6 +17,16 @@ import {
   type OpportunityStage,
 } from "@/types/opportunity";
 import { TASK_PRIORITIES, type TaskPriority } from "@/types/task";
+import {
+  maxLength,
+  oneOf,
+  optional,
+  required,
+  url,
+  validate,
+  type Schema,
+  type Validator,
+} from "@/lib/validation";
 
 /**
  * Opportunities data layer (server-only). Reuses lib/companies + lib/contacts
@@ -100,6 +113,111 @@ export function normalizeJobUrl(value?: string | null): string | null {
   }
 
   return url.toString();
+}
+
+/**
+ * The rules for writing an opportunity, in one place.
+ *
+ * Two callers create opportunities: the admin form (a Server Action) and the
+ * capture extension (a route handler). They authenticate differently and render
+ * failures differently, but the rules for what may be written — required
+ * fields, field bounds, and "is this posting already tracked" — must be
+ * identical, or the extension becomes a way to put rows into the database that
+ * the form would have rejected.
+ *
+ * Kept here rather than in the action that used to own it so neither caller is
+ * the owner and neither can drift.
+ */
+const numericIfPresent: Validator = (v) =>
+  v == null || v === "" || Number.isFinite(Number(v)) ? null : "Enter a number";
+
+export const opportunitySchema: Schema<OpportunityInput> = {
+  title: [required("Title is required"), maxLength(200)],
+  job_url: [optional(url("Enter a valid URL (including https://)"))],
+  source: [optional(maxLength(40))],
+  location: [optional(maxLength(160))],
+  location_type: [optional(oneOf(LOCATION_TYPES, "Invalid location type"))],
+  employment_type: [optional(oneOf(EMPLOYMENT_TYPES, "Invalid employment type"))],
+  seniority: [optional(maxLength(80))],
+  work_authorization: [optional(maxLength(120))],
+  application_method: [optional(maxLength(80))],
+  salary_min: [numericIfPresent],
+  salary_max: [numericIfPresent],
+  salary_currency: [optional(maxLength(8))],
+  // Generous, because a real posting can be long and a truncated description is
+  // worse than none — but bounded, because this text arrives from a browser
+  // extension and an unbounded field reachable from a page is an unbounded row.
+  job_description: [optional(maxLength(60_000))],
+};
+
+/**
+ * The message shown when a posting is already tracked.
+ *
+ * Names the existing opportunity and its stage, because "this is a duplicate"
+ * is not actionable on its own — what the person needs to know is which record
+ * to look at, and whether they have already applied to it.
+ */
+export function duplicateJobUrlMessage(existing: {
+  title: string;
+  stage: OpportunityStage;
+  archived_at: string | null;
+}): string {
+  const where = existing.archived_at ? "archived" : humanize(existing.stage).toLowerCase();
+  return `Already tracked as "${existing.title}" (${where}). Open that opportunity instead of creating a second one.`;
+}
+
+/**
+ * Why the failure arm is a named type, and why callers cast to it.
+ *
+ * This project compiles with `strict: false`, and with `strictNullChecks` off
+ * TypeScript will not narrow a union on a BOOLEAN discriminant — `if (result.ok)`
+ * leaves the type exactly as it was. STRING literal discriminants still narrow,
+ * which is why `reason` works once the success arm has been cast away.
+ *
+ * So the shape is: check `ok` for control flow, cast once to this type, then let
+ * `reason` narrow normally. The existing actions hit the same wall and solve it
+ * the same way (`result.fieldErrors as Record<string, string>` in
+ * lib/validation's callers). Do not delete the cast expecting inference to cover
+ * it — it will compile as `any` and the branches will silently stop being checked.
+ */
+export type CreateOpportunityFailure =
+  | { ok: false; reason: "invalid"; fieldErrors: Record<string, string> }
+  | {
+      ok: false;
+      reason: "duplicate";
+      duplicate: { id: string; title: string; stage: OpportunityStage; archived_at: string | null };
+    };
+
+export type CreateOpportunityResult = { ok: true; id: string } | CreateOpportunityFailure;
+
+/**
+ * Validate, reject duplicates, then create. The whole write path for both
+ * callers.
+ *
+ * Returns the duplicate itself on collision, not merely an error string: the
+ * extension needs the id to offer "open the one you already have", which is the
+ * only useful thing to do at that point.
+ */
+export async function createOpportunityChecked(
+  supabase: SupabaseClient,
+  ownerId: string,
+  input: OpportunityInput,
+): Promise<CreateOpportunityResult> {
+  const result = validate(input, opportunitySchema);
+  if (!result.ok) {
+    return { ok: false, reason: "invalid", fieldErrors: result.fieldErrors as Record<string, string> };
+  }
+
+  // Checked before the insert rather than relied on afterwards: there is no
+  // unique index on job_url, because re-applying to the same role in a later
+  // cycle is legitimate and a database constraint could not tell the two apart.
+  if (input.job_url) {
+    const duplicate = await findOpportunityByJobUrl(supabase, input.job_url);
+    if (duplicate) return { ok: false, reason: "duplicate", duplicate };
+  }
+
+  const created = await createOpportunity(supabase, ownerId, input);
+  return { ok: true, id: created.id };
 }
 
 /**
