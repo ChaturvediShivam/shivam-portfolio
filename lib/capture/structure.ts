@@ -7,6 +7,7 @@ import { AiError } from "@/lib/ai/errors";
 import { fromJsonLd } from "@/lib/capture/jsonld";
 import { applyHeuristics, fieldsFromLabels } from "@/lib/capture/heuristics";
 import { assembleJobDescription, trimAtEditorialBoundary } from "@/lib/capture/sections";
+import { isGmailEmail, fillFromEmail } from "@/lib/capture/email";
 import { normalizeJobUrl } from "@/lib/opportunities";
 import {
   CORE_CAPTURE_FIELDS,
@@ -157,12 +158,30 @@ function fill<K extends keyof CapturedJob>(
   provenance[key] = source;
 }
 
+/** An empty assembly, for sources that do not build a description from sections. */
+const NO_ASSEMBLY: ReturnType<typeof assembleJobDescription> = {
+  description: null,
+  includedHeadings: [],
+  metadataText: "",
+  usedFallback: false,
+};
+
 /** Deterministic pass. No network, no cost, no model. */
 export function structureDeterministically(page: CapturedPage): {
   job: CapturedJob;
   provenance: CaptureProvenance;
   assembled: ReturnType<typeof assembleJobDescription>;
 } {
+  // Source-aware: a Gmail application email is not a job posting. Its subject and
+  // body are the source of truth, so it takes a different path entirely — never
+  // reading the Gmail <title> as the role or the host as the job URL.
+  if (isGmailEmail(page)) {
+    const job = emptyJob(page.url);
+    const provenance: CaptureProvenance = {};
+    fillFromEmail(job, provenance, page);
+    return { job, provenance, assembled: NO_ASSEMBLY };
+  }
+
   const job = emptyJob(page.url);
   job.job_url = jobUrlFor(page);
   const provenance: CaptureProvenance = {};
@@ -269,6 +288,20 @@ export async function structureCapture(
   page: CapturedPage,
 ): Promise<Omit<CaptureResult, "duplicate">> {
   const { job, provenance, assembled } = structureDeterministically(page);
+
+  // A Gmail application email is fully handled deterministically. The model is
+  // not asked to fill its gaps: inferring a location or salary from a cover
+  // letter would be inventing facts the applicant never wrote. A sent
+  // application is already `applied` — an existing stage, suggested for the form.
+  if (isGmailEmail(page)) {
+    return {
+      job,
+      provenance,
+      deterministicOnly: true,
+      stage: "applied",
+      notice: partialNotice(job, null),
+    };
+  }
 
   const rawText = (page.selection?.trim() || page.text || "").trim();
 

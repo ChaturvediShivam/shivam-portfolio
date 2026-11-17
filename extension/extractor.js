@@ -346,6 +346,49 @@ function captureCurrentPage() {
     return text.length >= 200 ? text.slice(0, MAX_TEXT) : null;
   }
 
+  /**
+   * The open Gmail message, when this is a Gmail message view.
+   *
+   * Gmail is a job SOURCE, not a job posting. Its <title> is the subject, its
+   * host is mail.google.com, and its visible text is wrapped in Reply/Forward
+   * chrome — all of which the generic extractor would misread as the role, the
+   * job URL and the description. So the message is collected on its own: the
+   * subject (`h2.hP`), the body of each open message (`.a3s`, Gmail's message
+   * container), and the real links inside it. The server reads role, company and
+   * a genuine job URL out of the applicant's own words.
+   *
+   * Returns null off Gmail or with no message open, so the payload carries an
+   * `email` only when there genuinely is one — which is what routes the capture
+   * down the email path.
+   */
+  function gmailEmail() {
+    if (location.hostname !== "mail.google.com") return null;
+
+    var subjectEl = document.querySelector("h2.hP") || document.querySelector('[role="main"] h2');
+    var subject = subjectEl ? txt(subjectEl).slice(0, 500) : "";
+
+    var bodies = document.querySelectorAll(".a3s");
+    var parts = [];
+    var links = [];
+    var seen = {};
+    for (var i = 0; i < bodies.length && parts.length < 20; i += 1) {
+      if (isChrome(bodies[i])) continue;
+      var body = txt(bodies[i]);
+      if (body) parts.push(body);
+      var anchors = bodies[i].querySelectorAll("a[href]");
+      for (var j = 0; j < anchors.length && links.length < 40; j += 1) {
+        var href = anchors[j].getAttribute("href") || "";
+        if (/^https?:/i.test(href) && !seen[href]) {
+          seen[href] = 1;
+          links.push(href.slice(0, 2000));
+        }
+      }
+    }
+    var text = parts.join("\n\n").slice(0, 20000);
+    if (!subject && !text) return null;
+    return { subject: subject, body: text, links: links };
+  }
+
   var root = postingRoot();
 
   return {
@@ -357,6 +400,7 @@ function captureCurrentPage() {
     sections: collectSections(root),
     labels: collectLabels(root),
     selection: selection(),
+    email: gmailEmail(),
     jsonLd: jsonLd(),
     meta: {
       description: meta('meta[name="description"]'),

@@ -146,6 +146,16 @@ function renderReview(result) {
   updateCount();
   setNotice(el("notice"), result.notice);
 
+  // A capture may suggest a stage — a sent application email is already applied.
+  // Only an existing <option> is honoured, so this can never introduce a value
+  // the form (and the schema behind it) would refuse.
+  if (result.stage) {
+    const stageSelect = el("f-stage");
+    if ([...stageSelect.options].some((option) => option.value === result.stage)) {
+      stageSelect.value = result.stage;
+    }
+  }
+
   // Skills, experience and contacts are shown but not saved: the opportunity
   // has no column for them, and inventing one for V1 would be building schema
   // to hold data nobody has asked to query yet. Visible so the capture is not

@@ -110,6 +110,14 @@ export interface CapturedPage {
   sections?: CapturedSection[];
   /** Explicitly labelled values lifted from <dl> and <table>. */
   labels?: CapturedLabel[];
+  /**
+   * The open message, when the page is a Gmail email view. Collected in the
+   * extension because only it can tell the message body from Gmail's UI. Its
+   * presence routes the capture down the email-application path instead of the
+   * generic job-posting one — the subject/body are the source of truth, not the
+   * Gmail chrome the generic extractor would otherwise read.
+   */
+  email?: { subject: string; body: string; links: string[] } | null;
 }
 
 /**
@@ -149,6 +157,13 @@ export interface CaptureResult {
   deterministicOnly: boolean;
   /** Human-readable note when extraction was partial or degraded. */
   notice: string | null;
+  /**
+   * A pipeline stage the capture suggests for the review form, when the source
+   * implies one — a sent application email is already `applied`. Absent for an
+   * ordinary job page, where the person picks the stage. Always an existing
+   * `OPPORTUNITY_STAGES` value; the capture never invents a stage.
+   */
+  stage?: string | null;
   /** An opportunity already tracking this URL, if there is one. */
   duplicate: { id: string; title: string; stage: string; archived_at: string | null } | null;
 }

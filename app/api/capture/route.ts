@@ -82,6 +82,25 @@ function asPage(body: unknown): CapturedPage | null {
     meta,
     jsonLd: Array.isArray(b.jsonLd) ? b.jsonLd.slice(0, 20) : [],
     selection: typeof b.selection === "string" ? b.selection.slice(0, MAX_BODY_CHARS) : null,
+    // The Gmail message, bounded: an application email's subject, body and any
+    // links it carries, all assembled on a page whose contents nobody controls.
+    email:
+      typeof b.email === "object" && b.email !== null
+        ? {
+            subject: typeof (b.email as Record<string, unknown>).subject === "string"
+              ? ((b.email as Record<string, unknown>).subject as string).slice(0, 500)
+              : "",
+            body: typeof (b.email as Record<string, unknown>).body === "string"
+              ? ((b.email as Record<string, unknown>).body as string).slice(0, 20_000)
+              : "",
+            links: Array.isArray((b.email as Record<string, unknown>).links)
+              ? ((b.email as Record<string, unknown>).links as unknown[])
+                  .filter((l): l is string => typeof l === "string")
+                  .slice(0, 40)
+                  .map((l) => l.slice(0, 2000))
+              : [],
+          }
+        : null,
   };
 }
 
