@@ -3,17 +3,17 @@
 # Shivam Portfolio · Career CRM
 
 A production Next.js portfolio and blog with a private, authenticated admin that
-is evolving into a source-agnostic **Career CRM** for tracking a job search
-end-to-end.
+runs a full **Career CRM** — job pipeline, Gmail/Calendar sync, an AI layer,
+workflow automation, multi-source research — plus the backend for the
+**Validate Before You Build** paid product.
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.2-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-18-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Deployed on Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
-[![Phase](https://img.shields.io/badge/Phase%201-Complete-2ea44f)]()
-[![Status](https://img.shields.io/badge/Status-Production-success)]()
+[![CI](https://img.shields.io/badge/CI-lint%20%C2%B7%20typecheck%20%C2%B7%20test%20%C2%B7%20build-2ea44f)](.github/workflows/ci.yml)
 
 **Production:** [www.shivamchaturvedi.com](https://www.shivamchaturvedi.com)
 
@@ -23,17 +23,20 @@ end-to-end.
 
 ## Overview
 
-This repository powers two products in one codebase:
+One codebase, two products:
 
-1. **Public portfolio & blog** — a marketing site with a spam-protected contact
-   funnel that captures leads into a Supabase-backed inquiry system.
-2. **Admin / Career CRM** — a private, authenticated back office. Phase 0
-   shipped inquiry management; Phase 1 laid the additive database and navigation
-   foundation for a full Career CRM (companies, contacts, opportunities,
-   messages, tasks) designed for future email + AI integrations.
+1. **Public site** — portfolio, blog, project pages, a public Resume AI demo,
+   the Validate Before You Build (VBYB) product page, and a spam-protected
+   contact funnel.
+2. **Admin / Career CRM** — a private back office at `/admin` for running a job
+   search end to end, with AI assistance, automation and integrations.
 
-Everything is additive and convention-driven: the CRM reuses the portfolio's
-authentication, middleware, and Supabase patterns without modifying them.
+| | |
+|---|---|
+| Admin modules | 19 |
+| Database tables | 45 (14 additive migrations, RLS on every table) |
+| Feature flags | 23 (server-side, default off) |
+| Unit tests | ~1,500 (Vitest) |
 
 ---
 
@@ -41,25 +44,28 @@ authentication, middleware, and Supabase patterns without modifying them.
 
 ```mermaid
 flowchart LR
-    Visitor[Public visitor] -->|HTTPS| Edge[Vercel Edge + Middleware]
-    Admin[Admin user] -->|HTTPS| Edge
-    Edge -->|"/admin/*" gate| MW{Authenticated?}
-    MW -- no --> Login["/admin/login"]
-    MW -- yes --> App[Next.js App Router]
-    Edge --> App
-    App --> RSC[Server Components / Route Handlers]
-    RSC --> SB[(Supabase Postgres + Auth)]
-    RSC --> Resend[Resend email]
-    App --> CF[Cloudflare Turnstile]
-    SB -. RLS .- RSC
+    Visitor[Public visitor] --> App[Next.js App Router on Vercel]
+    Admin[Admin] --> MW{middleware.ts<br/>admin email?}
+    MW -- no session --> Login["/admin/login"]
+    MW -- not admin --> F[403]
+    MW -- yes --> App
+    Ext[Chrome extension] -->|session cookie| App
+    GH[GitHub Actions cron<br/>every 5 min] -->|CRON_SECRET| Jobs["/api/jobs/run"]
+    Jobs --> App
+    App --> SB[(Supabase Postgres + Auth + RLS)]
+    App --> AI[AI gateway → Claude]
+    App --> Google[Gmail + Calendar]
+    App --> Resend[Resend email]
+    App --> Research[9 research providers]
+    Gumroad[Gumroad] -->|webhook| App
+    Tally[Tally] -->|signed webhook| App
 ```
 
-- **App Router (Next.js 14)** with React Server Components and route handlers.
-- **Middleware** (`middleware.ts`) refreshes the Supabase session and gates
-  every `/admin/:path*` route.
-- **Supabase** provides Postgres, Auth, and Row Level Security. Three client
-  flavors: browser, server (SSR), and service-role (server-only, RLS-bypassing).
-- Details: [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md).
+- **Middleware** refreshes the Supabase session (time-bounded) and lets only the
+  allowlisted admin email into `/admin/*`; other sessions get 403.
+- **Supabase clients:** browser, server (SSR) and service-role (server-only).
+- Details: [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md),
+  [`docs/architecture/PHASE_3_ARCHITECTURE.md`](docs/architecture/PHASE_3_ARCHITECTURE.md).
 
 ---
 
@@ -67,17 +73,90 @@ flowchart LR
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 14.2 (App Router), React 18 |
+| Framework | Next.js 15 (App Router), React 19 |
 | Language | TypeScript 5 |
-| Styling | Tailwind CSS 3.4, `clsx`, `tailwind-merge` |
-| Animation | Framer Motion |
-| Icons | lucide-react |
-| Theming | next-themes |
+| Styling | Tailwind CSS 3.4, `clsx`, `tailwind-merge`, Framer Motion, lucide-react, next-themes |
 | Data / Auth | Supabase (`@supabase/ssr`, `@supabase/supabase-js`), Postgres + RLS |
+| AI | Anthropic SDK behind a provider-neutral gateway |
 | Email | Resend |
-| Bot protection | Cloudflare Turnstile (`@marsidev/react-turnstile`) |
-| Hosting / CI | Vercel |
-| Linting | ESLint (`eslint-config-next`) |
+| Bot protection | Cloudflare Turnstile |
+| File parsing | `pdfjs-dist` (PDF), DOCX/ZIP parsers, `sanitize-html` |
+| Monitoring | Sentry, Vercel Analytics |
+| Testing | Vitest, Testing Library, Playwright + axe |
+| Hosting / CI | Vercel, GitHub Actions |
+
+---
+
+## Features
+
+### Public site
+
+| Route | What it does |
+|-------|--------------|
+| `/` | Hero, About, Skills, Projects, Case Studies, AI Research, Who I Help, Ebook, CTA, Contact |
+| `/blog`, `/blog/[slug]` | Blog |
+| `/projects/[slug]` | Project detail pages |
+| `/demo` | Public Resume AI demo — upload a resume + JD, get a match analysis (Turnstile, per-visitor throttle, daily token budget) |
+| `/validate-before-you-build` | VBYB product page ($39, Gumroad checkout) |
+| `/whoasked` | "Who Asked?" media brand page |
+| Contact form | Turnstile + rate limit → Supabase inquiry → Resend notification |
+
+### Admin / Career CRM
+
+| Module | Flag | What it does |
+|--------|------|--------------|
+| Dashboard | — | Overview metrics |
+| Inquiries | — | Contact leads: search, filters, status, lead source, notes, timeline, CSV export |
+| Opportunities | — | Pipeline board, job descriptions, events, notes, linked contacts |
+| Companies / Contacts | — | CRUD + detail pages |
+| Messages | — | Gmail-synced email |
+| Tasks | — | Priority, status, due dates |
+| Calendar | — | Google Calendar sync, upcoming interviews |
+| Assistant | `FEATURE_ASSISTANT` | AI chat with retrieval tools over CRM data |
+| Approvals | `FEATURE_EMAIL_DRAFTING` | AI-drafted replies; nothing sends without approval |
+| Automations | `FEATURE_AUTOMATION` | Rules: triggers → conditions → actions |
+| Resume AI | — | Resume/JD analysis, cover letters, interview questions, LinkedIn optimizer, rewrites, DOCX export |
+| Documents | — | Resume and cover letter versions |
+| Browser Inbox | — | Jobs captured by the Chrome extension |
+| Job Feed | `FEATURE_AIDEVBOARD` | AIDevBoard listings |
+| Research | `FEATURE_RESEARCH` | Cross-provider job/company/news/macro/scholarly search |
+| VBYB | `FEATURE_VBYB` | Orders, customers, validations, analytics |
+| Analytics / Settings | — | CRM analytics; integrations and notification preferences |
+
+The sidebar renders from [`lib/admin/navigation.ts`](lib/admin/navigation.ts).
+Flags live in [`lib/featureFlags.ts`](lib/featureFlags.ts): a feature is on
+only when its env var is exactly `"true"`, so rollback is an env change, not a
+redeploy.
+
+### Backend subsystems
+
+| Subsystem | Where | Notes |
+|-----------|-------|-------|
+| Background jobs | `lib/jobs/` | Postgres queue; drained by `/api/jobs/run` every 5 min from [GitHub Actions](.github/workflows/drain-jobs.yml). Handlers: gmail-sync, calendar-sync, ai-summarize, notification-scan/dispatch, automation-scan/run |
+| Google integration | `lib/integrations/google/`, `lib/sync/` | OAuth with state table; tokens AES-256-GCM encrypted; incremental Gmail sync (historyId cursor); Calendar sync |
+| AI gateway | `lib/ai/` | Single path to the provider: prompt templates, secret redaction, atomic token budget, tool authorization, output validation, audit log |
+| Approved send | `lib/ai/send.ts` | Claim-then-send ordering so an approved email can never send twice |
+| Automation | `lib/automation/` | Triggers on opportunity/message/task events or schedule; actions: create task, add note, change stage, draft email, notify. Rules start disabled |
+| Notifications | `lib/notifications/` | New messages, overdue tasks, upcoming interviews → email, idempotent |
+| Research | `lib/research/` | Adzuna, USAJobs, AI-Dev-Jobs, AI-Jobs.co, SEC EDGAR, GNews, Noozra, FRED, OpenAlex; fan-out, merge, dedupe; one failing provider never fails the search |
+| Career intelligence | `lib/career-intelligence/`, `lib/resume*/`, `lib/ai-analysis/` | PDF/DOCX/ZIP parsing, AI job match (cached), versions, diff, DOCX export |
+| Capture | `extension/`, `lib/capture/`, `/api/capture` | MV3 extension: JSON-LD + heuristics → review → save; uses the admin session, no CORS |
+| VBYB | `lib/vbyb/`, `/api/webhooks/*` | Gumroad pings re-verified via API; Tally HMAC-SHA256; order↔submission matching; PAID → SUBMITTED → IN PROGRESS → DELIVERED workflow with refunds |
+
+### API routes
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/contact` | Public contact form |
+| `/api/admin/inquiries/*` | Inquiry status, notes, lead source, delete, CSV export |
+| `/api/auth/*`, `/auth/callback` | Signup, role, auth callback |
+| `/api/ai/chat` | Assistant |
+| `/api/capture`, `/api/capture/save` | Extension capture (structure, then save) |
+| `/api/integrations/google/*` | Google OAuth connect + callback |
+| `/api/jobs/run`, `/api/jobs/health` | Job drainer (secret-protected) + health |
+| `/api/webhooks/gumroad`, `/api/webhooks/tally` | VBYB payments + form submissions |
+
+Full reference: [`docs/architecture/API_REFERENCE.md`](docs/architecture/API_REFERENCE.md).
 
 ---
 
@@ -86,59 +165,80 @@ flowchart LR
 ```
 .
 ├── app/
-│   ├── (marketing)/           # Public site + blog
-│   ├── admin/
-│   │   ├── (dashboard)/       # Authenticated CRM shell (sidebar layout)
-│   │   │   ├── page.tsx       # Inquiries dashboard
-│   │   │   ├── inquiries/     # Inquiry detail
-│   │   │   └── {companies,contacts,messages,tasks,
-│   │   │       calendar,analytics,settings,applications}/  # Phase 2 placeholders
-│   │   ├── login/  signup/  reset-password/
-│   │   └── layout.tsx         # Admin root (noindex, theme)
-│   ├── api/                   # Route handlers (inquiries, auth, contact)
-│   └── auth/                  # OAuth callback / verified
-├── components/                # admin · auth · layout · sections · ui
-├── lib/
-│   ├── admin/navigation.ts    # Single source of truth for the sidebar
-│   ├── auth/                  # Admin allowlist
-│   ├── supabase/              # client · server · service · middleware
-│   └── inquiries.ts · rateLimit.ts · tokens.ts · motion.ts
-├── supabase/
-│   ├── schema.sql             # Baseline (inquiry system)
-│   └── migrations/            # Additive migrations (Career CRM foundation)
-├── docs/
-│   ├── roadmap/               # PROJECT_ROADMAP · PHASE_1_COMPLETION
-│   ├── architecture/          # SYSTEM_ARCHITECTURE
-│   └── database/              # DATABASE_GUIDE
-├── middleware.ts              # Auth gate for /admin/:path*
-├── types/  constants/  public/
+│   ├── (marketing)/      # Public site, blog, demo, VBYB, whoasked
+│   ├── admin/            # (dashboard)/ modules + login, signup, reset-password
+│   ├── api/              # Route handlers (see table above)
+│   └── auth/             # Auth callback / verified
+├── components/           # admin · auth · demo · layout · sections · ui
+├── extension/            # CareerCRM Capture Chrome extension (MV3)
+├── lib/                  # Domain logic: ai, automation, jobs, integrations,
+│                         # sync, research, resume, capture, vbyb, supabase, …
+├── supabase/             # schema.sql + migrations/
+├── test/                 # Vitest unit tests
+├── e2e/                  # Playwright specs
+├── docs/                 # Architecture, ADRs, database, security, runbooks
+├── middleware.ts         # Admin gate for /admin/:path*
+└── types/  constants/  public/  scripts/
 ```
 
 ---
 
-## Features
+## Development
 
-### Completed features
+**Prerequisites:** Node.js 24 (matches CI and Vercel), a Supabase project.
 
-- **Public portfolio & blog** with responsive, theme-aware UI.
-- **Contact funnel** → Supabase inquiries, protected by Turnstile, with Resend email.
-- **Admin authentication** — Supabase Auth, allowlist-gated signup, recovery &
-  verification flows, middleware-gated routes.
-- **Inquiry management** — list, search, date filters, status & lead-source
-  workflow, internal notes, activity timeline, CSV export.
-- **Config-driven admin navigation** — the entire sidebar renders from
-  `lib/admin/navigation.ts`; future modules appear as disabled "Coming Soon"
-  items with placeholder routes.
-- **Career CRM database foundation** — 10 additive tables, 10 enums, 60 indexes,
-  full-text search, and RLS on every table (see below).
-- **Career CRM application (Phase 2)** — authenticated CRUD + UI for Companies,
-  Contacts, Opportunities (pipeline board), Messages, Tasks, plus Dashboard,
-  Analytics, and Settings; shipped to production and tagged `v1.0.0`.
+```bash
+npm install
+cp .env.example .env.local   # fill in values; see .env.example for every key
+npm run dev                  # http://localhost:3000
 
-### In progress / upcoming
+# Quality gates (same as CI)
+npm run lint
+npm run typecheck
+npm test
+npm run build
 
-See the [roadmap](#roadmap). Phase 3 adds Integrations (Gmail/Calendar), a
-background-job platform, an AI assistant, and workflow automation.
+# E2E (local only — not run in CI)
+npm run test:e2e
+```
+
+Feature flags (`FEATURE_*`) default off. Turn on only what you are working on.
+
+---
+
+## Deployment
+
+- **App:** Vercel, connected to `main`. Every push to `main` deploys production.
+- **CI:** [`ci.yml`](.github/workflows/ci.yml) runs lint, typecheck, test and
+  build on every PR and on `main`, with no secrets.
+- **Jobs:** [`drain-jobs.yml`](.github/workflows/drain-jobs.yml) calls
+  `/api/jobs/run` every 5 minutes (best effort; handlers are idempotent).
+- **Database:** Vercel does not run migrations. Apply `supabase/migrations/`
+  separately (Supabase CLI or SQL editor); migrations are additive.
+- Runbook: [`docs/operations/RUNBOOK.md`](docs/operations/RUNBOOK.md).
+
+---
+
+## Database
+
+Postgres on Supabase, RLS on every table. 45 tables in these groups:
+
+| Group | Tables |
+|-------|--------|
+| Inquiries | `inquiries`, `inquiry_notes`, `inquiry_activity`, `inquiry_attachments` |
+| CRM | `companies`, `contacts`, `opportunities`, `opportunity_*`, `messages`, `message_attachments`, `tasks`, `tags`, `taggables` |
+| Integrations + jobs | `integration_accounts`, `oauth_states`, `jobs`, `calendar_events` |
+| Notifications | `notifications`, `notification_preferences` |
+| AI | `ai_conversations`, `ai_messages`, `ai_audit_log`, `ai_approvals`, `ai_decisions`, `ai_usage_counters`, `prompt_templates`, `inbox_items` |
+| Automation | `automation_rules`, `automation_runs` |
+| Career intelligence | `documents`, `resume_versions`, `cover_letter_versions` |
+| Demo | `demo_usage` |
+| VBYB | `vbyb_*` (9 tables) |
+
+Conventions: `uuid` PKs, `timestamptz` audit columns, shared `updated_at`
+trigger, `owner_id` on every row, full-text search via generated `tsvector`.
+Detail: [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md),
+[`docs/database/SCHEMA_REFERENCE.md`](docs/database/SCHEMA_REFERENCE.md).
 
 ---
 
@@ -148,91 +248,13 @@ background-job platform, an AI assistant, and workflow automation.
 |-------|------|--------|
 | 0 | Portfolio Website | ✅ Complete |
 | 1 | Career CRM Foundation | ✅ Complete |
-| 2 | CRM Application (CRUD + UI) | ✅ Complete (`v1.0.0`) |
-| 3 | Integrations, AI & Automation | ⬜ Not started |
+| 2 | CRM Application | ✅ Complete (`v1.0.0`) |
+| 3 | Integrations, AI & Automation | 🟡 Built behind flags; M8b (vector retrieval) pending |
+| — | Resume AI, public demo, Research, VBYB | ✅ Shipped |
 | 4 | Reporting | ⬜ Not started |
-| 5 | Production Hardening | ⬜ Not started |
+| 5 | Production Hardening | 🟡 Partial (CI, Sentry, security audits) |
 
-**Current progress:** Phase 2 complete and deployed (tagged `v1.0.0`); Phase 3 next.
-Full detail in [`docs/roadmap/PROJECT_ROADMAP.md`](docs/roadmap/PROJECT_ROADMAP.md).
-
----
-
-## Development workflow
-
-**Prerequisites:** Node.js ≥ 20, a Supabase project, and the environment
-variables below.
-
-```bash
-# 1. Install
-npm install
-
-# 2. Configure — create .env.local
-#    NEXT_PUBLIC_SUPABASE_URL=...
-#    NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-#    SUPABASE_SERVICE_ROLE_KEY=...      # server-only, never exposed to the client
-#    (+ Resend / Turnstile keys as used by the contact + auth flows)
-
-# 3. Run
-npm run dev        # http://localhost:3000
-
-# 4. Quality gates (run before every commit)
-npm run lint       # ESLint (next lint)
-npx tsc --noEmit   # TypeScript typecheck (no dedicated npm script)
-npm run build      # Production build
-```
-
-> **Note:** there is no `typecheck` npm script; use `npx tsc --noEmit`.
-
----
-
-## Deployment workflow
-
-- **Hosting:** Vercel, connected to `main`. Every push to `main` triggers a
-  production build and deploy; the `www.shivamchaturvedi.com` alias points at the
-  latest Ready production deployment.
-- **App vs. database:** Vercel builds and deploys the **application only**. It
-  does **not** run Supabase migrations. Schema changes are applied separately to
-  Supabase (SQL Editor or the Supabase CLI) and are safe to apply before/after a
-  deploy because migrations are additive and idempotent.
-- **Release checklist:** lint → typecheck → build → commit → push → verify the
-  Vercel deployment is Ready → smoke-test production.
-
----
-
-## Database architecture summary
-
-Postgres on Supabase, RLS-first.
-
-- **Baseline (`supabase/schema.sql`):** the inquiry system — `inquiries`,
-  `inquiry_notes`, `inquiry_activity`, `inquiry_attachments`, plus the
-  `search_inquiries` RPC and a shared `set_updated_at()` trigger.
-- **Career CRM foundation (`supabase/migrations/`):** 10 additive tables —
-  `companies`, `contacts`, `integration_accounts`, `opportunities`,
-  `opportunity_contacts`, `messages`, `message_attachments`,
-  `opportunity_events`, `opportunity_notes`, `tasks`.
-- **Conventions:** `uuid` PKs (`gen_random_uuid()`), `timestamptz` audit columns,
-  a shared `updated_at` trigger, nullable `owner_id → auth.users` everywhere
-  (multi-user-ready), `external_ids jsonb` + typed `external_*_id` for
-  source-agnostic integrations, `ai_*` provenance columns for the AI layer, and
-  generated `tsvector` full-text search.
-- **Security:** RLS enabled on every table with an
-  `"Authenticated admin full access"` policy; the anon key can never read or
-  write. The public contact form writes via the service role (server-only).
-
-Full detail — ER diagram, table/enum/index/RLS/trigger docs, and conventions —
-in [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md).
-
----
-
-## Future roadmap
-
-- **Phase 3 — Integrations, AI & Automation:** Gmail/Calendar OAuth + incremental
-  sync, durable background jobs, AI assistant (summaries, drafting, RAG copilot),
-  workflow automation, and notifications — encrypted tokens, human-in-the-loop.
-- **Phase 4 — Reporting:** response/interview/offer rates, pipeline & funnel KPIs.
-- **Phase 5 — Production Hardening:** audit logs, monitoring, testing,
-  performance, per-user security.
+Full detail: [`docs/roadmap/PROJECT_ROADMAP.md`](docs/roadmap/PROJECT_ROADMAP.md).
 
 ---
 
@@ -240,16 +262,19 @@ in [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md).
 
 | Document | Purpose |
 |----------|---------|
-| [`docs/roadmap/PROJECT_ROADMAP.md`](docs/roadmap/PROJECT_ROADMAP.md) | Master roadmap, all phases |
-| [`docs/roadmap/PHASE_1_COMPLETION.md`](docs/roadmap/PHASE_1_COMPLETION.md) | Phase 1 report + lessons/decisions |
-| [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) | System architecture + diagrams |
+| [`docs/architecture/SYSTEM_ARCHITECTURE.md`](docs/architecture/SYSTEM_ARCHITECTURE.md) | System architecture |
+| [`docs/architecture/decisions/`](docs/architecture/decisions/README.md) | ADR-001 … ADR-012 |
+| [`docs/ai/AI_ARCHITECTURE.md`](docs/ai/AI_ARCHITECTURE.md) | AI layer design |
 | [`docs/database/DATABASE_GUIDE.md`](docs/database/DATABASE_GUIDE.md) | Database guide + ER diagram |
-| [`docs/design/DESIGN_SYSTEM.md`](docs/design/DESIGN_SYSTEM.md) | Design system — tokens, states, a11y, motion |
-| [`docs/design/COMPONENT_LIBRARY.md`](docs/design/COMPONENT_LIBRARY.md) | Reusable component catalogue + reuse matrix |
-| [`docs/ai/AI_ARCHITECTURE.md`](docs/ai/AI_ARCHITECTURE.md) | AI layer design (Phase 3 · M6–M10) |
+| [`docs/integrations/research-providers.md`](docs/integrations/research-providers.md) | Research providers |
+| [`docs/integrations/validate-before-you-build.md`](docs/integrations/validate-before-you-build.md) | VBYB integration |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Security model |
+| [`docs/TESTING_GUIDE.md`](docs/TESTING_GUIDE.md) | Testing guide |
+| [`docs/design/DESIGN_SYSTEM.md`](docs/design/DESIGN_SYSTEM.md) | Design system |
+| [`extension/README.md`](extension/README.md) | Chrome extension setup |
 
 ---
 
 <div align="center">
-<sub>Built with Next.js, Supabase, and Vercel · Phase 2 complete (v1.0.0), Phase 3 pending.</sub>
+<sub>Built with Next.js, Supabase, and Vercel.</sub>
 </div>
