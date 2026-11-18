@@ -13,10 +13,11 @@ import {
 import {
   SCOPE_LABELS,
   SCOPE_TO_SECTION,
+  resolveScopes,
   type RewriteOptions,
   type RewriteResult,
-  type RewriteScope,
   type SectionRewrite,
+  type SectionScope,
 } from "@/lib/ai-analysis/RewriteTypes";
 
 /**
@@ -27,7 +28,7 @@ import {
  * already lives in `AiGateway`, and this file adds none of its own. That is why
  * it can exist without touching the review pipeline: both are just callers.
  *
- * `full` fans out across the sections the resume actually has, settled
+ * The selected sections (`full` = all four) fan out across those the resume actually has, settled
  * independently. One section failing costs that section, not the request — the
  * same trade `ResumeInsightsService` makes for its enrichment calls.
  */
@@ -41,8 +42,6 @@ const MAX_CHANGES = 10;
 const MAX_LISTED_SKILLS = 40;
 const MAX_KEYWORDS = 25;
 
-/** Order matters — it is the order a resume reads in, and the order results render. */
-const FULL_SCOPES: Exclude<RewriteScope, "full">[] = ["summary", "experience", "skills", "projects"];
 
 interface RewriteOutput {
   rewritten: unknown;
@@ -90,7 +89,7 @@ interface RewriteOnce {
 async function rewriteOne(
   gateway: AiGateway,
   input: SectionRewriteInput,
-  scope: Exclude<RewriteScope, "full">,
+  scope: SectionScope,
 ): Promise<RewriteOnce | null> {
   const section = sectionOfKind(input.resume, SCOPE_TO_SECTION[scope]);
   if (!section || section.lines.length === 0) return null;
@@ -168,7 +167,7 @@ export async function rewriteSections(
   gateway: AiGateway,
   input: SectionRewriteInput,
 ): Promise<RewriteResult> {
-  const scopes = input.options.scope === "full" ? FULL_SCOPES : [input.options.scope];
+  const scopes = resolveScopes(input.options.scopes) ?? [];
   const skipped: { scope: string; reason: string }[] = [];
 
   const present = scopes.filter((scope) => {
