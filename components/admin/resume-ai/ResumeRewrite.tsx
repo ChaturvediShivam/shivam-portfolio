@@ -13,6 +13,7 @@ import {
   REWRITE_SECTIONS,
   REWRITE_TARGETS,
   SCOPE_LABELS,
+  SECTION_SCOPES,
   TARGET_HINTS,
   TARGET_LABELS,
   type RewriteIntensity,
@@ -20,6 +21,7 @@ import {
   type RewriteScope,
   type RewriteTarget,
   type SectionRewrite,
+  type SectionScope,
 } from "@/lib/ai-analysis/RewriteTypes";
 
 /**
@@ -43,7 +45,7 @@ export interface ResumeRewriteProps {
   onGenerate: (options: {
     intensity: RewriteIntensity;
     target: RewriteTarget;
-    scope: RewriteScope;
+    scopes: RewriteScope[];
   }) => void;
 }
 
@@ -101,6 +103,68 @@ function Segmented<T extends string>({
         })}
       </div>
       {hints && <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">{hints[value]}</p>}
+    </fieldset>
+  );
+}
+
+/**
+ * Multi-select section picker. Checkboxes under the hood, styled like `Segmented`.
+ *
+ * "Full resume" is a shortcut, not a fifth section: it is checked exactly when all
+ * four are, and toggling it selects all or returns to the summary alone. The last
+ * selected section cannot be unchecked, so a rewrite always has something to do.
+ */
+function SectionPicker({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: SectionScope[];
+  disabled: boolean;
+  onChange: (next: SectionScope[]) => void;
+}) {
+  const all = value.length === SECTION_SCOPES.length;
+
+  function toggle(scope: RewriteScope) {
+    if (scope === "full") return onChange(all ? ["summary"] : [...SECTION_SCOPES]);
+    const next = value.includes(scope) ? value.filter((s) => s !== scope) : [...value, scope];
+    if (next.length > 0) onChange(SECTION_SCOPES.filter((s) => next.includes(s)));
+  }
+
+  return (
+    <fieldset disabled={disabled} className="min-w-0">
+      <legend className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        Sections
+      </legend>
+      <div className="flex flex-wrap gap-1.5">
+        {REWRITE_SECTIONS.map((scope) => {
+          const selected = scope === "full" ? all : value.includes(scope);
+          return (
+            <label
+              key={scope}
+              className={cn(
+                "cursor-pointer rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                "focus-within:ring-2 focus-within:ring-white/20",
+                disabled && "cursor-not-allowed opacity-50",
+                selected
+                  ? "border-white/25 bg-white/[0.08] font-medium text-white"
+                  : "border-white/[0.07] bg-white/[0.02] text-slate-400 hover:border-white/15 hover:text-slate-200",
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => toggle(scope)}
+                className="sr-only"
+              />
+              {SCOPE_LABELS[scope]}
+            </label>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+        Pick one or more. Each section is a separate AI call.
+      </p>
     </fieldset>
   );
 }
@@ -294,7 +358,7 @@ function printAsPdf(title: string, sections: SectionRewrite[]) {
 export function ResumeRewrite({ enabled, pending, error, result, onGenerate }: ResumeRewriteProps) {
   const [intensity, setIntensity] = React.useState<RewriteIntensity>("balanced");
   const [target, setTarget] = React.useState<RewriteTarget>("ats");
-  const [scope, setScope] = React.useState<RewriteScope>("summary");
+  const [scopes, setScopes] = React.useState<SectionScope[]>(["summary"]);
 
   const fullText = React.useMemo(
     () =>
@@ -342,14 +406,7 @@ export function ResumeRewrite({ enabled, pending, error, result, onGenerate }: R
           disabled={pending}
           onChange={setTarget}
         />
-        <Segmented
-          legend="Section"
-          value={scope}
-          options={REWRITE_SECTIONS}
-          labels={SCOPE_LABELS}
-          disabled={pending}
-          onChange={setScope}
-        />
+        <SectionPicker value={scopes} disabled={pending} onChange={setScopes} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -357,14 +414,14 @@ export function ResumeRewrite({ enabled, pending, error, result, onGenerate }: R
           variant="primary"
           disabled={pending}
           isLoading={pending}
-          onClick={() => onGenerate({ intensity, target, scope })}
+          onClick={() => onGenerate({ intensity, target, scopes })}
         >
           <Sparkles className="size-4" aria-hidden />
           {pending ? "Rewriting…" : result ? "Rewrite again" : "Generate rewrite"}
         </Button>
-        {scope === "full" && (
+        {scopes.length > 1 && (
           <p className="text-[11px] text-slate-600">
-            Full resume issues one call per section — four times the cost of a single section.
+            {scopes.length} sections — {scopes.length} AI calls, {scopes.length}× the cost of one.
           </p>
         )}
       </div>
@@ -376,7 +433,7 @@ export function ResumeRewrite({ enabled, pending, error, result, onGenerate }: R
           aria-live="polite"
         >
           <Loader2 className="size-4 animate-spin" aria-hidden />
-          Rewriting {SCOPE_LABELS[scope].toLowerCase()}…
+          Rewriting {scopes.map((s) => SCOPE_LABELS[s].toLowerCase()).join(", ")}…
         </p>
       )}
 

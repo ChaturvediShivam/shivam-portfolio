@@ -21,8 +21,8 @@ import { generateInterviewQuestions } from "@/lib/ai-analysis/InterviewQuestionG
 import { optimizeLinkedIn, type GroundedLinkedIn } from "@/lib/ai-analysis/LinkedInOptimizer";
 import {
   REWRITE_INTENSITIES,
-  REWRITE_SECTIONS,
   REWRITE_TARGETS,
+  resolveScopes,
   type RewriteOptions,
   type RewriteResult,
 } from "@/lib/ai-analysis/RewriteTypes";
@@ -155,12 +155,9 @@ export async function rewriteResumeAction(
     // Closed vocabularies, re-checked server-side. The client sends these and a
     // crafted request could send anything; an unknown value would fall through
     // to a default rule silently rather than being refused.
-    const { intensity, target, scope } = input.options ?? {};
-    if (
-      !REWRITE_INTENSITIES.includes(intensity) ||
-      !REWRITE_TARGETS.includes(target) ||
-      !REWRITE_SECTIONS.includes(scope)
-    ) {
+    const { intensity, target } = input.options ?? {};
+    const scopes = resolveScopes(input.options?.scopes);
+    if (!REWRITE_INTENSITIES.includes(intensity) || !REWRITE_TARGETS.includes(target) || !scopes) {
       return actionError({ formError: "That rewrite configuration is not valid." });
     }
 
@@ -176,7 +173,7 @@ export async function rewriteResumeAction(
         jobDescription,
         analysis,
         ownerId: userId,
-        options: { intensity, target, scope },
+        options: { intensity, target, scopes },
       });
 
       return actionSuccess({ rewrite });

@@ -58,8 +58,28 @@ export const SCOPE_LABELS: Record<RewriteScope, string> = {
   full: "Full resume",
 };
 
+/** A single section scope — every scope except the `full` shortcut. */
+export type SectionScope = Exclude<RewriteScope, "full">;
+
+/** Order matters — it is the order a resume reads in, and the order results render. */
+export const SECTION_SCOPES: readonly SectionScope[] = ["summary", "experience", "skills", "projects"];
+
+/**
+ * Resolve a requested selection to the sections to rewrite, in resume order.
+ *
+ * `full` expands to all four; duplicates collapse. Returns null for anything that
+ * is not a non-empty array of known scopes, so a crafted request is refused
+ * rather than falling through to a default.
+ */
+export function resolveScopes(scopes: unknown): SectionScope[] | null {
+  if (!Array.isArray(scopes) || scopes.length === 0) return null;
+  if (!scopes.every((s) => (REWRITE_SECTIONS as readonly unknown[]).includes(s))) return null;
+  if (scopes.includes("full")) return [...SECTION_SCOPES];
+  return SECTION_SCOPES.filter((s) => scopes.includes(s));
+}
+
 /** Which parsed section each scope reads. `full` fans out across all four. */
-export const SCOPE_TO_SECTION: Record<Exclude<RewriteScope, "full">, ResumeSectionKind> = {
+export const SCOPE_TO_SECTION: Record<SectionScope, ResumeSectionKind> = {
   summary: "summary",
   experience: "experience",
   skills: "skills",
@@ -73,7 +93,7 @@ export const SCOPE_TO_SECTION: Record<Exclude<RewriteScope, "full">, ResumeSecti
  * without the text it replaced is one the operator has to accept on faith.
  */
 export interface SectionRewrite {
-  scope: Exclude<RewriteScope, "full">;
+  scope: SectionScope;
   heading: string;
   original: string;
   rewritten: string;
@@ -88,7 +108,8 @@ export interface SectionRewrite {
 export interface RewriteOptions {
   intensity: RewriteIntensity;
   target: RewriteTarget;
-  scope: RewriteScope;
+  /** One or more sections; `full` is shorthand for all four. */
+  scopes: RewriteScope[];
 }
 
 export interface RewriteResult {
